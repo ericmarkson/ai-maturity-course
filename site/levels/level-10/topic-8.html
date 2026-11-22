@@ -36,30 +36,42 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a subfield and its current leading approach, assess whether the field's chosen SOTA metric still reflects genuine progress or has become a Goodharted target, and propose what should replace or supplement it.
+      <strong>Learning objective:</strong> Evaluate whether a subfield's claimed "state of the art" represents a genuine Pareto-frontier advance or a Goodharted leaderboard artifact, and identify what benchmark, tooling, or paradigm framing creates durable research impact.
     </div>
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Defining state of the art in a subfield means being the person or team whose work others cite as the
-          current best-known approach — setting the bar the rest of the field measures itself against. It is a
-          position that shifts constantly, and holding it durably requires more than a single high leaderboard score.
+          Defining state of the art (SOTA) in a subfield means establishing the reproducible, community-verified Pareto frontier of capability versus cost (compute, latency, or sample efficiency)—and recognizing when the subfield's dominant evaluation framing itself has become stale or Goodharted.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Durable field leadership goes well beyond claiming top-1 on a single static table:
+      </p>
       <ul>
-        <li><strong>How "state of the art" gets established</strong> — leaderboards, benchmark suites, and
-          community consensus vs. marketing claims.</li>
-        <li><strong>The half-life of SOTA claims</strong> in fast-moving subfields, and what that implies about
-          durable vs. fashionable contributions.</li>
-        <li><strong>Building durable influence</strong> — reproducible results, open benchmarks/tooling that outlive
-          a single paper, and mentorship/citation networks.</li>
-        <li><strong>Recognizing when a subfield's "state of the art" framing itself is going stale</strong> (e.g.,
-          context-length races giving way to inference-time-scaling framing in 2026).</li>
+        <li><strong>Pareto dominance vs. single-axis claims:</strong> A 400B model beating a 70B model by +1% while costing 5× more inference FLOPs does not strictly dominate the Pareto frontier—it simply buys capability along the existing cost-capability curve. Genuine SOTA advances shift the curve upward and leftward (higher capability at equal or lower compute/latency).</li>
+        <li><strong>The half-life of leaderboard SOTA:</strong> Individual benchmark scores decay in months as scaling, hyperparameter sweeps, and contamination overtake them. Work with multi-year half-life contributes reproducible <em>methods</em>, open <em>eval harnesses</em>, theoretical laws, or infrastructure that every subsequent paper builds upon.</li>
+        <li><strong>Paradigm &amp; metric obsolescence:</strong> Subfields regularly outgrow their founding SOTA axes—such as pretraining perplexity races giving way to instruction following, or raw 1M-token context length races yielding to inference-time verification and RLVR scaling efficiency.</li>
+        <li><strong>Community verification norms:</strong> Real SOTA requires public evaluation protocols, compute accounting, variance reporting, and independent replication rather than cherry-picked prompts or proprietary test splits.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Auditing a "New SOTA" Paper Claim</h3>
+      <p>
+        Suppose Method X claims <code>89%</code> on a math suite (vs. Method E's <code>87%</code>) at cost index <code>84</code>, while Method E sat at <code>(cost=82, cap=87)</code>. Plotting on the cost-capability frontier reveals Method X sits almost directly on the extrapolated slope rather than breaking the Pareto curve—whereas Method Y scoring <code>81%</code> at cost <code>35</code> (beating Method C's <code>64%</code> at cost <code>38</code>) genuinely advances the frontier by +17 points at lower cost!
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Chasing a Goodharted SOTA metric after its signal saturates:</strong> Spending months squeezing +0.4% out of a contaminated or saturated public benchmark (where models already memorize test patterns) produces zero real-world leverage compared to defining a cleaner, uncontaminated capability evaluation or shifting the Pareto cost curve.
+      </p>
     </section>
   </div>
 
@@ -345,48 +357,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What determines whether a subfield genuinely recognizes a result as 'state of the art', as opposed to just a marketing claim?",
+          q: "A lab releases Model Z scoring 91.0% on a reasoning suite—beating the previous 89.0% top model—but Model Z consumes 4× more inference FLOPs per query and uses a larger parameter count than any point on the existing frontier. Under Pareto-frontier evaluation, how is Model Z classified?",
           options: [
-            "Any press release from a lab automatically counts",
-            "Leaderboards, benchmark suites, and community consensus — reproducible results the field independently verifies and adopts",
-            "Whichever result is published first, regardless of verification",
-            "The number of social media mentions a result receives"
+            "It strictly dominates every prior method on the frontier because accuracy is the sole metric defining SOTA",
+            "It extends the high-cost end of the trade-off curve rather than dominating existing operating points; whether it advances the cost-normalized frontier depends on its capability relative to extrapolated compute cost",
+            "It automatically invalidates all smaller models as obsolete regardless of latency budgets",
+            "It fails to advance SOTA only because its weights were not evaluated with greedy temperature 0.0"
           ],
           answer: 1,
-          explanation: "Durable SOTA recognition comes from independently verifiable, reproducible results accepted through community consensus and benchmark adoption, not simply a claim."
+          explanation: "True Pareto dominance means higher (or equal) capability at lower (or equal) cost. Simply spending 4× more inference compute moves rightward along the trade-off curve rather than shifting the curve upward at matched cost."
         },
         {
-          q: "What does the 'half-life of SOTA claims' concept imply about how a researcher should build lasting influence?",
+          q: "Why do single-leaderboard SOTA claims typically have a short research half-life compared to open evaluation harnesses, scaling laws, or reproducible baselines?",
           options: [
-            "Chase every new leaderboard topper regardless of durability",
-            "In fast-moving subfields, a single high score decays quickly, so durable influence comes from reproducible results and lasting tools/benchmarks rather than one score alone",
-            "SOTA claims never lose relevance once published",
-            "Half-life only applies to nuclear physics, not AI research"
+            "Leaderboard scores are protected by copyright restrictions that prevent subsequent papers from citing them",
+            "Scaling runs, hyperparameter tuning, and dataset updates rapidly surpass isolated top scores, whereas benchmarks, open tooling, and mechanistic insights continue shaping how future models are built and measured",
+            "Eval harnesses and tooling never become obsolete or require version deprecation across model generations",
+            "Peer-reviewed conferences prohibit publishing single-benchmark improvements unless accompanied by proprietary API access"
           ],
           answer: 1,
-          explanation: "Because SOTA claims in fast-moving subfields are frequently surpassed, durable influence is better built through reproducibility and lasting infrastructure/benchmarks than through a single leaderboard win."
+          explanation: "A single leaderboard win is quickly eclipsed by the next larger training run or sweep. Durable influence comes from foundational tools, clean benchmarks, or transferable principles that remain load-bearing across generations."
         },
         {
-          q: "In the SOTA-frontier plotter exercise, what does it mean when your method's point falls exactly on the dotted reference line to the frontier?",
+          q: "In the SOTA-frontier plotter above, your candidate method sits within ±1.5 points of the dashed green interpolation segment connecting Method C (cost 38, cap 64) and Method D (cost 58, cap 76). What does this indicate?",
           options: [
-            "Your method is far below the frontier",
-            "Your method roughly matches the current frontier's capability at that cost level — not a clear advance",
-            "Your method has zero cost",
-            "The frontier has become invalid"
+            "Your method strictly dominates Method D because it uses slightly less compute",
+            "Your method roughly matches the interpolated cost-capability tradeoff achievable by existing frontier methods—it has not moved the frontier upward",
+            "Your method has fallen strictly behind Method A because Method A has lower absolute cost",
+            "The Pareto frontier must be recalculated excluding Method C before any comparison is valid"
           ],
           answer: 1,
-          explanation: "When your capability score is within a small margin of the interpolated frontier capability at your chosen cost, the tool reports a 'match' rather than an advance — you haven't moved the frontier."
+          explanation: "Points lying on the linear interpolation between two frontier methods match what you could approximate by mixing or interpolating between existing operating points; advancing SOTA requires beating the frontier cleanly at that cost."
         },
         {
-          q: "What does it mean for a subfield's 'state of the art framing' itself to go stale, as illustrated by context-length races giving way to inference-time-scaling framing?",
+          q: "Why did raw advertised context-length races (e.g., 128k → 1M → 10M tokens) gradually lose status as the primary SOTA framing in favor of effective long-context utilization and inference-time compute efficiency?",
           options: [
-            "The underlying metric people optimize for can itself stop reflecting genuine progress, prompting the field to adopt a different framing altogether",
-            "Context length is always the correct metric forever",
-            "Subfields never change what they measure",
-            "Inference-time scaling was proven irrelevant"
+            "Models cannot physically allocate KV-caches longer than 128k tokens on modern HBM3e GPUs",
+            "Advertised context length became Goodharted—models could accept huge prompts while still failing needle-in-middle reasoning—shifting the field toward metrics that reflect genuine accuracy per inference FLOP",
+            "Inference-time scaling eliminates the transformer attention matrix completely during decoding",
+            "Long-context benchmarks were shown to have zero correlation with software engineering or retrieval tasks"
           ],
-          answer: 0,
-          explanation: "Sometimes the SOTA race itself is optimizing the wrong proxy; recognizing this and shifting to a better framing (e.g., from raw context length to effective, inference-time-scaling-aware measures) is part of leading a subfield."
+          answer: 1,
+          explanation: "When a metric becomes a marketing target (advertised token capacity) and decouples from true task accuracy ('lost in the middle'), leading researchers redefine SOTA around more faithful proxies like effective retrieval and accuracy-per-FLOP."
         }
       ]
     });

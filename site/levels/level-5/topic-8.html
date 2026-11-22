@@ -22,36 +22,72 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can list the extra components MLOps must
-      version/monitor beyond traditional software DevOps (data, model weights, feature pipelines) and
-      explain what "data drift" means and why it matters.
+      <strong>Learning objective:</strong> Explain why ML requires versioning data and weights alongside code,
+      design CI/CD validation gates for ML pipelines, and distinguish data drift from concept drift in production monitoring.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>MLOps</strong> is the set of practices for managing the full lifecycle of a machine
-          learning model in production — versioning data and models, automating retraining, and
-          monitoring for problems — borrowed from software DevOps but adapted for ML's extra moving
-          parts. Unlike ordinary software, an ML system can degrade even when no code changes at all,
-          simply because the real-world data flowing into it has shifted.
+          <strong>MLOps</strong> extends software DevOps practices to the unique failure modes of machine learning
+          systems: automating reproducible training pipelines, versioning datasets and model artifacts alongside source
+          code, gating deployments on offline quality evals, and monitoring live traffic for silent statistical decay.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Versioning the Full Artifact Triad:</strong> In traditional software, a Git commit defines program
+        behavior. In ML, behavior depends on <code>code + training data snapshot + hyperparameters + random seed</code>.
+        Versioning datasets (with hashes/lineage), feature transforms, and trained weights in a model registry makes
+        every production prediction reproducible and auditable.
+      </p>
+      <p>
+        <strong>2. CI/CD Gates for ML:</strong> Automated ML pipelines run unit tests on pipeline code <em>plus</em>
+        data-validation checks (missing values, schema drift) and automated model-evaluation gates—promoting a newly
+        trained candidate only if it beats the current production baseline across key slices and latency budgets.
+      </p>
+      <p>
+        <strong>3. Monitoring Data Drift vs. Concept Drift:</strong> Even if zero code changes, production accuracy can
+        erode when incoming feature distributions shift away from training data (<strong>data drift</strong>, e.g., new
+        device types or seasonal traffic) or when the relationship between inputs and true labels shifts
+        (<strong>concept drift</strong>, e.g., inflation altering loan-default thresholds).
+      </p>
+      <p>
+        <strong>4. Rollback &amp; Retraining Loops:</strong> When monitors catch decay or a bad rollout, teams roll back
+        instantly to the prior pinned registry version while triggering scheduled or drift-activated retraining on
+        fresher labeled data.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Silent Accuracy Collapse Without a Code Change</h3>
+      <p>
+        An e-commerce fraud model deployed in January achieves <code>0.94</code> ROC-AUC. Six months later, chargebacks
+        spike even though zero lines of serving code changed. Monitoring reveals two causes:
+      </p>
       <ul>
-        <li><strong>Versioning</strong> — code, data, and model artifacts all need to be versioned
-          together, not just code, so any prediction can be traced back to exactly what produced it.</li>
-        <li><strong>CI/CD for ML pipelines</strong> — automated retrain/test/deploy steps, similar in
-          spirit to software CI/CD but with data and model-quality checks added in.</li>
-        <li><strong>Monitoring for data drift and model performance decay</strong> — watching whether
-          the incoming data distribution or the model's accuracy is silently changing over time.</li>
-        <li><strong>Reproducibility and rollback</strong> — being able to recreate a past model exactly,
-          and revert to a known-good version quickly if something goes wrong.</li>
+        <li><strong>Data drift:</strong> One-click mobile wallets grew from 11% to 52% of checkout volume—an input
+          pattern underrepresented in January's training set.</li>
+        <li><strong>Concept drift:</strong> Fraudsters adapted from high-value electronics to small digital gift cards,
+          changing which order patterns predict fraud.</li>
       </ul>
+      <p>
+        Because inputs, predictions, and dataset versions were logged, the team retrains on recent labeled transactions,
+        passes automated slice checks in CI/CD, canaries 5% traffic, and recovers <code>0.93</code> AUC safely.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Monitoring Server Health While Ignoring Model Drift</h3>
+      <p>
+        Traditional APM dashboards can show <code>0%</code> HTTP 500 errors, low CPU load, and crisp 20 ms latency while
+        a model makes progressively worse decisions every week. Never rely solely on infrastructure uptime—log input
+        feature statistics, prediction confidence shifts, and delayed ground-truth outcomes wherever labels arrive.
+      </p>
     </section>
   </div>
 
@@ -269,48 +305,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Beyond source code, what else does MLOps need to version to fully reproduce a past prediction?",
+          q: "To reproduce a six-month-old production prediction bit-for-bit, which artifacts must an MLOps system version beyond Git source code?",
           options: [
-            "Nothing else — code versioning is sufficient",
-            "The training data and the resulting model artifacts/weights",
-            "Only the server's operating system version",
-            "The developer's personal notes"
+            "Only the Git commit hash and the HTTP endpoint route configuration",
+            "The exact training data snapshot, feature preprocessing logic, hyperparameters, and resulting model weights",
+            "Only the production server's operating system version and GPU driver",
+            "Just the inference output logs from the day the prediction occurred"
           ],
           answer: 1,
-          explanation: "ML systems depend on the specific data and resulting model weights used, not just the code — so reproducibility requires versioning data and model artifacts alongside code."
+          explanation: "An ML model is produced by running training code over a specific dataset and configuration. Without versioning the data snapshot, transforms, and resulting weights together, code alone cannot reproduce the same artifact."
         },
         {
-          q: "What does 'data drift' mean?",
+          q: "What distinguishes 'data drift' from a software regression in a deployed ML service?",
           options: [
-            "The training code has a bug",
-            "The distribution of incoming real-world data changes over time compared to what the model was trained on",
-            "The model's weights are being versioned incorrectly",
-            "The server hosting the model moved to a new region"
+            "Data drift occurs when memory leaks slowly degrade container latency over uptime",
+            "Data drift occurs when the statistical distribution of incoming live inputs shifts away from the training distribution, hurting accuracy without any code change",
+            "Data drift means training weights were quantized with too few bits during export",
+            "Data drift happens only when engineers manually edit feature columns in the database"
           ],
           answer: 1,
-          explanation: "Data drift is when the statistical properties of production input data shift away from the training distribution, which can silently degrade model performance even with no code changes."
+          explanation: "Unlike software bugs caused by code changes, data drift happens externally as user demographics, behavior, or sensor inputs evolve away from what the model learned during training."
         },
         {
-          q: "Why does MLOps CI/CD typically include automated validation/testing steps before deployment, not just automated deployment?",
+          q: "Why do MLOps CI/CD pipelines add automated validation and evaluation gates before deploying a newly retrained model?",
           options: [
-            "To slow down releases on purpose",
-            "To catch model-quality regressions (not just code bugs) before a worse-performing model reaches production",
-            "Because deployment is impossible without it",
-            "Testing is unrelated to ML pipelines"
-          ],
-          answer: 1,
-          explanation: "ML pipelines add data- and model-quality checks (e.g., accuracy on a validation set) to the usual code tests, since a model can 'work' technically while performing worse than the version it's replacing."
-        },
-        {
-          q: "Why is rollback capability important in an MLOps pipeline?",
-          options: [
-            "It lets you quickly revert to a known-good model version if a newly deployed one performs poorly or misbehaves",
-            "It automatically fixes data drift",
-            "It is only used during initial model training",
-            "It replaces the need for monitoring"
+            "Because code unit tests cannot verify whether updated weights actually improved accuracy, slice metrics, or latency over the incumbent model",
+            "Because automated retraining cannot compile model weights into an executable without manual sign-off",
+            "To guarantee zero data drift once the new model reaches production",
+            "Because CI/CD tools refuse to push containers unless accuracy reaches 100%"
           ],
           answer: 0,
-          explanation: "Rollback lets teams respond quickly to a bad deployment by reverting to a previous, known-good model version while the issue is investigated."
+          explanation: "Training code can execute cleanly with zero syntax bugs while producing a worse model (for instance, due to corrupted training labels). Eval gates catch quality regressions before traffic shifts."
+        },
+        {
+          q: "If automated drift alerts fire after deploying model v4 and production error rates spike, what is the immediate role of rollback?",
+          options: [
+            "It automatically synthesizes fresh labeled examples to fix the drifted distribution",
+            "It routes traffic immediately back to the pinned, known-good v3 model artifact while the team diagnoses v4 offline",
+            "It disables input validation so failed predictions are dropped silently",
+            "It freezes the model's feature preprocessing while retraining v4 directly on live traffic"
+          ],
+          answer: 1,
+          explanation: "Rollback minimizes user impact by restoring the previously validated artifact from the model registry in seconds, buying time to debug data or training issues safely offline."
         }
       ]
     });

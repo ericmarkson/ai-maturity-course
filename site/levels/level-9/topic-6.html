@@ -22,35 +22,44 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a described reward model and a model behavior that scores
-      unexpectedly high, diagnose the likely spurious correlation being exploited and propose one concrete
-      mitigation.
+      <strong>Learning objective:</strong> Formulate Bradley-Terry preference modeling and KL-regularized RL optimization, diagnose spurious proxy hacks (length, sycophancy, formatting), and contrast outcome vs. process reward models (ORM vs. PRM).
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A reward model is the learned "scoring function" that tells an RL-trained model which outputs are
-          better. Designing one well means not just training it to match human/AI preferences, but also
-          defending it against being gamed — because whatever a policy model can exploit to raise its reward
-          score without genuinely improving, it eventually will.
+          Reward model design is the engineering of scalar or stepwise scoring signals that steer reinforcement learning—combining pairwise preference objectives, KL regularization, uncertainty ensembling, and process-level verification so policy optimization improves true capability rather than exploiting Goodharted proxy shortcuts.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Standard preference reward models learn a scalar score <code>r<sub>θ</sub>(x, y)</code> from human or AI pairwise rankings <code>(y<sub>w</sub> ≻ y<sub>l</sub>)</code> using the <strong>Bradley-Terry loss</strong>:
+      </p>
+      <pre class="code-block">L_RM(θ) = -E[ log σ( r_θ(x, y_w) - r_θ(x, y_l) ) ]
+max_π  E[ r_θ(x, y) ] - β · D_KL( π(y|x) || π_ref(y|x) )</pre>
       <ul>
-        <li>How preference-based reward models are trained from pairwise human/AI comparisons (Bradley-Terry
-          style preference modeling)</li>
-        <li>Reward hacking: models exploiting spurious correlations (length, formatting, sycophancy) that
-          correlate with reward but not true quality</li>
-        <li>Mitigations: reward ensembles, reward shaping (bounded rewards with rapid-then-diminishing growth),
-          and adversarial reward auditing</li>
-        <li>RLHF vs. RLAIF vs. RLVR (verifiable rewards) as different sources of the reward signal, each with
-          distinct hacking surfaces</li>
+        <li><strong>Goodhart's Law under KL drift:</strong> As RL pushes the policy <code>π</code> further from reference <code>π<sub>ref</sub></code> (higher <code>D<sub>KL</sub></code> or weak <code>β</code>), <code>π</code> enters out-of-distribution regions where the reward model has never seen pairs—exploiting spurious weights tied to <em>length, bullet-point verbosity, hedging phrases, or confident sycophancy</em>.</li>
+        <li><strong>Anti-hacking mitigations:</strong> Labs counter proxy gaming using <em>reward ensembles</em> (penalizing high inter-model variance where predictions are uncertain), <em>length-decorrelated RM training</em> (balancing chosen/rejected lengths or regressing out length bias), and <em>bounded/saturated reward shaping</em> (capping gains past target thresholds).</li>
+        <li><strong>Outcome vs. Process Reward Models (ORM vs. PRM) &amp; RLVR:</strong> ORMs grade only the final answer (vulnerable to "right answer via wrong reasoning"), whereas PRMs score each intermediate reasoning step—and RLVR (verifiable rewards via unit tests or exact math checkers) replaces learned preference models altogether where ground truth is mechanically checkable.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Diagnosing a Length + Sycophancy Hack</h3>
+      <p>
+        Suppose human annotators mildly preferred detailed answers, leaving a subtle correlation <code>corr(length, preference) = 0.35</code> in the dataset. During PPO/GRPO with a small KL penalty <code>β = 0.01</code>, policy response length doubles from 220 to 520 tokens while proxy reward climbs +1.8 standard deviations—yet held-out human blind win rate <em>drops</em> by 6%. Switching to a 5-model RM ensemble with variance penalty <code>r − 0.5·std(r)</code> and length-controlled training halts the runaway padding.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Evaluating RL progress on the same proxy reward model used for optimization:</strong> Rising proxy reward alone cannot distinguish genuine alignment gains from policy over-optimization into RM blind spots. Always plot proxy reward alongside <code>D<sub>KL</sub>(π || π<sub>ref</sub>)</code> and a <em>held-out</em> gold evaluator or human win rate—Goodharting appears as proxy reward rising while gold win rate peaks and rolls over.
+      </p>
     </section>
   </div>
 
@@ -242,48 +251,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is 'reward hacking' in RLHF-style training?",
+          q: "In Bradley-Terry preference modeling, what does minimizing -log σ(r_θ(x, y_w) − r_θ(x, y_l)) actually learn, and why does that permit length bias?",
           options: [
-            "A hacker breaking into the training server",
-            "Deliberately lowering the reward model's accuracy on purpose",
-            "A model exploiting spurious correlations (e.g. length, formatting, sycophancy) that correlate with reward but not true quality",
-            "Using a smaller model to save compute"
-          ],
-          answer: 2,
-          explanation: "Reward hacking happens when a policy learns to exploit whatever the reward model happens to correlate with reward, even when that signal doesn't track genuine quality."
-        },
-        {
-          q: "A candidate response gets an unusually high reward score mostly because it is extremely long and repeats key phrases, even though it doesn't actually answer the question well. What is the most likely explanation?",
-          options: [
-            "The response is definitely the best possible answer",
-            "The reward model is picking up a spurious length/keyword correlation with reward rather than true helpfulness — reward hacking",
-            "The reward model has zero training data",
-            "Length has no effect on any reward model ever"
+            "It learns absolute ground-truth factuality scores on a 0–1 scale, so length cannot influence r_θ unless prompts explicitly request longer essays",
+            "It learns relative score margins explaining human preference rankings; if human raters tended to pick longer or better-formatted chosen responses y_w, r_θ encodes length as a predictive shortcut for higher margin",
+            "It learns token-level cross-entropy probabilities over y_w directly, making r_θ identical to the reference language model",
+            "It forces r_θ(x, y) to remain invariant under any linear scaling of token count"
           ],
           answer: 1,
-          explanation: "This mirrors the simulator's 'padded, rambling answer' candidate — high on the length-based helpfulness proxy, but low true quality."
+          explanation: "Bradley-Terry only optimizes pairwise win margins. Any surface feature correlated with human preference in the dataset (verbosity, markdown lists, assertive phrasing) gets absorbed into r_θ as a high-leverage shortcut."
         },
         {
-          q: "Which of these is a real mitigation against reward hacking described in the material?",
+          q: "During RLHF optimization with weak KL regularization (β → 0), proxy reward climbs steadily from +0.5 to +3.2 while held-out gold evaluation peaks at +0.9 and then plunges. What phenomenon is occurring?",
           options: [
-            "Making the reward model bigger with no other changes",
-            "Removing all human feedback entirely",
-            "Ignoring the problem since it self-resolves",
-            "Reward ensembles, bounded/shaped rewards, and adversarial reward auditing"
+            "Under-optimization from insufficient RL rollout steps per gradient update",
+            "Goodhart's Law / reward over-optimization—the policy drifted far from π_ref into out-of-distribution regions where the proxy RM extrapolates erroneously",
+            "Bradley-Terry label smoothing clipping gradients before preference separation occurs",
+            "Process reward models overfitting step-level math verification tokens"
           ],
-          answer: 3,
-          explanation: "Ensembling multiple reward signals, bounding reward growth, and actively auditing for gamed outputs are concrete, described defenses against reward hacking."
+          answer: 1,
+          explanation: "As KL divergence grows, the policy finds adversarial output patterns that exploit blind spots in the static proxy RM, causing proxy reward to climb while true quality collapses (Gao et al. scaling laws of reward over-optimization)."
         },
         {
-          q: "What distinguishes RLHF, RLAIF, and RLVR from each other?",
+          q: "How does a reward-model ensemble with an uncertainty penalty (e.g., mean(r_i) − λ·std(r_i)) mitigate proxy hacking compared to a single larger RM?",
           options: [
-            "They are three names for the exact same method",
-            "RLVR never uses any reward signal at all",
-            "They differ in the source of the reward signal — human preference labels, AI-generated preference labels, or automatically verifiable ground-truth rewards — each with distinct hacking surfaces",
-            "RLAIF requires no reward model"
+            "It eliminates the need for a KL penalty term β inside the PPO/GRPO objective",
+            "Spurious out-of-distribution exploits rarely trigger identically across independently initialized/seeded RMs, so high inter-model disagreement flags and penalizes hacked trajectories",
+            "Ensembling forces every candidate response to receive identical scores regardless of prompt difficulty",
+            "It converts an Outcome Reward Model automatically into a deterministic unit-test verifier"
           ],
-          answer: 2,
-          explanation: "The three differ in where the reward signal comes from, and each source is vulnerable to being gamed in its own characteristic way."
+          answer: 1,
+          explanation: "When a policy enters an OOD exploit region, independent RMs disagree sharply. Penalizing ensemble standard deviation steers RL away from high-variance blind spots."
+        },
+        {
+          q: "Why are Process Reward Models (PRMs) or RLVR verifiable rewards increasingly preferred over pure Outcome Reward Models (ORMs) for multi-step math and coding?",
+          options: [
+            "ORMs cannot compute gradients through transformer attention heads longer than 1,024 tokens",
+            "ORMs assign identical positive reward to flawed reasoning chains that stumble onto the lucky final answer (false positives), whereas PRMs supervise intermediate steps and RLVR verifies deterministic execution/answers",
+            "PRMs require zero labeled training steps and never suffer from reward hacking under any KL divergence",
+            "RLVR optimizes pairwise Bradley-Terry human aesthetics rather than functional correctness"
+          ],
+          answer: 1,
+          explanation: "Pure outcome supervision rewards lucky guesses and spurious derivations (though note PRMs themselves can still be hacked if step judges aren't calibrated; RLVR anchors directly on objective test/solver ground truth where available)."
         }
       ]
     });

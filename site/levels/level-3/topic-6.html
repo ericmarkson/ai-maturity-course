@@ -29,42 +29,69 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> You should be able to describe, in your own words, what
-      happens at each step of gradient descent, and predict qualitatively what goes wrong if the
-      learning rate is set too high or too low.
+      <strong>Learning objective:</strong> Trace the gradient-descent update rule <code>θ_new = θ_old − η · ∇L</code>,
+      predict how tiny vs. oversized learning rates behave on a loss curve, and distinguish local minima from
+      global minima on non-convex surfaces.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Gradient descent</strong> is the algorithm that trains most ML models by repeatedly
-          nudging the model's parameters in the direction that most reduces the model's error. At
-          every step it looks at the slope (the "gradient") of the loss at the current position and
-          takes a small step in the downhill direction — over many steps, this walks the parameters
-          toward a point where the loss is low.
+          <strong>Gradient descent</strong> is the iterative optimization algorithm that trains neural networks and
+          regression models by stepping downhill on a <strong>loss landscape</strong>. At each step, it measures the
+          local slope (gradient <code>∇L</code>, pointing uphill) and subtracts <code>η · ∇L</code> from the current
+          parameters—moving opposite the uphill slope toward lower error.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Why Subtract the Gradient:</strong> If increasing parameter <code>x</code> makes loss rise
+        (positive slope <code>g &gt; 0</code>), subtracting <code>η · g</code> moves <code>x</code> left (downhill).
+        If slope is negative (<code>g &lt; 0</code>), subtracting a negative nudges <code>x</code> right (still
+        downhill). Near a valley bottom, slope shrinks toward zero so steps naturally settle.
+      </p>
+      <p>
+        <strong>2. Learning Rate <code>η</code> Dynamics:</strong> A tiny <code>η</code> takes safe steps yet crawls
+        slowly and burns compute. A well-tuned <code>η</code> descends briskly and settles at the bottom. An excessive
+        <code>η</code> leaps past the valley floor onto steeper ground on the opposite wall—oscillating wildly or
+        diverging upward.
+      </p>
+      <p>
+        <strong>3. Local Minima, Saddle Points &amp; Epochs:</strong> Because gradient descent only feels the local slope
+        directly underfoot, a bumpy landscape can trap parameters inside a shallow nearby dip (a <em>local minimum</em>)
+        while a deeper <em>global minimum</em> sits elsewhere. Training repeats updates across thousands of mini-batches;
+        one complete pass through the training dataset is called an <strong>epoch</strong>.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Good Step vs. Overshoot on <code>L(x) = 0.5 x²</code></h3>
+      <p>
+        For <code>L(x) = 0.5 x²</code>, the slope (gradient) is simply <code>g = x</code>, and the true minimum sits at
+        <code>x = 0</code>. Start at <code>x₀ = 4.0</code> (initial loss <code>8.0</code>):
+      </p>
       <ul>
-        <li><strong>The loss landscape as a hilly surface</strong> — you can picture every possible
-          setting of a model's parameters as a point on a landscape, where the height at that point
-          is how wrong the model is. Gradient descent is just walking downhill on that landscape.</li>
-        <li><strong>Learning rate: too small vs. too large</strong> — the learning rate controls how
-          big each downhill step is. Too small and training crawls along, wasting time; too large and
-          each step can fly past the valley floor and land higher up the other side (overshoot), or
-          even bounce further and further away (diverge).</li>
-        <li><strong>Local minima vs. global minima</strong> — a bumpy landscape can have several dips.
-          Gradient descent only ever looks at the slope right where it's standing, so it can settle
-          into a shallow nearby dip (a local minimum) instead of the deepest dip on the whole surface
-          (the global minimum).</li>
-        <li><strong>Iterative updates over many steps</strong> — one nudge rarely reaches the bottom.
-          Real training repeats this update thousands of times; one full pass over the training data
-          is often called an "epoch," a term you'll see again later in the course.</li>
+        <li><strong>Steady learning rate (<code>η = 0.2</code>):</strong>
+          <code>x₁ = 4.0 − 0.2(4.0) = 3.2</code> (loss drops to <code>5.12</code>) &rarr;
+          <code>x₂ = 3.2 − 0.2(3.2) = 2.56</code> (loss <code>3.28</code>), steadily converging to <code>0</code>.</li>
+        <li><strong>Oversized learning rate (<code>η = 2.5</code>):</strong>
+          <code>x₁ = 4.0 − 2.5(4.0) = −6.0</code> (loss jumps UP to <code>18.0</code>!) &rarr;
+          <code>x₂ = −6.0 − 2.5(−6.0) = +9.0</code> (loss explodes to <code>40.5</code>—diverging!).</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Stopping at Zero Gradient Without Checking Validation Loss</h3>
+      <p>
+        Gradient descent halts whenever <code>∇L ≈ 0</code>—which occurs at flat saddle points and shallow local minima
+        just as easily as at good minima, and on unscaled features narrow canyons make standard gradient descent bounce
+        side-to-side. Scaling inputs, adding momentum (like Adam), and decaying the learning rate help navigate tricky
+        surfaces cleanly.
+      </p>
     </section>
   </div>
 
@@ -376,48 +403,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What does the learning rate control in gradient descent?",
+          q: "In the update x_new = x_old − η · gradient, why does gradient descent SUBTRACT η · gradient instead of adding it?",
           options: [
-            "How many training examples the model sees",
-            "How big a step the parameters take in the downhill direction at each update",
-            "Which loss function the model uses",
-            "How many layers the neural network has"
+            "Because gradients are always negative numbers on convex loss landscapes",
+            "Because the gradient vector points in the direction of steepest INCREASE (uphill), so subtracting it steps downhill toward lower loss",
+            "Because subtracting guarantees each step lands inside the global minimum in one iteration",
+            "Because the learning rate η is always stored as a negative scaling factor"
           ],
           answer: 1,
-          explanation: "The learning rate scales the gradient before it's subtracted from the current position, so it directly controls how far each step moves."
+          explanation: "Calculus defines the gradient as pointing uphill toward fastest loss growth. Stepping opposite the gradient (−η · ∇L) moves downhill regardless of whether the slope is positive or negative."
         },
         {
-          q: "In the exercise, what did you observe when the learning rate was set very high?",
+          q: "On the smooth bowl L(x) = 0.5x², suppose x = 5.0 and gradient = 5.0. If you set learning rate η = 1.2 in the exercise, what happens on step 1?",
           options: [
-            "The ball moved smoothly and slowly toward the minimum",
-            "The ball overshot the valley floor and could bounce further and further away (diverge)",
-            "The ball stayed perfectly still",
-            "The loss curve itself changed shape"
+            "The ball moves to x = 4.0 and converges steadily toward zero",
+            "The ball leaps across the valley floor to x = −1.0 (overshoot), and even higher η can amplify oscillations until loss diverges",
+            "The ball stops immediately because gradient equals x",
+            "The loss landscape reshapes itself into a bumpy multi-dip curve"
           ],
           answer: 1,
-          explanation: "A learning rate that's too large takes steps so big they can leap past the bottom of the valley and land higher on the other side — sometimes worse than before, which can spiral into divergence."
+          explanation: "At x = 5 with η = 1.2, x_new = 5 − 1.2(5) = −1.0 (overshooting past 0). If η ≥ 2.0 on 0.5x², each jump lands farther from 0 than before, causing divergence."
         },
         {
-          q: "What is the practical downside of setting the learning rate too small?",
+          q: "Why don't engineers simply set learning rate η = 0.0001 on every training run to avoid overshooting?",
           options: [
-            "The model becomes more accurate instantly",
-            "Training takes many more steps to reach a low loss, wasting time and compute",
-            "The gradient becomes undefined",
-            "The loss landscape gets bumpier"
+            "Tiny learning rates increase gradient noise and cause overshooting near the bottom",
+            "Tiny steps make progress painfully slow, burning far more epochs/compute and risking stalling early in flat regions",
+            "Optimizers clip gradients to zero whenever η drops below 0.001",
+            "A tiny learning rate alters the mathematical location of the global minimum"
           ],
           answer: 1,
-          explanation: "A tiny learning rate takes tiny steps, so it crawls toward the minimum — technically safe, but slow and expensive."
+          explanation: "Ultra-small learning rates keep updates stable but take vastly more steps to descend—wasting GPU budget and sometimes getting stuck in shallow pockets before reaching a good valley."
         },
         {
-          q: "On the bumpy multi-dip surface, why can gradient descent settle into a local minimum instead of the global minimum?",
+          q: "On the bumpy multi-dip landscape, why can gradient descent settle into a shallow local minimum instead of finding the deeper global minimum?",
           options: [
-            "Because gradient descent only reacts to the slope right where it currently stands, and a shallow nearby dip can have zero slope too",
-            "Because the bumpy surface has no gradient at all",
-            "Because the learning rate is always zero on bumpy surfaces",
-            "Because local minima only exist in classification problems, not regression"
+            "Because gradient descent stops whenever the local slope reaches ~0, having no visibility beyond its immediate neighborhood",
+            "Because bumpy surfaces invert the sign of the gradient inside local dips",
+            "Because epochs terminate automatically after visiting only one slope sign change",
+            "Because global minima always have steeper non-zero gradients than local minima"
           ],
           answer: 0,
-          explanation: "Gradient descent is a purely local, greedy process — it has no view of the whole landscape, so once it reaches any point with a near-zero gradient it stops moving, even if a deeper valley exists elsewhere."
+          explanation: "Gradient descent is purely local: once it reaches any dip where slope ≈ 0, η · 0 = 0 and it stops moving—blind to a deeper valley across the hill."
         }
       ]
     });

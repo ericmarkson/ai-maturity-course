@@ -49,32 +49,64 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Design a plan → execute → reflect loop for a sample autonomous
-      task, and specify at least two guardrails that would prevent it from taking a harmful or costly
-      action unsupervised.
+      <strong>Learning objective:</strong> Design a bounded plan &rarr; execute &rarr; reflect loop for an
+      autonomous agent, choose between ReAct and plan-and-execute control flows, and specify layered
+      guardrails, sandboxes, and termination breakers that prevent infinite loops or unauthorized mutations.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Autonomous agent architecture is the overall design of how an agent breaks a goal into steps,
-          checks its own work, and stays within safe operating bounds without constant human input. It's
-          the difference between a model that answers one prompt and a system that pursues a multi-step
-          goal on its own — deciding what to do next, noticing when something went wrong, and knowing
-          when to stop and ask a human.
+          <strong>Autonomous agent architecture</strong> is the control-loop, state, and safety engineering
+          that lets a model decompose a high-level goal into tool calls, inspect real observations, recover
+          from errors, and terminate safely. Unlike a single-turn chat completion, an agent maintains execution
+          state across multiple environment mutations &mdash; meaning a single unguarded mistake or loop bug
+          can cascade into real-world data loss or runaway API spend.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Production agents balance adaptability against predictability across four architectural mechanisms:
+      </p>
       <ul>
-        <li><strong>Planning strategies</strong> — task decomposition, plan-and-execute vs. purely reactive loops</li>
-        <li><strong>Self-correction/reflection</strong> — the agent critiquing and revising its own output</li>
-        <li><strong>Guardrails</strong> — input/output filters, permission scopes, human-in-the-loop checkpoints</li>
-        <li><strong>Termination conditions</strong> — recognizing "done," or when to stop and escalate to a human</li>
+        <li><strong>Planning topology (ReAct vs. Plan-and-Execute):</strong> A <em>ReAct</em> loop interleaves <code>Thought &rarr; Action &rarr; Observation</code> one step at a time, adapting smoothly to unexpected tool output but risking goal drift over long horizons. <em>Plan-and-Execute</em> generates an explicit step list or DAG upfront &mdash; cutting planning token cost and clarifying progress &mdash; and triggers targeted replanning only when a step fails an invariant.</li>
+        <li><strong>Grounded self-correction (Reflect):</strong> After executing a tool or generating code, a reflection step inspects <em>external signals</em> (compiler stderr, HTTP status codes, schema validators, unit-test output) before advancing or revising the plan.</li>
+        <li><strong>Sandboxing &amp; least-privilege guardrails:</strong> Prompt instructions alone cannot enforce security. Code runs inside ephemeral network-restricted containers, tools expose narrow read/write scopes (e.g., staging branch only), and deterministic policy rules gate high-impact mutations behind <strong>human-in-the-loop (HITL)</strong> approval.</li>
+        <li><strong>Termination conditions &amp; loop breakers:</strong> Every loop needs explicit exit paths: a verified <code>done</code> predicate, hard ceilings (<code>max_steps</code>, token/dollar budget, wall-clock timeout), and duplicate-call detectors that halt and escalate when the agent retries the same failing call repeatedly.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a support agent handles <em>"Refund order #8412 ($450) for damaged arrival."</em>
+        The planner creates four steps: (1) fetch order &amp; policy, (2) verify delivery photo timestamp,
+        (3) issue $450 refund via billing API, (4) send confirmation email.
+      </p>
+      <p>
+        Even though the model correctly reasons that the $450 claim meets policy, a deterministic policy
+        interceptor checks <code>refund_amount &gt; $100</code> before the billing tool executes and pauses
+        for HITL approval with an idempotency key <code>refund-8412</code>. Meanwhile, if the order-lookup API
+        returns HTTP <code>429</code> three times in a row, the loop's circuit breaker
+        (<code>max_consecutive_errors = 3</code>, <code>max_steps = 12</code>) terminates execution cleanly
+        instead of spinning through 100 paid retries.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Unchecked self-reflection &amp; missing side-effect gates:</strong> Pure LLM self-critique
+        without fresh external observations (tests, tool errors, or deterministic validators) often
+        hallucinates confidence or flips an already-correct answer into a broken one. Worse, relying on a
+        system prompt like <em>"Never delete files without permission"</em> fails under indirect prompt
+        injection or edge-case reasoning; irreversible actions must be blocked in code outside the model's
+        weights.
+      </p>
     </section>
 
   </div>
@@ -325,48 +357,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In a plan → execute → reflect loop, what is the purpose of the \"reflect\" stage?",
+          q: "When should you choose a ReAct loop over a static Plan-and-Execute upfront DAG?",
           options: [
-            "To decide the very first step before any execution happens",
-            "To have the agent critique and potentially revise its own output before moving on",
-            "To permanently stop the agent from taking any further action",
-            "To generate the original goal statement"
+            "When the task has strict financial compliance rules and zero tool errors are possible",
+            "When intermediate tool outputs are unpredictable and the next action depends directly on what earlier searches or diagnostics uncover",
+            "When you want to reduce per-step prompt overhead by hiding tool observations from the model",
+            "When the task consists of a fixed, known sequence of database migrations that never changes"
           ],
           answer: 1,
-          explanation: "Reflection/self-correction is the agent checking its own work — catching mistakes and revising before proceeding, rather than blindly continuing."
+          explanation: "ReAct excels in exploratory tasks (like debugging or open-ended research) where observations reshape subsequent steps. Fixed predictable pipelines favor Plan-and-Execute, and hiding observations breaks reactive adaptation."
         },
         {
-          q: "Why does an autonomous agent need explicit guardrails rather than just a good plan?",
+          q: "An engineering team adds an LLM 'reflect' step where the model reviews its own SQL query without running it against the database. Over eval benchmarks, accuracy stays flat and sometimes drops. Why?",
           options: [
-            "Guardrails make the agent's plan shorter",
-            "A well-formed plan can still contain individual steps that are risky, costly, or irreversible, so guardrails add checkpoints independent of plan quality",
-            "Guardrails are only needed if the plan has an error in it",
-            "Guardrails replace the need for a plan entirely"
+            "Self-reflection requires at least a 70B parameter model to parse SQL syntax",
+            "Intrinsic reflection without fresh external grounding (query execution errors, schema checks, or tests) can talk the model out of valid solutions and reinforces existing blind spots",
+            "Reflection prompts always double the output temperature, introducing random syntax bugs",
+            "SQL queries cannot be critiqued sequentially inside a multi-turn context window"
           ],
           answer: 1,
-          explanation: "Even a logically sound plan can include a step (e.g. deleting files, sending money) that should require explicit human sign-off — that's what a guardrail checkpoint is for."
+          explanation: "Research consistently shows ungrounded 'intrinsic self-correction' struggles to fix reasoning blind spots and frequently flips right answers to wrong ones; reflection becomes reliable when grounded by external execution/test feedback."
         },
         {
-          q: "What is a \"termination condition\" in agent architecture?",
+          q: "Your file-cleanup agent has a system prompt instruction: 'Never delete files outside /tmp without asking the user.' Why is that still unsafe in production?",
           options: [
-            "A rule for how the agent formats its final report",
-            "The criteria the agent uses to recognize a task is done, or to know when to stop and escalate to a human",
-            "A guardrail that only applies to costly actions",
-            "The maximum number of guardrails allowed in one plan"
+            "System prompts are automatically stripped by the tokenizer whenever a tool schema is attached",
+            "Prompt instructions are probabilistic soft preferences that can be overridden by long-context drift or untrusted text; irreversible tools require deterministic runtime path checks and HITL gates",
+            "The model needs LoRA fine-tuning before it can parse POSIX directory paths",
+            "Deleting files inside /tmp is slower than deleting files in the repository root"
           ],
           answer: 1,
-          explanation: "Termination conditions define \"done\" (or \"stuck — hand this back to a human\") so an agent doesn't loop forever or keep acting past the point it should stop."
+          explanation: "Safety boundaries for destructive side effects must live in deterministic application code (path allowlists, dry-run diffs, HITL approval tokens), not solely in natural-language prompt guidance."
         },
         {
-          q: "In the exercise, why does the plan pause instead of executing the risky step immediately?",
+          q: "During an outage, an autonomous billing agent retries a timed-out refund API 40 times until its token window fills, issuing three duplicate refunds once the service recovers. Which two controls were missing?",
           options: [
-            "Because risky steps always fail",
-            "Because a human-in-the-loop guardrail checkpoint requires explicit approval before an irreversible or high-impact action proceeds",
-            "Because the agent ran out of steps",
-            "Because risky steps are skipped automatically"
+            "Higher sampling temperature and a larger context window",
+            "A consecutive-error/duplicate-call termination breaker and idempotency keys on mutation endpoints",
+            "Chain-of-thought prompting and a secondary LLM-as-judge summarizing each 504 error",
+            "Switching from JSON tool calling to free-form markdown action parsing"
           ],
           answer: 1,
-          explanation: "The pause-and-approve pattern is exactly what a human-in-the-loop guardrail does: it blocks the agent from silently taking a risky action unsupervised."
+          explanation: "Bounded retry breakers (halting and escalating after repeated failures) stop runaway loops, while idempotency keys ensure retried financial calls never execute duplicate charges. Higher temperature or LLM summaries do not prevent duplicate side effects."
         }
       ]
     });

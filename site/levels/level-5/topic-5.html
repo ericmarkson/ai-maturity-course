@@ -22,39 +22,73 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can trace one full agent-environment interaction
-      loop (state &rarr; action &rarr; reward &rarr; updated state) for a simple grid-world example
-      and explain how a Q-table entry gets updated.
+      <strong>Learning objective:</strong> Trace one full agent-environment step and temporal-difference Q-table update,
+      contrast value-based Q-learning with policy gradients, and explain how exploration prevents premature convergence.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Reinforcement learning (RL) trains an <strong>agent</strong> to make decisions by trial
-          and error, rewarding good outcomes and penalizing bad ones, rather than learning from a
-          fixed labeled dataset the way supervised learning does. The agent repeatedly observes a
-          <strong>state</strong>, takes an <strong>action</strong>, receives a <strong>reward</strong>,
-          and lands in a new state — and over many repetitions it learns which actions tend to pay
-          off in which situations.
+          <strong>Reinforcement learning (RL)</strong> optimizes sequential decision-making through interaction: an
+          <strong>agent</strong> observes state <code>s_t</code>, selects action <code>a_t</code>, receives scalar reward
+          <code>r_t</code>, and transitions to <code>s_{t+1}</code>. Rather than imitating fixed labeled answers, the
+          agent maximizes expected discounted cumulative return <code>G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …</code>.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Q-Learning (Value-Based):</strong> Q-learning estimates the long-term value <code>Q(s, a)</code> of
+        taking action <code>a</code> in state <code>s</code> and acting greedily afterward. After observing
+        <code>(s, a, r, s')</code>, it applies a temporal-difference (TD) update toward the Bellman target:
+        <code>Q(s, a) ← Q(s, a) + α [ r + γ max_{a'} Q(s', a') − Q(s, a) ]</code>. Once <code>Q</code> converges,
+        the policy simply chooses <code>argmax_a Q(s, a)</code>.
+      </p>
+      <p>
+        <strong>2. Policy Gradients (Policy-Based):</strong> Tabular Q-tables break down in huge or continuous action
+        spaces (e.g., robotic joint torques or token vocabularies). Policy gradient methods skip the Q-table and
+        parameterize a stochastic policy <code>π_θ(a | s)</code> directly, using gradient ascent to increase the
+        probability of actions that yielded higher-than-expected returns.
+      </p>
+      <p>
+        <strong>3. Exploration vs. Exploitation:</strong> If an agent always picks its current highest-Q action
+        (exploitation), it can lock onto a weak early path and never discover the real goal. Schedules like
+        <strong>ε-greedy</strong> pick a random action with probability <code>ε</code> and the greedy action with
+        probability <code>1 − ε</code>, often annealing <code>ε</code> down once the environment is mapped.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Tracing One Bellman Q-Update</h3>
+      <p>
+        In the 5×5 grid world below, let learning rate <code>α = 0.5</code> and discount <code>γ = 0.9</code>.
+        Suppose cell <code>(4,3)</code> sits immediately left of <code>GOAL (4,4)</code>, and currently
+        <code>Q((4,3), right) = 0.0</code>. When the agent moves right into <code>GOAL</code>, it receives
+        <code>r = +10</code> and reaches terminal state <code>s' = GOAL</code> (where future value is <code>0</code>):
+      </p>
       <ul>
-        <li><strong>Agent, environment, state, action, reward loop</strong> — the basic cycle every
-          RL algorithm is built on.</li>
-        <li><strong>Q-learning</strong> — learning the expected long-term value of taking each action
-          in each state (a "Q-table"), then always picking the highest-value action.</li>
-        <li><strong>Policy gradients</strong> — instead of learning action-values, directly learn a
-          strategy ("policy") that maps states to actions, adjusting it to make good actions more
-          likely over time.</li>
-        <li><strong>Exploration vs. exploitation trade-off</strong> — the agent must sometimes try
-          random actions (explore) instead of always taking its current best-known action (exploit),
-          or it can get stuck on a mediocre strategy forever.</li>
+        <li>TD target: <code>r + γ max Q(GOAL, ·) = 10 + 0.9(0) = 10.0</code></li>
+        <li>TD update: <code>Q((4,3), right) ← 0.0 + 0.5 × (10.0 − 0.0) = 5.0</code></li>
       </ul>
+      <p>
+        On a later episode, when the agent reaches neighbor <code>(4,2)</code> and steps right into <code>(4,3)</code>
+        (<code>r = −0.1</code>), its target sees <code>max Q((4,3), ·) = 5.0</code>, updating
+        <code>Q((4,2), right)</code> toward <code>−0.1 + 0.9(5.0) = 4.4</code>. Repeating episodes propagates reward
+        value backward from the goal across the whole maze.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Reward Hacking &amp; Zero Exploration</h3>
+      <p>
+        Agents optimize the literal reward function you code, not your intent: poorly shaped positive sub-rewards often
+        cause <em>reward hacking</em> (e.g., spinning in circles to farm intermediate points instead of finishing).
+        Conversely, setting <code>ε = 0</code> before discovering the goal causes all unvisited states to stay near zero,
+        trapping the agent in arbitrary tie-broken loops.
+      </p>
     </section>
   </div>
 
@@ -352,43 +386,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the state-action-reward loop, what does the agent receive immediately after taking an action?",
-          options: ["A new labeled training example", "A reward and a new state", "A gradient update from a human", "A fixed policy from the environment"],
-          answer: 1,
-          explanation: "The environment responds to an action with a reward (a scalar signal of how good that action was) and a new state the agent now finds itself in."
+          q: "In the Q-learning update Q(s, a) ← Q(s, a) + α[r + γ max_{a'} Q(s', a') − Q(s, a)], what happens if the discount factor γ is set to 0?",
+          options: [
+            "The agent ignores future state values and optimizes purely for the immediate single-step reward r",
+            "The learning rate drops to zero so the Q-table never changes from its initial values",
+            "The agent weights rewards 100 steps in the future equally with immediate rewards",
+            "Exploration probability ε is automatically clamped to zero after the first episode"
+          ],
+          answer: 0,
+          explanation: "Setting γ = 0 zeros out the future term γ max Q(s', a'), turning Q(s, a) into an estimate of immediate reward r alone. Values near 0.9–0.99 encourage planning ahead toward delayed goals."
         },
         {
-          q: "What does a Q-table entry Q(state, action) represent?",
+          q: "Suppose α = 0.5, γ = 0.9, Q(s, a) = 2.0, the agent gets reward r = 1.0, and the next state s' has max_{a'} Q(s', a') = 10.0. What is the updated Q(s, a)?",
           options: [
-            "The probability the action is legal in that state",
-            "The estimated long-term value of taking that action in that state",
-            "The number of times that action has been tried",
-            "The immediate reward only, ignoring the future"
+            "6.0",
+            "5.0",
+            "11.0",
+            "7.0"
           ],
-          answer: 1,
-          explanation: "Q-learning estimates the expected discounted sum of future rewards for taking a given action in a given state and then acting optimally afterward — not just the immediate reward."
+          answer: 0,
+          explanation: "The Bellman target is r + γ max Q(s', a') = 1.0 + 0.9(10.0) = 10.0. The TD error is 10.0 − 2.0 = 8.0, so Q(s, a) becomes 2.0 + 0.5 × 8.0 = 6.0."
         },
         {
-          q: "How do policy gradient methods differ from Q-learning?",
+          q: "When are policy gradient methods generally preferred over tabular Q-learning?",
           options: [
-            "They don't use rewards at all",
-            "They learn a direct mapping from states to actions (a policy) instead of learning action-values",
-            "They only work in fully labeled datasets",
-            "They require zero exploration"
+            "When the action space is continuous or huge (or a stochastic policy is desirable), making argmax_a Q(s, a) impractical",
+            "When the environment provides no reward signal and the agent learns purely from supervised labels",
+            "When the state space is tiny and discrete, because policy gradients require fewer episodes to converge",
+            "When you want to update Q-values using off-policy transitions without taking gradients"
           ],
-          answer: 1,
-          explanation: "Q-learning learns values for actions and picks the best one; policy gradient methods instead directly adjust a policy's parameters to make higher-reward actions more likely."
+          answer: 0,
+          explanation: "Q-learning relies on taking max_a Q(s, a), which becomes intractable in continuous or massive action spaces. Policy gradients directly adjust action probabilities π_θ(a|s), naturally handling continuous control and stochastic strategies."
         },
         {
-          q: "Why can't an RL agent simply always pick the action with the current highest known value (pure exploitation)?",
+          q: "In the grid-world exercise, what typically happens if you leave ε = 0.0 from Episode 1 before any successful path reaches the GOAL?",
           options: [
-            "It would train too quickly",
-            "It might get stuck on a mediocre action because it never tries alternatives that could be better",
-            "The environment forbids repeated actions",
-            "Q-values are always equal so it doesn't matter"
+            "The agent converges to the optimal shortest path twice as fast because no random steps waste time",
+            "Without random exploration, early negative step/wall penalties push the agent into repetitive loops or corners and it may never discover the +10 goal",
+            "The learning rate α automatically increases to compensate for zero exploration",
+            "Q-values propagate backward from the goal on step 1 even without the agent visiting the goal"
           ],
           answer: 1,
-          explanation: "Without some exploration (like the ε in ε-greedy action selection), the agent can lock onto a suboptimal strategy simply because it never sampled the better one."
+          explanation: "When ε = 0, the agent strictly exploits its uninitialized or early-penalized Q-estimates. If it bumps a wall or takes step penalties without randomly stumbling onto the goal, it gets trapped without discovering the high-reward route."
         }
       ]
     });

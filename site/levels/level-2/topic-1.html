@@ -44,33 +44,53 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a short description of a new ML problem, correctly classify it
-      as supervised, unsupervised, or reinforcement learning and justify why.
+      <strong>Learning objective:</strong> Identify whether a real-world AI problem calls for supervised,
+      unsupervised, or reinforcement learning based on what kind of data and feedback are available.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          There are three main ways a machine learning system can learn. In <strong>supervised
-          learning</strong>, the system studies labeled examples — inputs paired with the correct answer —
-          and learns the mapping between them. In <strong>unsupervised learning</strong>, there are no
-          labels at all; the system looks for structure or groupings hiding in the data on its own.
-          In <strong>reinforcement learning</strong>, an agent learns by acting in an environment and
-          getting rewards or penalties for the outcomes of its actions, gradually improving its behavior
-          through trial and error.
+          Machine learning systems learn in three main ways depending on the feedback they receive.
+          <strong>Supervised learning</strong> studies examples paired with known answer keys (labels).
+          <strong>Unsupervised learning</strong> searches for hidden structure or clusters in unlabeled data.
+          <strong>Reinforcement learning (RL)</strong> trains an agent by letting it take actions in an
+          environment and rewarding or penalizing the outcomes over time.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Everyday Analogies)</h2>
       <ul>
-        <li><strong>Supervised learning:</strong> labeled data, learning input→output mappings (e.g., email → spam/not spam)</li>
-        <li><strong>Unsupervised learning:</strong> no labels, finding structure (e.g., grouping similar customers)</li>
-        <li><strong>Reinforcement learning:</strong> agent, environment, reward signal, trial and error (e.g., a game-playing agent)</li>
-        <li>Quick comparison: what kind of data or feedback each approach actually needs</li>
+        <li><strong>Supervised learning = Studying with flashcards:</strong> Every card shows an input on the front (an email) and the answer key on the back ("Spam"). The model compares its guesses against the back of the card and adjusts until it gets new cards right.</li>
+        <li><strong>Unsupervised learning = Sorting a box of mixed buttons:</strong> Nobody tells you the categories upfront. You group buttons naturally by size, color, or hole count so structure emerges from the data itself.</li>
+        <li><strong>Reinforcement learning = Learning to ride a bike (or play a video game):</strong> Nobody hands you a step-by-step spreadsheet of steering angles. You try moves, score points (or wobble and fall), and gradually learn which choices lead to bigger long-term rewards.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Same Store, Three Different ML Problems</h3>
+      <p>
+        Imagine an online bookstore has customer purchase logs. Depending on the goal and available labels, all three
+        approaches apply differently:
+      </p>
+      <ul>
+        <li><strong>Supervised:</strong> Using past orders labeled <code>returned = yes/no</code>, predict whether a new order will be returned.</li>
+        <li><strong>Unsupervised:</strong> With no labels at all, group shoppers into reader personas (e.g., weekend sci-fi buyers vs. textbook shoppers) to inspire marketing themes.</li>
+        <li><strong>Reinforcement:</strong> An automated discount agent chooses which promo offer to display and receives reward points whenever a shopper buys without hurting profit margin.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Confusing "Feedback After Deployment" With Reinforcement Learning</h3>
+      <p>
+        Collecting user clicks or ratings to retrain a classifier overnight is still usually <strong>supervised
+        learning</strong> (the clicks become static labeled pairs in a database). True reinforcement learning involves
+        an active agent whose actions alter the next state and must balance exploring new strategies against
+        exploiting known rewards.
+      </p>
     </section>
   </div>
 
@@ -225,33 +245,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A model is trained on thousands of photos, each already tagged \"cat\" or \"dog.\" Which learning type is this?",
-          options: ["Supervised learning", "Unsupervised learning", "Reinforcement learning", "None of these"],
-          answer: 0,
-          explanation: "Each training photo comes with a known correct label, which is the defining feature of supervised learning."
-        },
-        {
-          q: "A system groups news articles into topic clusters without ever being told what the topics are. Which learning type is this?",
-          options: ["Supervised learning", "Unsupervised learning", "Reinforcement learning", "Labeled learning"],
-          answer: 1,
-          explanation: "With no labels provided, the system is finding structure on its own — unsupervised learning."
-        },
-        {
-          q: "What is the key signal that drives learning in reinforcement learning?",
-          options: ["A labeled training set", "A reward or penalty received from the environment", "A pre-clustered dataset", "A fixed formula with no data"],
-          answer: 1,
-          explanation: "RL agents learn by taking actions and receiving rewards or penalties, adjusting behavior through trial and error."
-        },
-        {
-          q: "Which scenario best fits unsupervised learning?",
+          q: "A hospital trains a model on 20,000 chest X-rays where radiologists have already tagged each scan as 'normal' or 'pneumonia'. Which learning approach is this?",
           options: [
-            "Predicting exam scores from labeled study-hour data",
-            "Segmenting shoppers into groups with no predefined categories",
-            "Training a chess agent that wins or loses games",
-            "Classifying tumors as benign or malignant using labeled scans"
+            "Supervised learning",
+            "Unsupervised learning",
+            "Reinforcement learning",
+            "Clustering-based learning"
+          ],
+          answer: 0,
+          explanation: "Each training X-ray is paired with a known human-provided answer label ('normal' or 'pneumonia'), which is the defining trait of supervised learning."
+        },
+        {
+          q: "A streaming app analyzes listening logs—with zero genre tags or user labels—to discover 12 natural listener taste clusters. Which learning approach is this?",
+          options: [
+            "Supervised learning",
+            "Unsupervised learning",
+            "Reinforcement learning",
+            "Reward-guided regression"
           ],
           answer: 1,
-          explanation: "Segmenting shoppers with no predefined categories means there are no labels — the algorithm discovers the grouping itself."
+          explanation: "Because no predefined labels or target answers are provided, the algorithm discovers hidden structure on its own—unsupervised learning."
+        },
+        {
+          q: "What drives learning in reinforcement learning that distinguishes it from supervised learning?",
+          options: [
+            "Studying a static dataset where every step already has an explicit correct answer label",
+            "Grouping unlabeled records purely by similarity without any external score",
+            "Taking sequential actions in an environment and adjusting strategy based on scalar rewards and penalties",
+            "Memorizing fixed rules written manually by domain experts"
+          ],
+          answer: 2,
+          explanation: "Instead of an upfront answer key for every move, RL agents experiment in an environment and update their policy using delayed rewards or penalties."
+        },
+        {
+          q: "Which project is the cleanest match for unsupervised learning?",
+          options: [
+            "Predicting next month's electricity usage from 5 years of metered historical consumption",
+            "Organizing 50,000 unlabeled support emails into natural topic groups before deciding what categories exist",
+            "Training a delivery drone to navigate wind gusts by rewarding safe landings",
+            "Flagging fraudulent insurance claims using thousands of past claims audited as fraud or legitimate"
+          ],
+          answer: 1,
+          explanation: "Discovering natural topic groups when categories aren't yet labeled is classic unsupervised clustering. Electricity prediction and audited fraud detection have labels (supervised), and drone navigation learns via rewards (RL)."
         }
       ]
     });

@@ -22,37 +22,71 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can distinguish batch vs. real-time serving
-      scenarios from a description of a use case, and can describe the basic request/response path
-      from client to a served model.
+      <strong>Learning objective:</strong> Choose between batch and real-time serving for a workload, trace the
+      API request-to-inference path, and quantify how request batching trades individual latency for total throughput.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Deployment/serving</strong> is the process of taking a trained model and making it
-          available so real applications can send it input and get predictions back, reliably and at
-          scale. A served model usually sits behind an API endpoint: a client sends a request, the
-          server runs the model (inference), and a response comes back — with real engineering
-          questions about how fast, how many at once, and what happens when something changes.
+          <strong>Model serving</strong> exposes a trained model artifact so applications can turn live inputs into
+          predictions reliably. Rather than embedding heavy model code inside every client app, teams wrap the model
+          and its preprocessing behind a versioned network <strong>API endpoint</strong> (or scheduled batch pipeline)
+          engineered around strict latency, throughput, and availability targets.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Behind an Inference API:</strong> A client sends JSON (e.g., <code>POST /predict</code>) to a serving
+        gateway, which validates the schema, applies exact feature preprocessing, runs a forward pass on CPU/GPU, and
+        returns the prediction alongside <code>model_version</code> and confidence metadata.
+      </p>
+      <p>
+        <strong>2. Batch vs. Real-Time/Online Serving:</strong> <strong>Batch inference</strong> runs offline on a
+        schedule (e.g., overnight churn scores across 2M accounts), maximizing hardware utilization at lowest cost per
+        prediction. <strong>Real-time inference</strong> responds within milliseconds per user event (fraud checks,
+        search ranking, chat).
+      </p>
+      <p>
+        <strong>3. Dynamic Batching (Latency vs. Throughput):</strong> Because GPUs parallelize matrix multiplications,
+        scoring 8 queued inputs together takes only slightly longer than scoring 1—boosting <strong>throughput</strong>
+        (requests/second). However, early arrivals wait in a queue until the batch fills or a timeout fires, increasing
+        tail <strong>latency</strong> (ms per request).
+      </p>
+      <p>
+        <strong>4. Versioning &amp; Safe Rollouts:</strong> Tagging every prediction with <code>model_version</code> lets
+        teams run canary traffic splits (e.g., 5% on <code>v4</code>, 95% on <code>v3</code>) and instantly roll back
+        if latency spikes or error rates climb.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Quantifying the Batching Trade-Off</h3>
+      <p>
+        Suppose a GPU sentiment endpoint takes <strong>40 ms</strong> to score 1 text, or <strong>60 ms</strong> to
+        score a batch of 8 texts together:
+      </p>
       <ul>
-        <li><strong>Batch inference vs. real-time/online inference</strong> — processing many inputs
-          together on a schedule (e.g. nightly) vs. responding to one request at a time as it arrives.</li>
-        <li><strong>Wrapping a model behind an API endpoint</strong> — the client never needs to know
-          how the model works internally, only how to call the endpoint.</li>
-        <li><strong>Latency, throughput, and cost considerations</strong> — latency is how long one
-          request takes; throughput is how many requests can be handled per unit time; the two often
-          trade off against each other.</li>
-        <li><strong>Versioning and rollback of deployed models</strong> — being able to identify which
-          model version served a given prediction, and revert quickly if a new version misbehaves.</li>
+        <li><strong>Real-time (batch = 1):</strong> First-request latency is <strong>40 ms</strong>, but max single-worker
+          throughput is capped at <code>1000 / 40 = 25 req/s</code>.</li>
+        <li><strong>Micro-batching (batch = 8, arriving every 10 ms):</strong> Request #1 waits 70 ms for #8 to arrive
+          plus 60 ms compute (<strong>130 ms</strong> latency), yet all 8 finish together—raising throughput to
+          <code>8 / 0.060 ≈ 133 req/s</code> (over <strong>5×</strong> higher capacity).</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Training–Serving Skew</h3>
+      <p>
+        A model deployed behind a clean API will still fail silently if the serving server preprocesses inputs
+        differently from the training notebook—for instance, using different tokenizer rules, missing-value defaults, or
+        stale feature scaling statistics. Always serialize preprocessing transforms alongside model weights and validate
+        identical outputs on golden test payloads before shipping.
+      </p>
     </section>
   </div>
 
@@ -334,38 +368,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A retailer needs same-day fraud scores for every credit card swipe as it happens. Which serving style fits best?",
-          options: ["Batch inference run once a day", "Real-time/online inference", "No serving needed", "Manual review only"],
-          answer: 1,
-          explanation: "Immediate, per-event decisions call for real-time serving, where each request is scored as it arrives rather than queued for a later batch job."
-        },
-        {
-          q: "A company wants to re-score its entire customer list for churn risk once a week, with no urgency on any single prediction. What's the better fit?",
-          options: ["Real-time inference", "Batch inference", "No model is needed", "A brand-new model architecture"],
-          answer: 1,
-          explanation: "Processing everything together on a schedule (batch inference) is typically more efficient when individual predictions aren't needed instantly."
-        },
-        {
-          q: "In the batch-vs-real-time exercise, why did batch mode tend to increase the latency of the FIRST request in a group?",
+          q: "A payment gateway must score every card swipe for fraud within 80 ms before approving the transaction. Which serving pattern fits?",
           options: [
-            "Batch mode is always slower for every request with no exceptions",
-            "The first request had to wait for enough other requests to accumulate before the batch was processed",
-            "Real-time mode does not exist in production systems",
-            "Latency is unrelated to batch size"
+            "Nightly offline batch inference stored in a data warehouse",
+            "Real-time online inference behind an API endpoint with strict latency SLOs",
+            "Weekly model retraining directly inside the checkout request thread",
+            "Large fixed batch queues waiting for 1,000 swipes before scoring"
           ],
           answer: 1,
-          explanation: "Batching trades some added wait time (for the batch to fill) for better overall throughput, so early arrivals in a batch can wait longer than they would under real-time, one-at-a-time processing."
+          explanation: "Synchronous per-transaction approvals require low-latency online inference. Nightly batch jobs or huge accumulation queues would violate the 80 ms user-facing deadline."
         },
         {
-          q: "Why is model versioning important in deployment?",
+          q: "A subscription app updates personalized churn risk scores for all 4 million accounts every Sunday night so Monday emails can target at-risk users. Which serving pattern is most cost-effective?",
           options: [
-            "It's only relevant for training, not serving",
-            "So you can identify which model produced a given prediction and roll back quickly if a new version misbehaves",
-            "It prevents the model from ever being updated",
-            "It replaces the need for an API endpoint"
+            "Offline batch inference run on a scheduled cluster job",
+            "Keeping dedicated low-latency real-time replicas warm 24/7 for single-row calls",
+            "Running model forward passes directly inside every subscriber's web browser",
+            "Streaming every database row sequentially one-by-one with batch size 1"
+          ],
+          answer: 0,
+          explanation: "When predictions are consumed asynchronously on a schedule, offline batch inference processes huge tables at maximum hardware utilization without paying for idle 24/7 online capacity."
+        },
+        {
+          q: "In the burst-serving exercise, why does switching from real-time (batch = 1) to batching increase throughput while hurting latency for the FIRST request in a group?",
+          options: [
+            "Batching runs backpropagation on early requests while later ones run inference only",
+            "Request #1 must wait in the queue until subsequent requests arrive to fill the batch, adding wait delay even though the combined forward pass finishes more items per second",
+            "Batching lowers hardware utilization per request so compute takes longer per item",
+            "API JSON serialization takes linearly longer when responses are returned individually"
           ],
           answer: 1,
-          explanation: "Versioning lets you trace predictions back to a specific model and revert to a known-good version if a newly deployed one causes problems."
+          explanation: "Matrix ops amortize memory loads across a batch, raising total requests/sec (throughput). However, the earliest request in each batch incurs queueing wait time while the batch accumulates."
+        },
+        {
+          q: "Why should a /predict endpoint return a model_version field and support traffic routing across versions?",
+          options: [
+            "Because HTTP endpoints reject JSON payloads lacking a version string",
+            "To trace individual predictions back to the exact artifact that generated them and enable rapid rollback or canary splits if a new deployment regresses",
+            "So the client application can dynamically retrain old weights when predictions look wrong",
+            "To prevent training–serving skew without validating preprocessing pipelines"
+          ],
+          answer: 1,
+          explanation: "Model versioning provides auditability (knowing which weights produced yesterday's predictions) and operational safety (canary testing and instant rollback to a known-good version)."
         }
       ]
     });

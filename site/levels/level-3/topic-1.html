@@ -38,36 +38,66 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> You should be able to look at a small tabular dataset and
-      describe, in plain language, how you'd select a subset of rows, compute a column-wise statistic,
-      and reshape the data into the form a model expects — without writing actual Python code.
+      <strong>Learning objective:</strong> Explain why vectorized NumPy operations outpace Python loops,
+      trace row-filtering and <code>groupby</code> aggregations on a pandas DataFrame, and prepare clean
+      2D numeric feature arrays for downstream ML models.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>NumPy</strong> and <strong>pandas</strong> are the two foundational Python libraries
-          that let you store, reshape, and crunch numerical data efficiently instead of writing raw
-          loops. NumPy gives you fast <em>arrays</em> and vectorized math; pandas builds on top of that
-          to give you <em>DataFrames</em> — spreadsheet-like tables with labeled rows and columns that
-          you can filter, sort, group, and summarize with a single line of code.
+          <strong>NumPy</strong> provides fast, contiguous, homogeneous multi-dimensional arrays (<code>ndarray</code>)
+          and vectorized math routines. <strong>pandas</strong> layers labeled columns and row indices on top of
+          NumPy arrays via the <strong>DataFrame</strong>—giving you spreadsheet-like filtering, joining, missing-value
+          handling, and grouped aggregations on tabular data before converting clean arrays into ML inputs.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li><strong>Arrays and vectorized operations (numpy) vs. Python lists</strong> — why applying
-          an operation to an entire array at once is dramatically faster than looping element by element.</li>
-        <li><strong>DataFrames, rows/columns, indexing and filtering (pandas)</strong> — treating a
-          dataset like a table you can slice by row, column, or condition.</li>
-        <li><strong>Basic aggregation and grouping (mean, sum, groupby)</strong> — collapsing many rows
-          into summary statistics, optionally split by category.</li>
-        <li><strong>Reading/writing tabular data (CSV-like structures)</strong> — the everyday format
-          most real-world datasets arrive in.</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Vectorization vs. Python Loops:</strong> Standard Python lists hold pointers to boxed objects, forcing
+        the interpreter to check data types on every iteration of a <code>for</code> loop. A NumPy array stores raw numbers
+        of one fixed type side-by-side in memory, letting a single expression like <code>scores * 1.05</code> run in
+        compiled C/SIMD code—commonly 20–100× faster on large arrays.
+      </p>
+      <p>
+        <strong>2. Filtering &amp; Grouping in DataFrames:</strong> A pandas DataFrame pairs named columns (mixing text
+        categories and numbers) with boolean indexing—e.g., <code>df[df["category"] == "Vision"]</code>—and
+        split-apply-combine aggregations like <code>df.groupby("category")["score"].mean()</code>.
+      </p>
+      <p>
+        <strong>3. Reshaping for ML APIs:</strong> Scikit-learn and neural frameworks expect numeric feature matrices
+        <code>X</code> of shape <code>(n_samples, n_features)</code> and target vectors <code>y</code> of shape
+        <code>(n_samples,)</code>, typically loaded from CSV/Parquet files and extracted with
+        <code>df[["hours", "attendance"]].to_numpy()</code>.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Slicing &amp; Reshaping Tabular Data</h3>
+      <p>
+        Starting from a CSV loaded as <code>df</code> (10 student rows, columns <code>Name, Category, Score, Hours</code>):
+      </p>
+      <pre class="code-block"><code>vision_df = df[df["Category"] == "Vision"]         # 4 matching rows
+mean_score = vision_df["Score"].mean()             # 88.25 across those 4 rows
+X = vision_df[["Hours"]].to_numpy()                # 2D shape (4, 1) for a model</code></pre>
+      <p>
+        Notice that double brackets <code>[["Hours"]]</code> preserve a 2D matrix shape <code>(4, 1)</code> expected by
+        ML estimators, whereas single brackets <code>["Hours"]</code> return a 1D Series of shape <code>(4,)</code>.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Silent Broadcasting &amp; Slow Row Loops</h3>
+      <p>
+        Adding a 1D row vector <code>(4,)</code> to a 2D column vector <code>(4, 1)</code> triggers NumPy
+        <em>broadcasting</em>, silently producing a <code>4×4</code> matrix instead of raising an error—always verify
+        <code>.shape</code> before arithmetic. Likewise, looping row-by-row with <code>df.iterrows()</code> discards
+        vectorization speedups; prefer vectorized column operations instead.
+      </p>
     </section>
   </div>
 
@@ -303,48 +333,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why is a vectorized numpy operation on a whole array typically faster than a Python for-loop doing the same math element by element?",
+          q: "Why does multiplying a 1-million-element NumPy array by 2.0 run dramatically faster than looping over a Python list of 1 million floats?",
           options: [
-            "Numpy secretly uses a different, less accurate math library",
-            "The loop is skipped entirely and no computation happens",
-            "Numpy pushes the repetitive work into optimized, compiled code instead of Python's slower interpreted loop",
-            "Vectorized operations only work on numbers smaller than 100"
+            "NumPy stores a single homogeneous type contiguously and executes the math inside compiled C/SIMD loops instead of Python's per-element type-checking interpreter loop",
+            "NumPy caches random samples of the array and interpolates intermediate elements",
+            "Python lists cannot hold floating-point numbers without converting them to strings first",
+            "NumPy distributes every arithmetic expression across multiple networked machines automatically"
           ],
-          answer: 2,
-          explanation: "Vectorization lets numpy hand the repetitive work to fast compiled code under the hood, avoiding the overhead of a Python-level loop iterating one element at a time."
+          answer: 0,
+          explanation: "Contiguous homogeneous storage eliminates per-element Python object dereferencing and type checks, letting low-level compiled routines process arrays in tight hardware loops."
         },
         {
-          q: "In the exercise, what happens to the sidebar stats when you change the category filter to \"NLP\" only?",
+          q: "In the table exercise, when you filter Category to 'NLP', why do the sidebar mean, min, and max all change?",
           options: [
-            "Nothing changes because stats are fixed at page load",
-            "The stats recompute using only the currently visible NLP rows",
-            "The table disappears",
-            "The stats show the average of all categories combined"
+            "Because filtering overwrites non-NLP scores with zeros before computing summary statistics",
+            "Because aggregate operations (like pandas groupby or filtered .describe()) compute stats strictly over the selected subset of rows",
+            "Because sorting rows automatically shifts the median and mean upward",
+            "Because categorical filtering converts text columns into numerical averages"
           ],
           answer: 1,
-          explanation: "This is exactly what pandas groupby + describe does conceptually: stats are recalculated over whatever subset of rows you're currently looking at."
+          explanation: "Filtering creates a row subset; summary aggregations evaluate strictly over the visible matching rows (here, just the 3 NLP rows)."
         },
         {
-          q: "What is a pandas DataFrame best described as?",
+          q: "You extract one feature column from a 100-row pandas DataFrame to pass as X into a scikit-learn model expecting shape (n_samples, n_features). Which shape avoids a 1D error?",
           options: [
-            "A single number produced by a model",
-            "A spreadsheet-like table with labeled rows and columns you can filter, sort, and summarize",
-            "A type of neural network layer",
-            "A file format only used for images"
+            "(100,) obtained from df['Hours'].to_numpy()",
+            "(100, 1) obtained from df[['Hours']].to_numpy() or .reshape(-1, 1)",
+            "(1, 100) obtained by transposing the feature vector into a single row",
+            "(100, 100) created by broadcasting a row and column vector together"
           ],
           answer: 1,
-          explanation: "A DataFrame is pandas' core structure — rows and named columns you can slice, filter, and aggregate, much like a spreadsheet."
+          explanation: "Tabular ML models treat rows as examples and columns as features, requiring a 2D (100, 1) array rather than a flat 1D (100,) array or transposed (1, 100) row."
         },
         {
-          q: "Sorting the table by the \"Score\" column and then filtering by category — does sorting change what the mean/min/max in the sidebar report?",
+          q: "If you sort the visible DataFrame by 'Score' descending without adding or removing any rows, what happens to the column's mean and standard deviation?",
           options: [
-            "Yes, sorting always changes the underlying values",
-            "No — sorting only changes row order; the underlying values and any stats computed over the same set of rows stay the same",
-            "Sorting deletes rows below the median",
-            "Sorting converts the column to text"
+            "The mean stays identical, while the standard deviation shrinks because adjacent rows become closer",
+            "Both the mean and standard deviation remain completely unchanged because reordering rows does not alter the multiset of values",
+            "The mean shifts toward the first few rows due to pandas index alignment",
+            "Sorting mutates categorical group boundaries so groupby results change"
           ],
           answer: 1,
-          explanation: "Sorting reorders rows for display; it doesn't change which rows are included or their values, so aggregate stats over the same row set are unaffected by sort order."
+          explanation: "Sorting changes display order only—the collection of numbers summed and averaged over the row subset is identical."
         }
       ]
     });

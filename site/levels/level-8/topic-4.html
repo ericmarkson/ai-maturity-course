@@ -3,31 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Constitutional AI and Alignment Methods — AI Maturity Course</title>
-<meta name="description" content="How a model critiques and revises its own output against a written constitution.">
+<title>Reasoning Models, Test-Time Compute &amp; RLVR (GRPO) — AI Maturity Course</title>
+<meta name="description" content="How test-time compute scaling, Reinforcement Learning with Verifiable Rewards (RLVR), GRPO, and verifier selection produce reasoning models — and when they fail.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "8-4";
 </script>
 <style>
-  .cai-layout { display: flex; flex-direction: column; gap: var(--space-4); }
-  .constitution-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-  .principle-btn {
-    display: block; width: 100%; text-align: left; border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm); padding: var(--space-3); background: var(--color-bg); cursor: pointer;
-    font: inherit; color: var(--color-text);
+  .ttc-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ttc-controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+  .ttc-control-card {
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);
   }
-  .principle-btn:hover { background: var(--color-bg-alt); }
-  .principle-btn.selected { border-color: var(--color-primary); background: var(--color-primary-light); }
-  .principle-btn.correct-pick { border-color: var(--color-success); background: var(--color-success-bg); }
-  .principle-btn.wrong-pick { border-color: var(--color-error); background: var(--color-error-bg); }
-  .draft-box { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-bg-inset); }
-  .draft-box.revised { background: var(--color-success-bg); border-color: var(--color-success); }
-  .score-row { display: flex; align-items: center; gap: var(--space-3); }
-  .score-bar-track { flex: 1 1 260px; height: 20px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
-  .score-bar-fill { height: 100%; background: var(--color-error); transition: width 0.5s ease, background-color 0.5s ease; }
-  .round-label { font-weight: 700; color: var(--color-text-muted); }
+  .ttc-control-card label, .ttc-group-label { font-weight: 700; font-size: var(--font-size-sm); color: var(--color-text); }
+  .ttc-control-card select {
+    padding: 6px 10px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm);
+    background: var(--color-bg); color: var(--color-text);
+  }
+  .ttc-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ttc-seg-btn {
+    flex: 1 1 auto; padding: 6px 10px; border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm); background: var(--color-bg-inset); color: var(--color-text);
+    font-weight: 600; font-size: var(--font-size-sm); cursor: pointer;
+  }
+  .ttc-seg-btn[aria-pressed="true"] {
+    background: var(--color-primary); color: #fff; border-color: var(--color-primary);
+  }
+  .ttc-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ttc-preset-btn {
+    padding: 2px 8px; border: 1px solid var(--color-border-strong); border-radius: 999px;
+    background: var(--color-bg-alt); color: var(--color-text-muted); font-family: var(--font-mono);
+    font-size: var(--font-size-xs); cursor: pointer;
+  }
+  .ttc-preset-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  .ttc-slider-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .ttc-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: var(--space-3); }
+  .ttc-metric {
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    padding: var(--space-3); text-align: center;
+  }
+  .ttc-metric .num { font-family: var(--font-mono); font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary); display: block; }
+  .ttc-metric .lbl { font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 600; }
+  .ttc-metric .sub { font-size: var(--font-size-xs); color: var(--color-text-faint); display: block; margin-top: 2px; }
+  .ttc-canvas-wrap { background: #ffffff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .ttc-canvas-wrap canvas { width: 100%; height: auto; display: block; }
+  .ttc-callout {
+    border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-sm); font-weight: 600; border-left: 4px solid var(--color-primary);
+    background: var(--color-primary-light); color: var(--color-text);
+  }
+  .ttc-callout.warn { border-left-color: #d97706; background: var(--color-warning-bg); color: #7a4b00; }
+  .ttc-callout.good { border-left-color: var(--color-success); background: var(--color-success-bg); color: var(--color-success); }
 </style>
 </head>
 <body>
@@ -37,36 +65,87 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 8 — Expert</p>
-  <h1>Constitutional AI and Alignment Methods</h1>
+  <h1>Reasoning Models, Test-Time Compute &amp; RLVR (GRPO)</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a sample constitution (a short list of principles) and a
-      draft model response, identify which principle the response violates and describe what a revised
-      response should look like.
+      <strong>Learning objective:</strong> Explain how RLVR and Group Relative Policy Optimization (GRPO)
+      train reasoning models without a critic network, compare Best-of-N, majority voting, and PRM search
+      under a test-time compute budget, and diagnose overthinking and verifier reward hacking.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Constitutional AI is an alignment approach where a model is trained to critique and revise its
-          own outputs against a written set of principles (a "constitution"), reducing reliance on
-          large-scale human-labeled preferences. Instead of a human rating every response, the model
-          learns to check its own draft against explicit rules and produce a better version.
+          <strong>Test-time compute scaling</strong> improves accuracy by allocating extra sequential or
+          parallel inference compute (longer chain-of-thought reasoning traces and multiple sampled
+          attempts) rather than only scaling training parameters. <strong>Reinforcement Learning with
+          Verifiable Rewards (RLVR)</strong> trains a model to generate effective multi-step reasoning
+          using deterministic, objective checks — such as unit tests, math equivalence checkers, or formal
+          proof verifiers — instead of a subjective human preference reward model.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Standard pretraining and RLHF give a model strong priors, but complex coding, math, and debugging
+        problems often require exploring branches, spotting dead ends, and backtracking before emitting an
+        answer. Test-time compute scales performance along two axes: <strong>sequential depth</strong>
+        (generating more internal reasoning tokens inside a thinking trace) and <strong>parallel
+        width</strong> (sampling <em>N</em> candidate completions and selecting or aggregating the winner).
+      </p>
+      <p>
+        To train long reasoning traces without the memory overhead of PPO's separate value/critic network,
+        <strong>Group Relative Policy Optimization (GRPO)</strong> samples a group of <em>G</em> rollouts
+        {<em>o</em><sub>1</sub>, &hellip;, <em>o</em><sub>G</sub>} for each prompt <em>q</em>, scores every completion with an exact verifier
+        <em>r</em><sub>i</sub> &isin; {0, 1}, and computes a group-normalized advantage directly from the batch:
+      </p>
+      <pre class="code-block"><code>A_i = (r_i - mean(r_1..r_G)) / (std(r_1..r_G) + eps)</code></pre>
+      <p>
+        Rollouts that pass receive positive advantage; failing rollouts receive negative advantage, bounded
+        by a clipped policy ratio and a KL penalty to the reference policy. Over thousands of steps, behaviors
+        like self-verification, case decomposition, and backtracking emerge organically because they raise pass
+        probability. At inference time, parallel compute further boosts solved rate depending on the selector:
+      </p>
       <ul>
-        <li><strong>The constitution</strong> — explicit written principles guiding model behavior</li>
-        <li><strong>Self-critique and revision loops</strong> — the model checks its own draft against the principles</li>
-        <li><strong>Reduced (not eliminated) reliance on human labels</strong> — the constitution stands in for some preference data</li>
-        <li><strong>Complementary to RLHF/RLAIF</strong> — constitutional AI works alongside, not instead of, human/AI feedback training</li>
+        <li><strong>Majority voting (self-consistency):</strong> Takes the mode of <em>N</em> final answers. Requires no verifier, but stalls when a seductive misconception wins a plurality.</li>
+        <li><strong>Best-of-N with an Outcome / Process Reward Model (PRM):</strong> Scores full traces (ORM) or intermediate steps (PRM) via beam/tree search to prune broken reasoning early.</li>
+        <li><strong>Exact Verifier (Unit Tests / Compiler / SymPy):</strong> Achieves the full theoretical ceiling <code>pass@N = 1 &minus; (1 &minus; pass@1)<sup>N</sup></code> whenever at least one rollout is right and the test suite is complete.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a GRPO step samples <em>G</em> = 4 code solutions for a graph-traversal problem and runs the hidden
+        unit-test suite, yielding binary rewards <code>r = [1, 0, 1, 0]</code>. The group mean is &mu; = 0.50 and
+        standard deviation is &sigma; = 0.50, giving advantages <code>A = [+1.0, -1.0, +1.0, -1.0]</code> &mdash; no critic
+        model needed. (If all 4 pass or all 4 fail, &sigma; = 0 and the prompt contributes zero policy gradient.)
+      </p>
+      <p>
+        Now compare inference scaling on a hard problem where an RLVR model has <code>pass@1 = 25%</code> at
+        4,096 thinking tokens. Sampling <em>N</em> = 8 traces raises the oracle ceiling to
+        <code>pass@8 = 1 &minus; 0.75<sup>8</sup> &approx; 90.0%</code>. With an <strong>exact unit-test suite</strong>, solved
+        rate reaches nearly 90%. With <strong>majority voting</strong> alone, if a classic off-by-one bug
+        attracts 35% of wrong samples, effective accuracy may climb to only ~52%.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Overthinking trivial prompts &amp; hacking weak verifiers:</strong> Because RLVR reinforces
+        long verification chains, reasoning models frequently burn 1,500+ thinking tokens on simple lookups
+        like <em>"What is the HTTP status code for Not Found?"</em> &mdash; multiplying latency and cost without
+        improving accuracy. Conversely, during RL training or Best-of-N selection against a weak verifier
+        (such as two public smoke tests or a noisy proxy scorer), high <em>N</em> triggers <strong>Goodhart's
+        Law</strong>: the policy learns to hardcode test inputs or exploit edge-case loopholes, causing true
+        correctness to <em>drop</em> as <em>N</em> grows.
+      </p>
     </section>
 
   </div>
@@ -96,190 +175,501 @@
   (function () {
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
-    var PRINCIPLES = [
-      { id: "p1", text: "Do not provide instructions that materially help carry out physical harm." },
-      { id: "p2", text: "Do not encourage illegal activity, even if the user claims a legitimate reason." },
-      { id: "p3", text: "Be honest — do not state uncertain claims as if they were verified fact." },
-      { id: "p4", text: "Respect user autonomy — prefer explaining tradeoffs over refusing outright, when the request itself is legal and non-harmful." }
-    ];
-
-    var ROUNDS = [
-      {
-        draft: "\"Sure — the fastest way to pick that brand of lock is to insert a tension wrench and rake the pins like this: ...\"",
-        violates: "p1",
-        scoreBefore: 88,
-        revised: "\"I can't give step-by-step lock-picking instructions, since that could materially help someone bypass a lock they don't own. If you're locked out of your own property, a locksmith or the manufacturer's support line can verify ownership and help safely.\"",
-        scoreAfter: 12
+    var DIFF_PROFILES = {
+      easy: {
+        label: "Easy (trivial arithmetic / lookup)",
+        base: function (u) { return clamp(0.84 + 0.08 * (1 - Math.exp(-3.6 * u)) - 0.03 * Math.max(0, u - 0.55), 0.05, 0.99); },
+        rlvr: function (u) { return clamp(0.90 + 0.075 * (1 - Math.exp(-4.8 * u)) - 0.025 * Math.max(0, u - 0.7), 0.05, 0.99); },
+        usageSlope: 0.16,
+        trapShare: 0.22,
+        weakFpr: 0.07
       },
-      {
-        draft: "\"Based on early lab results I'm aware of, this supplement definitely cures seasonal allergies in humans.\"",
-        violates: "p3",
-        scoreBefore: 74,
-        revised: "\"Some early, small studies suggest a possible effect on allergy symptoms, but this hasn't been confirmed in large human trials, so I can't say it 'definitely cures' anything. Worth discussing with a doctor before relying on it.\"",
-        scoreAfter: 15
+      medium: {
+        label: "Medium (multi-step bugfix / algebra)",
+        base: function (u) { return clamp(0.36 + 0.17 * (1 - Math.exp(-3.0 * u)), 0.05, 0.99); },
+        rlvr: function (u) { return clamp(0.41 + 0.45 * (1 - Math.exp(-2.35 * u)), 0.05, 0.99); },
+        usageSlope: 0.65,
+        trapShare: 0.34,
+        weakFpr: 0.14
       },
-      {
-        draft: "\"I won't help with that at all — writing a persuasive essay arguing for a policy position isn't something I can do.\"",
-        violates: "p4",
-        scoreBefore: 55,
-        revised: "\"Happy to help — here's a persuasive essay draft arguing for that policy position, along with a short note on the strongest counterarguments so the piece anticipates pushback.\"",
-        scoreAfter: 8
-      },
-      {
-        draft: "\"Here's exactly how you could falsify these expense reports without your accounting software flagging the entries.\"",
-        violates: "p2",
-        scoreBefore: 92,
-        revised: "\"I can't help falsify expense reports — that's fraud. If you're trying to fix a legitimate reporting error, I can help you draft a correction and a note explaining the discrepancy instead.\"",
-        scoreAfter: 10
+      hard: {
+        label: "Hard (olympiad math / complex refactor)",
+        base: function (u) { return clamp(0.06 + 0.08 * (1 - Math.exp(-2.6 * u)), 0.02, 0.99); },
+        rlvr: function (u) { return clamp(0.08 + 0.54 * (1 - Math.exp(-1.95 * u)), 0.02, 0.99); },
+        usageSlope: 0.93,
+        trapShare: 0.40,
+        weakFpr: 0.22
       }
-    ];
+    };
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // Exact 3-bucket multinomial DP (correct, dominant trap, scattered wrong) for Majority Vote
+    function majoritySolved(p1, N, trapShare) {
+      if (N <= 1) return p1;
+      var qTrap = (1 - p1) * trapShare;
+      var qOther = Math.max(0, 1 - p1 - qTrap);
+      // Dynamic programming over counts (c, t) after N independent draws
+      var dp = [];
+      for (var c = 0; c <= N; c++) {
+        dp[c] = new Float64Array(N + 1);
+      }
+      dp[0][0] = 1.0;
+      for (var step = 0; step < N; step++) {
+        var next = [];
+        for (var i = 0; i <= N; i++) next[i] = new Float64Array(N + 1);
+        for (var c0 = 0; c0 <= step; c0++) {
+          for (var t0 = 0; t0 <= step - c0; t0++) {
+            var prob = dp[c0][t0];
+            if (prob === 0) continue;
+            next[c0 + 1][t0] += prob * p1;
+            next[c0][t0 + 1] += prob * qTrap;
+            next[c0][t0] += prob * qOther;
+          }
+        }
+        dp = next;
+      }
+      var winProb = 0;
+      for (var c1 = 1; c1 <= N; c1++) {
+        for (var t1 = 0; t1 <= N - c1; t1++) {
+          var o1 = N - c1 - t1;
+          // Scattered wrong answers split across ~3.5 modes; max single cluster approximated
+          var estOtherMax = o1 <= 1 ? o1 : Math.ceil(o1 * 0.42);
+          var maxWrong = Math.max(t1, estOtherMax);
+          if (c1 > maxWrong) {
+            winProb += dp[c1][t1];
+          } else if (c1 === maxWrong) {
+            winProb += 0.5 * dp[c1][t1];
+          }
+        }
+      }
+      return clamp(winProb, 0.01, 0.995);
+    }
+
+    function simulatePoint(difficulty, budget, N, verifier) {
+      var prof = DIFF_PROFILES[difficulty];
+      var u = clamp(Math.log2(budget / 256) / 6, 0, 1);
+      var basePass1 = prof.base(u);
+      var rlvrPass1 = prof.rlvr(u);
+      var passN = 1 - Math.pow(1 - rlvrPass1, N);
+
+      var effectiveSolved;
+      if (N === 1) {
+        effectiveSolved = rlvrPass1;
+      } else if (verifier === "exact") {
+        effectiveSolved = passN;
+      } else if (verifier === "majority") {
+        effectiveSolved = majoritySolved(rlvrPass1, N, prof.trapShare);
+      } else {
+        // Weak verifier: passes valid traces with 0.90 recall, but reward-hacked traces with prob pHack
+        var pHack = (1 - rlvrPass1) * prof.weakFpr;
+        var noTrapProb = Math.pow(1 - pHack, N);
+        var cleanPick = 1 - Math.pow(1 - 0.90 * rlvrPass1, N) + Math.pow(1 - 0.90 * rlvrPass1, N) * rlvrPass1;
+        // When a reward-hacking trace appears, it wins ~82% of the time over valid candidates
+        var trapFallback = rlvrPass1 * 0.35;
+        effectiveSolved = clamp(noTrapProb * cleanPick + (1 - noTrapProb) * trapFallback, 0.02, 0.995);
+      }
+
+      var actualThinking = Math.round(Math.min(budget, 220 + prof.usageSlope * (budget - 220)));
+      var answerTokens = 220;
+      var genTokensPerSample = actualThinking + answerTokens;
+      var decodeTokPerSec = 90;
+      var verifierDelay = verifier === "exact" ? 0.35 : (verifier === "weak" ? 0.14 : 0.03);
+      var latencySec = (genTokensPerSample / decodeTokPerSec) * (1 + 0.07 * (N - 1)) + verifierDelay;
+
+      var promptTokens = 400;
+      var totalTokens = promptTokens + N * genTokensPerSample;
+      var costPerAttempt = (totalTokens / 1e6) * 3.00; // $3 / 1M tokens blended
+      var costPerSolved = costPerAttempt / Math.max(0.02, effectiveSolved);
+
+      return {
+        basePass1: basePass1,
+        rlvrPass1: rlvrPass1,
+        passN: passN,
+        effectiveSolved: effectiveSolved,
+        actualThinking: actualThinking,
+        latencySec: latencySec,
+        costPerSolved: costPerSolved
+      };
+    }
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Critique-and-Revise Simulator",
+      title: "Test-Time Compute & RLVR Simulator",
       instructions:
-        "Read the draft response, click the constitution principle you think it violates, then click " +
-        "\"Reveal revision\" to step through the critique -> revision round and watch the harmfulness " +
-        "score drop. Click \"Next round\" to try another draft.",
+        "Choose a problem difficulty, thinking-token budget, Best-of-N sample count, and verifier quality. " +
+        "Watch pass@1, pass@N, effective solved rate, latency, and cost per solved problem update live.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
+        var state = {
+          difficulty: "hard",
+          budget: 2048,
+          N: 4,
+          verifier: "exact"
+        };
+
         var wrap = document.createElement("div");
-        wrap.className = "cai-layout";
+        wrap.className = "ttc-layout";
 
-        var roundLabel = document.createElement("p");
-        roundLabel.className = "round-label";
-        wrap.appendChild(roundLabel);
+        var grid = document.createElement("div");
+        grid.className = "ttc-controls-grid";
 
-        var constHeading = document.createElement("h4");
-        constHeading.textContent = "The constitution";
-        wrap.appendChild(constHeading);
-        var constList = document.createElement("ul");
-        constList.className = "constitution-list";
-        var principleButtons = {};
-        PRINCIPLES.forEach(function (p) {
-          var li = document.createElement("li");
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "principle-btn";
-          btn.textContent = p.text;
-          btn.dataset.id = p.id;
-          li.appendChild(btn);
-          constList.appendChild(li);
-          principleButtons[p.id] = btn;
+        // 1. Difficulty segmented buttons
+        var diffCard = document.createElement("div");
+        diffCard.className = "ttc-control-card";
+        var diffLabel = document.createElement("span");
+        diffLabel.className = "ttc-group-label";
+        diffLabel.id = "ttc-diff-label";
+        diffLabel.textContent = "Problem Difficulty";
+        var diffSeg = document.createElement("div");
+        diffSeg.className = "ttc-seg";
+        diffSeg.setAttribute("role", "group");
+        diffSeg.setAttribute("aria-labelledby", "ttc-diff-label");
+        var diffBtns = {};
+        [
+          { key: "easy", label: "Easy" },
+          { key: "medium", label: "Medium" },
+          { key: "hard", label: "Hard" }
+        ].forEach(function (d) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "ttc-seg-btn";
+          b.textContent = d.label;
+          b.setAttribute("aria-pressed", state.difficulty === d.key ? "true" : "false");
+          b.addEventListener("click", function () {
+            state.difficulty = d.key;
+            Object.keys(diffBtns).forEach(function (k) {
+              diffBtns[k].setAttribute("aria-pressed", k === state.difficulty ? "true" : "false");
+            });
+            update();
+          });
+          diffSeg.appendChild(b);
+          diffBtns[d.key] = b;
         });
-        wrap.appendChild(constList);
+        diffCard.appendChild(diffLabel);
+        diffCard.appendChild(diffSeg);
 
-        var draftHeading = document.createElement("h4");
-        draftHeading.textContent = "Draft response";
-        wrap.appendChild(draftHeading);
-        var draftBox = document.createElement("div");
-        draftBox.className = "draft-box";
-        wrap.appendChild(draftBox);
+        // 2. Thinking budget slider + presets
+        var budgetCard = document.createElement("div");
+        budgetCard.className = "ttc-control-card";
+        var budgetHead = document.createElement("div");
+        budgetHead.className = "ttc-slider-head";
+        var budgetLabel = document.createElement("label");
+        budgetLabel.setAttribute("for", "ttc-budget-slider");
+        budgetLabel.textContent = "Thinking-Token Budget";
+        var budgetReadout = document.createElement("span");
+        budgetReadout.className = "readout";
+        budgetHead.appendChild(budgetLabel);
+        budgetHead.appendChild(budgetReadout);
+        var budgetSlider = document.createElement("input");
+        budgetSlider.type = "range";
+        budgetSlider.id = "ttc-budget-slider";
+        budgetSlider.min = "256";
+        budgetSlider.max = "16384";
+        budgetSlider.step = "256";
+        budgetSlider.value = String(state.budget);
+        var presetRow = document.createElement("div");
+        presetRow.className = "ttc-presets";
+        [256, 1024, 4096, 8192, 16384].forEach(function (val) {
+          var pBtn = document.createElement("button");
+          pBtn.type = "button";
+          pBtn.className = "ttc-preset-btn";
+          pBtn.textContent = val >= 1024 ? (val / 1024) + "k" : String(val);
+          pBtn.setAttribute("aria-label", "Set thinking budget to " + val + " tokens");
+          pBtn.addEventListener("click", function () {
+            state.budget = val;
+            budgetSlider.value = String(val);
+            update();
+          });
+          presetRow.appendChild(pBtn);
+        });
+        budgetCard.appendChild(budgetHead);
+        budgetCard.appendChild(budgetSlider);
+        budgetCard.appendChild(presetRow);
 
-        var feedback = document.createElement("p");
-        feedback.setAttribute("role", "status");
-        feedback.style.fontWeight = "600";
-        wrap.appendChild(feedback);
+        // 3. Best-of-N slider
+        var nCard = document.createElement("div");
+        nCard.className = "ttc-control-card";
+        var nHead = document.createElement("div");
+        nHead.className = "ttc-slider-head";
+        var nLabel = document.createElement("label");
+        nLabel.setAttribute("for", "ttc-n-slider");
+        nLabel.textContent = "Best-of-N Samples";
+        var nReadout = document.createElement("span");
+        nReadout.className = "readout";
+        nHead.appendChild(nLabel);
+        nHead.appendChild(nReadout);
+        var nSlider = document.createElement("input");
+        nSlider.type = "range";
+        nSlider.id = "ttc-n-slider";
+        nSlider.min = "1";
+        nSlider.max = "16";
+        nSlider.step = "1";
+        nSlider.value = String(state.N);
+        nCard.appendChild(nHead);
+        nCard.appendChild(nSlider);
 
-        var scoreHeading = document.createElement("h4");
-        scoreHeading.textContent = "Harmfulness score";
-        wrap.appendChild(scoreHeading);
-        var scoreRow = document.createElement("div");
-        scoreRow.className = "score-row";
-        var scoreTrack = document.createElement("div");
-        scoreTrack.className = "score-bar-track";
-        var scoreFill = document.createElement("div");
-        scoreFill.className = "score-bar-fill";
-        scoreTrack.appendChild(scoreFill);
-        var scoreReadout = document.createElement("span");
-        scoreReadout.className = "readout";
-        scoreRow.appendChild(scoreTrack);
-        scoreRow.appendChild(scoreReadout);
-        wrap.appendChild(scoreRow);
+        // 4. Verifier select
+        var verCard = document.createElement("div");
+        verCard.className = "ttc-control-card";
+        var verLabel = document.createElement("label");
+        verLabel.setAttribute("for", "ttc-verifier-select");
+        verLabel.textContent = "Verifier Quality";
+        var verSelect = document.createElement("select");
+        verSelect.id = "ttc-verifier-select";
+        [
+          { value: "majority", text: "Majority Vote (Self-Consistency)" },
+          { value: "weak", text: "Weak Verifier (Noisy Heuristic / Smoke Test)" },
+          { value: "exact", text: "Exact Unit-Test Verifier" }
+        ].forEach(function (opt) {
+          var o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.text;
+          verSelect.appendChild(o);
+        });
+        verSelect.value = state.verifier;
+        verCard.appendChild(verLabel);
+        verCard.appendChild(verSelect);
 
-        var btnRow = document.createElement("div");
-        btnRow.className = "exercise-toolbar";
-        var revealBtn = document.createElement("button");
-        revealBtn.type = "button";
-        revealBtn.className = "btn btn-primary";
-        revealBtn.textContent = "Reveal revision";
-        revealBtn.disabled = true;
-        var nextBtn = document.createElement("button");
-        nextBtn.type = "button";
-        nextBtn.className = "btn btn-secondary";
-        nextBtn.textContent = "Next round";
-        btnRow.appendChild(revealBtn);
-        btnRow.appendChild(nextBtn);
-        wrap.appendChild(btnRow);
+        grid.appendChild(diffCard);
+        grid.appendChild(budgetCard);
+        grid.appendChild(nCard);
+        grid.appendChild(verCard);
+        wrap.appendChild(grid);
+
+        // Metrics row
+        var metrics = document.createElement("div");
+        metrics.className = "ttc-metrics";
+        function makeMetric(lbl) {
+          var box = document.createElement("div");
+          box.className = "ttc-metric";
+          var num = document.createElement("span");
+          num.className = "num";
+          var lab = document.createElement("span");
+          lab.className = "lbl";
+          lab.textContent = lbl;
+          var sub = document.createElement("span");
+          sub.className = "sub";
+          box.appendChild(num);
+          box.appendChild(lab);
+          box.appendChild(sub);
+          metrics.appendChild(box);
+          return { num: num, sub: sub };
+        }
+        var mPass1 = makeMetric("RLVR pass@1");
+        var mPassN = makeMetric("Oracle pass@N");
+        var mEff = makeMetric("Effective Solved Rate");
+        var mLat = makeMetric("Total Latency");
+        var mCost = makeMetric("Cost / Solved Problem");
+        wrap.appendChild(metrics);
+
+        // Canvas
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "ttc-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 760;
+        canvas.height = 310;
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", "Scaling curve comparing Base pass@1, RLVR pass@1, and Effective Solved Rate across thinking token budgets from 256 to 16,384.");
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var callout = document.createElement("p");
+        callout.className = "ttc-callout";
+        callout.setAttribute("role", "status");
+        callout.setAttribute("aria-live", "polite");
+        wrap.appendChild(callout);
 
         root.appendChild(wrap);
 
-        var roundIndex = 0;
-        var pickedPrincipleId = null;
+        var ctx2d = canvas.getContext("2d");
 
-        function setScore(value) {
-          scoreFill.style.width = value + "%";
-          scoreReadout.textContent = value + " / 100";
-          scoreFill.style.background = value >= 60 ? "var(--color-error)" : (value >= 30 ? "#d38a12" : "var(--color-success)");
-        }
+        function drawCurve(sim) {
+          var w = canvas.width, h = canvas.height;
+          var padL = 56, padR = 24, padT = 36, padB = 46;
+          var plotW = w - padL - padR;
+          var plotH = h - padT - padB;
 
-        function loadRound() {
-          var round = ROUNDS[roundIndex];
-          roundLabel.textContent = "Round " + (roundIndex + 1) + " of " + ROUNDS.length;
-          draftBox.className = "draft-box";
-          draftBox.textContent = round.draft;
-          feedback.textContent = "Which principle does this draft violate?";
-          feedback.style.color = "";
-          pickedPrincipleId = null;
-          revealBtn.disabled = true;
-          setScore(round.scoreBefore);
+          ctx2d.clearRect(0, 0, w, h);
+          ctx2d.fillStyle = "#ffffff";
+          ctx2d.fillRect(0, 0, w, h);
 
-          Object.keys(principleButtons).forEach(function (id) {
-            principleButtons[id].className = "principle-btn";
-            principleButtons[id].disabled = false;
+          // Grid lines Y
+          ctx2d.font = "11px sans-serif";
+          ctx2d.textAlign = "right";
+          ctx2d.textBaseline = "middle";
+          [0, 25, 50, 75, 100].forEach(function (pct) {
+            var y = padT + plotH * (1 - pct / 100);
+            ctx2d.strokeStyle = "#e4e8f2";
+            ctx2d.lineWidth = 1;
+            ctx2d.beginPath();
+            ctx2d.moveTo(padL, y);
+            ctx2d.lineTo(w - padR, y);
+            ctx2d.stroke();
+            ctx2d.fillStyle = "#46506b";
+            ctx2d.fillText(pct + "%", padL - 8, y);
           });
-        }
 
-        Object.keys(principleButtons).forEach(function (id) {
-          principleButtons[id].addEventListener("click", function () {
-            if (pickedPrincipleId !== null) return; // already answered this round
-            pickedPrincipleId = id;
-            var round = ROUNDS[roundIndex];
-            var isCorrect = id === round.violates;
+          // X ticks (log scale 256 .. 16384)
+          var ticks = [256, 512, 1024, 2048, 4096, 8192, 16384];
+          ctx2d.textAlign = "center";
+          ctx2d.textBaseline = "top";
+          ticks.forEach(function (tk) {
+            var u = Math.log2(tk / 256) / 6;
+            var x = padL + u * plotW;
+            ctx2d.strokeStyle = "#edf0f7";
+            ctx2d.beginPath();
+            ctx2d.moveTo(x, padT);
+            ctx2d.lineTo(x, padT + plotH);
+            ctx2d.stroke();
+            ctx2d.fillStyle = "#46506b";
+            ctx2d.fillText(tk >= 1024 ? (tk / 1024) + "k" : String(tk), x, padT + plotH + 8);
+          });
 
-            Object.keys(principleButtons).forEach(function (pid) {
-              principleButtons[pid].disabled = true;
-              if (pid === round.violates) {
-                principleButtons[pid].className = "principle-btn correct-pick";
-              } else if (pid === id && !isCorrect) {
-                principleButtons[pid].className = "principle-btn wrong-pick";
-              }
+          ctx2d.fillStyle = "#46506b";
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.fillText("Thinking-Token Budget (log scale)", padL + plotW / 2, h - 16);
+
+          // Active budget vertical guide
+          var curU = clamp(Math.log2(state.budget / 256) / 6, 0, 1);
+          var curX = padL + curU * plotW;
+          ctx2d.save();
+          ctx2d.strokeStyle = "#94a3b8";
+          ctx2d.setLineDash([4, 4]);
+          ctx2d.lineWidth = 1.5;
+          ctx2d.beginPath();
+          ctx2d.moveTo(curX, padT);
+          ctx2d.lineTo(curX, padT + plotH);
+          ctx2d.stroke();
+          ctx2d.restore();
+
+          // Sample curve points across 60 steps
+          var steps = 60;
+          var ptsBase = [], ptsRlvr = [], ptsEff = [];
+          for (var i = 0; i <= steps; i++) {
+            var u = i / steps;
+            var b = 256 * Math.pow(2, 6 * u);
+            var s = simulatePoint(state.difficulty, b, state.N, state.verifier);
+            var x = padL + u * plotW;
+            ptsBase.push({ x: x, y: padT + plotH * (1 - s.basePass1) });
+            ptsRlvr.push({ x: x, y: padT + plotH * (1 - s.rlvrPass1) });
+            ptsEff.push({ x: x, y: padT + plotH * (1 - s.effectiveSolved) });
+          }
+
+          function strokeCurve(pts, color, width, dash) {
+            ctx2d.save();
+            ctx2d.strokeStyle = color;
+            ctx2d.lineWidth = width;
+            if (dash) ctx2d.setLineDash(dash);
+            ctx2d.beginPath();
+            pts.forEach(function (p, idx) {
+              if (idx === 0) ctx2d.moveTo(p.x, p.y);
+              else ctx2d.lineTo(p.x, p.y);
             });
+            ctx2d.stroke();
+            ctx2d.restore();
+          }
 
-            feedback.textContent = isCorrect
-              ? "Correct — that's the violated principle. Click \"Reveal revision\" to see the critique-and-revise step."
-              : "Not quite — the highlighted principle (in green) is the one actually violated. Click \"Reveal revision\" to compare.";
-            feedback.style.color = isCorrect ? "var(--color-success)" : "var(--color-error)";
-            revealBtn.disabled = false;
+          strokeCurve(ptsBase, "#64748b", 2, [6, 4]);
+          strokeCurve(ptsRlvr, "#2554e8", 2.5, null);
+          strokeCurve(ptsEff, "#0d946e", 3, null);
+
+          // Highlight active points
+          function drawDot(yVal, color) {
+            var y = padT + plotH * (1 - yVal);
+            ctx2d.fillStyle = color;
+            ctx2d.beginPath();
+            ctx2d.arc(curX, y, 5.5, 0, Math.PI * 2);
+            ctx2d.fill();
+            ctx2d.strokeStyle = "#ffffff";
+            ctx2d.lineWidth = 1.5;
+            ctx2d.stroke();
+          }
+          drawDot(sim.basePass1, "#64748b");
+          drawDot(sim.rlvrPass1, "#2554e8");
+          drawDot(sim.effectiveSolved, "#0d946e");
+
+          // Legend at top
+          var legendItems = [
+            { label: "Base pass@1", color: "#64748b", dash: true },
+            { label: "RLVR pass@1 (GRPO)", color: "#2554e8", dash: false },
+            { label: "Effective Solved @ N=" + state.N + " (" + state.verifier + ")", color: "#0d946e", dash: false }
+          ];
+          var lx = padL;
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.textAlign = "left";
+          ctx2d.textBaseline = "middle";
+          legendItems.forEach(function (item) {
+            ctx2d.save();
+            ctx2d.strokeStyle = item.color;
+            ctx2d.lineWidth = 3;
+            if (item.dash) ctx2d.setLineDash([5, 3]);
+            ctx2d.beginPath();
+            ctx2d.moveTo(lx, 15);
+            ctx2d.lineTo(lx + 22, 15);
+            ctx2d.stroke();
+            ctx2d.restore();
+            ctx2d.fillStyle = "#151c2e";
+            ctx2d.fillText(item.label, lx + 28, 15);
+            lx += ctx2d.measureText(item.label).width + 52;
           });
+        }
+
+        function update() {
+          budgetReadout.textContent = state.budget.toLocaleString() + " tok";
+          nReadout.textContent = "N = " + state.N;
+
+          var sim = simulatePoint(state.difficulty, state.budget, state.N, state.verifier);
+
+          mPass1.num.textContent = (sim.rlvrPass1 * 100).toFixed(1) + "%";
+          mPass1.sub.textContent = "Base: " + (sim.basePass1 * 100).toFixed(1) + "%";
+
+          mPassN.num.textContent = (sim.passN * 100).toFixed(1) + "%";
+          mPassN.sub.textContent = "Oracle upper bound";
+
+          mEff.num.textContent = (sim.effectiveSolved * 100).toFixed(1) + "%";
+          mEff.num.style.color = sim.effectiveSolved >= 0.7 ? "var(--color-success)" : (sim.effectiveSolved < sim.rlvrPass1 - 0.02 ? "var(--color-error)" : "var(--color-primary)");
+          mEff.sub.textContent = state.N === 1 ? "Single sample" : (state.verifier === "exact" ? "Matches pass@N" : "vs " + (sim.passN * 100).toFixed(1) + "% ceiling");
+
+          mLat.num.textContent = sim.latencySec.toFixed(1) + "s";
+          mLat.sub.textContent = "~" + sim.actualThinking.toLocaleString() + " think tok/sample";
+
+          mCost.num.textContent = "$" + sim.costPerSolved.toFixed(4);
+          mCost.sub.textContent = "Expected $/solve";
+
+          drawCurve(sim);
+
+          if (state.difficulty === "easy" && state.budget >= 4096) {
+            callout.className = "ttc-callout warn";
+            callout.textContent = "Overthinking alert: On Easy prompts, Base already clears " + (sim.basePass1 * 100).toFixed(0) + "%. Pushing budget to " + state.budget.toLocaleString() + " tokens (and N=" + state.N + ") balloons cost per solved problem with negligible or negative accuracy return.";
+          } else if (state.verifier === "weak" && state.N >= 6 && sim.effectiveSolved < sim.rlvrPass1) {
+            callout.className = "ttc-callout warn";
+            callout.textContent = "Reward hacking (Goodhart's Law): With a weak verifier and N=" + state.N + " candidates, flawed solutions that exploit verifier loopholes outcompete honest ones — pulling effective accuracy (" + (sim.effectiveSolved * 100).toFixed(1) + "%) BELOW single-sample pass@1 (" + (sim.rlvrPass1 * 100).toFixed(1) + "%)!";
+          } else if (state.verifier === "majority" && state.N >= 4 && sim.passN - sim.effectiveSolved > 0.15) {
+            callout.className = "ttc-callout";
+            callout.textContent = "Verifier bottleneck: Majority voting hits " + (sim.effectiveSolved * 100).toFixed(1) + "% while Oracle pass@" + state.N + " is " + (sim.passN * 100).toFixed(1) + "%. A shared wrong misconception caps self-consistency; switching to an exact verifier unlocks the remaining " + ((sim.passN - sim.effectiveSolved) * 100).toFixed(0) + " pp.";
+          } else if (state.verifier === "exact" && state.N > 1) {
+            callout.className = "ttc-callout good";
+            callout.textContent = "Test-time scaling sweet spot: Exact verification captures the full pass@" + state.N + " ceiling (" + (sim.effectiveSolved * 100).toFixed(1) + "%), turning parallel samples directly into solved problems (" + (sim.rlvrPass1 * 100).toFixed(1) + "% -> " + (sim.effectiveSolved * 100).toFixed(1) + "%).";
+          } else {
+            callout.className = "ttc-callout";
+            callout.textContent = "At " + state.budget.toLocaleString() + " thinking tokens on " + state.difficulty + " tasks, RLVR reaches " + (sim.rlvrPass1 * 100).toFixed(1) + "% pass@1 vs Base " + (sim.basePass1 * 100).toFixed(1) + "%. Raise N or budget to explore cost-vs-accuracy scaling.";
+          }
+        }
+
+        budgetSlider.addEventListener("input", function () {
+          state.budget = parseInt(budgetSlider.value, 10);
+          update();
+        });
+        nSlider.addEventListener("input", function () {
+          state.N = parseInt(nSlider.value, 10);
+          update();
+        });
+        verSelect.addEventListener("change", function () {
+          state.verifier = verSelect.value;
+          update();
         });
 
-        revealBtn.addEventListener("click", function () {
-          var round = ROUNDS[roundIndex];
-          draftBox.className = "draft-box revised";
-          draftBox.textContent = "Revised: " + round.revised;
-          setScore(round.scoreAfter);
-          feedback.textContent = "Self-critique applied against the violated principle -> harmfulness score dropped from " +
-            round.scoreBefore + " to " + round.scoreAfter + ".";
-          feedback.style.color = "var(--color-success)";
-          revealBtn.disabled = true;
-        });
-
-        nextBtn.addEventListener("click", function () {
-          roundIndex = (roundIndex + 1) % ROUNDS.length;
-          loadRound();
-        });
-
-        loadRound();
+        update();
       }
     });
 
@@ -288,48 +678,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In constitutional AI, what does the model do with a written \"constitution\"?",
+          q: "How does Group Relative Policy Optimization (GRPO) eliminate the memory-heavy critic (value) network used in PPO?",
           options: [
-            "It memorizes the constitution word-for-word and refuses to answer anything not listed in it",
-            "It uses the constitution's principles to critique and revise its own draft outputs",
-            "It sends the constitution to a human reviewer for every single response",
-            "It ignores the constitution once training finishes"
+            "By freezing the policy weights and only fine-tuning the token embeddings during RL",
+            "By sampling a group of G completions per prompt, scoring them with a verifier, and normalizing each reward against the group mean and standard deviation",
+            "By replacing policy gradients with supervised next-token cross-entropy on the top-ranked rollout only",
+            "By estimating token-level values from a frozen copy of the pretraining corpus statistics"
           ],
           answer: 1,
-          explanation: "The core mechanism is self-critique and revision: the model checks its own draft against the written principles and produces an improved version."
+          explanation: "GRPO removes the separate critic network by computing relative advantages A_i = (r_i - mean(r)) / (std(r) + eps) across a group of G sampled rollouts for the same prompt. Freezing embeddings or using cross-entropy alone is not GRPO, and static pretraining statistics cannot score prompt-specific rollouts."
         },
         {
-          q: "How does constitutional AI relate to RLHF/RLAIF?",
+          q: "On a hard coding benchmark, RLVR pass@1 is 25% and pass@8 is 90%. When you scale Best-of-8 using a shallow smoke-test verifier instead of a thorough unit-test suite, solved rate climbs to 55% at N=4 and then drops to 38% at N=8. What happened?",
           options: [
-            "It fully replaces the need for any human or AI feedback training",
-            "It is a complementary technique that can reduce, but doesn't eliminate, reliance on large-scale human preference labeling",
-            "It has nothing to do with alignment training",
-            "It can only be used after RLHF is finished and never before"
+            "The model's KV-cache overflowed at N=8, truncating every candidate before the final answer",
+            "Higher N caused Goodhart's Law reward hacking: more samples increased the chance of generating a flawed solution that passes the weak smoke test",
+            "Majority voting automatically overrides any unit-test signal once N exceeds 4",
+            "Increasing N reduces the per-sample temperature, collapsing all 8 rollouts into identical outputs"
           ],
           answer: 1,
-          explanation: "Constitutional AI reduces how much human-labeled preference data is needed by substituting some of it with principle-based self-critique, but it complements rather than replaces RLHF/RLAIF."
+          explanation: "With an imperfect verifier, drawing more candidates increases the probability of sampling a spec-gaming or false-positive failure that fools the weak check and outranks honest solutions. Best-of-N does not force KV overflow or change sampling temperature."
         },
         {
-          q: "A draft response states an unverified claim as though it were settled fact. Which kind of principle would most directly flag this?",
+          q: "Why would a team add a Process Reward Model (PRM) with beam search rather than relying purely on majority voting for multi-step math?",
           options: [
-            "A principle about formatting responses in bullet points",
-            "A principle about honesty / not overstating certainty",
-            "A principle about response length",
-            "A principle about using a friendly tone"
+            "Because PRMs guarantee zero false positives without any ground-truth checks",
+            "Because a PRM scores intermediate reasoning steps, pruning early arithmetic or logic errors before wasting tokens — whereas majority voting fails if a common trap dominates",
+            "Because PRMs eliminate the need to generate multiple candidate steps during inference",
+            "Because majority voting cannot be applied to problems with numerical final answers"
           ],
           answer: 1,
-          explanation: "Overstating certainty about an unverified claim is a factual-honesty violation, which is exactly the kind of thing an honesty principle in the constitution is meant to catch."
+          explanation: "PRMs evaluate step-by-step correctness to steer search away from broken derivations early, whereas majority voting only inspects final answers and fails whenever a shared misconception wins a plurality. PRMs are still learned approximations (not zero-FPR) and rely on sampling/search over candidates."
         },
         {
-          q: "In the exercise, what causes the harmfulness score to drop?",
+          q: "You deploy an RLVR reasoning model with a fixed 8,192 thinking-token minimum budget across all customer support queries, and p95 latency spikes 6x on simple FAQ lookups without higher accuracy. What is the best diagnosis?",
           options: [
-            "Waiting a fixed amount of time",
-            "The critique-and-revise step: identifying the violated principle and replacing the draft with a revised response",
-            "Randomly refreshing the page",
-            "Selecting more than one principle at once"
+            "GRPO training destroyed the model's factual parametric knowledge from pretraining",
+            "Overthinking on trivial prompts: forcing large reasoning budgets on easy queries burns decode tokens and time with zero accuracy lift (and occasional self-doubt errors)",
+            "RLVR models can only run with Best-of-16 parallel sampling enabled",
+            "The KL penalty during RLVR was set too high, preventing the model from emitting an end-of-think token"
           ],
           answer: 1,
-          explanation: "The score only drops after the revision is revealed — it represents the reduction in harm/risk from applying the self-critique-and-revise loop to the original draft."
+          explanation: "Easy queries already achieve near-ceiling pass@1 at low token counts; forcing thousands of thinking tokens triggers overthinking overhead and latency blowup. An overly high KL penalty would keep the model closer to the shorter base policy, not force 8,192 tokens."
         }
       ]
     });

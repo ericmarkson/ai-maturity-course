@@ -23,35 +23,67 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why a model pretrained on general images can be
-      adapted to a narrow task (e.g. classifying a specific product type) with much less data than
-      training from scratch, and describe the tradeoff between freezing vs. fine-tuning layers.
+      <strong>Learning objective:</strong> Explain why pretrained lower-layer representations transfer across tasks,
+      choose between frozen feature extraction and progressive layer fine-tuning based on dataset size and domain
+      similarity, and avoid overwriting pretrained features with overly large learning rates.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Transfer learning</strong> means reusing a model that's already been trained on a
-          large, general dataset as the starting point for a new, related task — instead of training
-          a new model from scratch. The early layers of a pretrained network tend to have learned
-          general-purpose features (edges, textures, common word patterns); the later layers tend to
-          be more specific to the original task. Transfer learning reuses the general part and adapts
-          the specific part.
+          <strong>Transfer learning</strong> initializes a model for a new target task using weights learned on a large,
+          general source task (e.g., ImageNet vision backbones or pretrained language models) instead of starting from
+          random weights. Because early layers capture reusable low-level structure while upper layers specialize in
+          high-level labels, reusing the backbone drastically shrinks required labeled examples and compute.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Hierarchical Feature Reuse:</strong> In vision CNNs, Layer 1 detects oriented edges and color
+        contrasts, mid layers build textures and geometric parts, and the final head maps parts to specific classes. In
+        NLP, lower layers capture syntax and word sense while top layers align to task format.
+      </p>
+      <p>
+        <strong>2. Freezing vs. Fine-Tuning Spectrum:</strong>
+      </p>
       <ul>
-        <li>Why training large models from scratch is expensive and often unnecessary</li>
-        <li><strong>Freezing</strong> early layers (keep their general features fixed) vs.
-          <strong>fine-tuning</strong> later layers (adapt task-specific features)</li>
-        <li>Feature extraction vs. full fine-tuning as two ends of a spectrum</li>
-        <li>When transfer learning works well vs. when the source and target domains are too
-          different for it to help</li>
+        <li><strong>Feature extraction (freeze backbone, train new head):</strong> Sets <code>requires_grad = False</code>
+          on layers 1–4 and trains only a fresh Layer 5 classification head. Best when you have a small dataset
+          (hundreds of examples) and source/target domains look similar.</li>
+        <li><strong>Partial or full fine-tuning:</strong> Unfreezes later blocks (or all layers) once a warm head is
+          trained, updating backbone weights gently when you have thousands of examples or subtle domain differences.</li>
       </ul>
+      <p>
+        <strong>3. Source–Target Domain Distance:</strong> Natural photos transfer cleanly to wildlife ID or retail
+        product tagging; distant domains (e.g., natural RGB photos &rarr; medical X-rays or ultrasound) need deeper
+        unfreezing, and completely unrelated signals gain little from transfer.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Classifying 500 Manufacturing Defects</h3>
+      <p>
+        Suppose a factory collects <strong>500 labeled photos</strong> of circuit-board defects across 4 classes:
+      </p>
+      <ul>
+        <li><strong>Training a 25M-weight CNN from scratch:</strong> Severely overfits the 500 images (~60% val accuracy).</li>
+        <li><strong>Frozen pretrained backbone + new 4-class head:</strong> Reuses pretrained edge/texture filters; fast to train and jumps to ~86% val accuracy.</li>
+        <li><strong>Unfreezing only Layer 4 + Head (10× smaller lr):</strong> Adapts high-level object features to solder joints without scrambling universal edge detectors—reaching ~91%. Unfreezing Layer 1 on just 500 examples, by contrast, overfits general filters and drops validation accuracy.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Using Scratch-Training Learning Rates on Unfrozen Backbones</h3>
+      <p>
+        Starting fine-tuning with an uninitialized random classification head and a large learning rate (e.g.,
+        <code>1e-2</code>) sends giant noisy gradients backward into carefully tuned pretrained layers, erasing useful
+        features within epochs. Train the new head first (warm-up) or use a much smaller learning rate (like
+        <code>1e-4</code> or <code>1e-5</code>) on unfrozen backbone blocks.
+      </p>
     </section>
 
   </div>
@@ -207,48 +239,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why can a model pretrained on a large general image dataset be adapted to a narrow new task with much less data than training from scratch?",
+          q: "Why does initializing from a pretrained vision backbone dramatically cut the labeled data needed for a new narrow image task?",
           options: [
-            "Because pretrained models are always smaller than models trained from scratch",
-            "Because it already learned general-purpose features (edges, shapes, textures) that are reusable, so only the task-specific part needs to be learned from the new, smaller dataset",
-            "Because transfer learning removes the need for any labeled data at all",
-            "Because pretrained models automatically adjust their own architecture"
+            "Because pretrained weights automatically expand small datasets via hidden data augmentation",
+            "Because early and mid layers already encode reusable visual primitives (edges, corners, textures), so the small dataset only needs to learn task-specific mapping",
+            "Because frozen networks evaluate predictions without computing forward-pass activations",
+            "Because pretrained models shrink to match the smaller number of target classes"
           ],
           answer: 1,
-          explanation: "The expensive part — learning broadly useful low-level features — was already done on a huge dataset. The new task only needs to adapt or learn the more specific, later part of the network."
+          explanation: "Learning universal edge and shape detectors from random weights takes huge datasets. Transfer learning reuses that already-learned feature hierarchy and concentrates your small dataset on the final classification mapping."
         },
         {
-          q: "What does 'freezing' a layer mean during transfer learning?",
+          q: "What happens mechanically to a 'frozen' layer during backpropagation and optimization?",
           options: [
-            "Deleting that layer from the network",
-            "Keeping that layer's pretrained weights fixed so they don't change during training on the new task",
-            "Doubling that layer's learning rate",
-            "Copying that layer's weights to every other layer"
+            "The layer is skipped during both forward and backward passes to save compute",
+            "Its weights remain locked against optimizer updates during training, while still passing activations forward",
+            "Its weights are re-initialized to random Gaussian values at every epoch",
+            "Its learning rate is doubled relative to the final classification head"
           ],
           answer: 1,
-          explanation: "A frozen layer's weights stay exactly as they were from pretraining — it still processes data during the forward pass, but gradients don't update it during training."
+          explanation: "Frozen layers still compute activations during the forward pass so downstream layers receive features, but their weights stay unchanged (no optimizer step), reducing memory and preventing overfitting."
         },
         {
-          q: "In the exercise's heuristic, why does unfreezing early layers (vs. only later layers) tend to hurt accuracy when the new dataset is small?",
+          q: "When adapting a pretrained 5-layer network with only ~500 labeled target images, why does unfreezing early Layer 1–2 filters typically hurt validation accuracy compared to freezing them?",
           options: [
-            "Early layers have no effect on the output at all",
-            "Early layers hold general-purpose features; disturbing them with too little data risks overfitting or destroying useful general features (sometimes called catastrophic forgetting)",
-            "Early layers are always frozen no matter what, so this can never actually happen",
-            "Because early layers require negative compute"
+            "Because early convolutional layers have smaller gradient norms than the final layer",
+            "Because 500 samples aren't enough to re-learn universal edge/texture filters—updating them injects noise and overwrites broadly useful features",
+            "Because freezing early layers doubles the effective batch size automatically",
+            "Because early layers cannot compute gradients once the output head is replaced"
           ],
           answer: 1,
-          explanation: "With only a small labeled dataset, retraining the general early layers risks overwriting broadly useful features with noise fit to the small new dataset, hurting generalization."
+          explanation: "With limited data, updating millions of low-level parameters risks overfitting those general filters to noise in the 500 samples (catastrophic forgetting), degrading generalization."
         },
         {
-          q: "When does transfer learning tend to work poorly?",
+          q: "Which scenario is LEAST likely to benefit strongly from freezing an ImageNet photo classifier and training only a linear head?",
           options: [
-            "When the new task is closely related to the original pretraining data",
-            "When the source domain the model was pretrained on and the target domain are too different for the learned features to transfer usefully",
-            "Whenever a GPU is available",
-            "Only when using PyTorch specifically"
+            "Classifying 800 retail shoe photos into 6 brand styles",
+            "Classifying 1,200 garden bird photos into 12 species",
+            "Classifying grayscale medical ultrasound or spectrograms where pixel patterns differ fundamentally from natural daylight photos",
+            "Classifying 600 street-vehicle photos into 4 vehicle types"
           ],
-          answer: 1,
-          explanation: "Transfer learning relies on shared structure between the source and target domains. If they're too dissimilar, the pretrained features may not be relevant, and training from scratch (or finding a more relevant pretrained model) can work better."
+          answer: 2,
+          explanation: "Transfer with a frozen backbone relies on strong visual similarity between source and target domains. When the target modality (like ultrasound or spectrograms) differs sharply from natural photos, deeper fine-tuning or domain-matched pretraining is needed."
         }
       ]
     });

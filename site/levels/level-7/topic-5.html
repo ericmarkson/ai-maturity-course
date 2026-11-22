@@ -53,15 +53,48 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Spans and traces — representing one LLM/agent run as a tree of nested steps</li>
-        <li>Key signals to capture: inputs/outputs, token usage, latency, cost, errors</li>
-        <li>Aggregating traces into dashboards and metrics (error rate, p95 latency, cost per run)</li>
-        <li>Standardization efforts (e.g. OpenTelemetry's GenAI semantic conventions) and vendor tools
-          (LangSmith, Langfuse) as illustrative examples only</li>
+        <li>
+          <strong>Traces &amp; Nested Span Trees:</strong> Every user request creates one end-to-end <strong>trace</strong>
+          (<code>trace_id</code>) made of nested <strong>spans</strong> (<code>span_id</code>, <code>parent_span_id</code>,
+          start timestamp, duration). Plotting spans as a waterfall immediately isolates whether latency lives in an LLM
+          call, a slow vector search, or an internal sub-agent call.
+        </li>
+        <li>
+          <strong>OpenTelemetry GenAI Semantic Signals:</strong> Standardized span attributes capture
+          <code>gen_ai.request.model</code>, prompt/completion token counts, computed USD cost, Time-to-First-Token
+          (<code>TTFT</code>) vs. total latency, tool input/output payloads, and structured error codes—portable across
+          observability backends (Langfuse, LangSmith, Arize, Jaeger).
+        </li>
+        <li>
+          <strong>Dashboards, Tail Latency (<code>p95</code>/<code>p99</code>) &amp; Cost Attribution:</strong>
+          Aggregating spans across production traffic tracks <code>p95</code> latency (catching slow worst-case runs
+          hidden by averages), per-step error rates, and cost per resolved task—linking live telemetry to online evals.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Inspect the 5-span trace in the waterfall below:
+      </p>
+      <ul>
+        <li><strong>Baseline run:</strong> <code>initial LLM (400 ms)</code> → <code>vector_search (150 ms)</code> → <code>subagent (300 ms, enclosing 250 ms child LLM)</code> → <code>final LLM (350 ms)</code> = <strong>1,200 ms</strong> total (<code>$0.0062</code> across <code>900</code> tokens).</li>
+        <li><strong>Injecting <code>+1,000 ms</code> into <code>vector_search</code>:</strong> That single tool span expands to <code>1,150 ms</code>, pushing all downstream spans right to <strong>2,200 ms</strong> total—making <code>vector_search</code> <strong>52%</strong> of end-to-end latency.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Monitoring only mean latency and logging unredacted PII.</strong> Mean latency looks healthy even when
+        5% of users wait 18 seconds due to retries or oversized prompts (only <code>p95</code>/<code>p99</code> catch
+        this). Equally dangerous: writing raw prompts and tool outputs unredacted into trace stores leaks customer PII,
+        auth tokens, or regulated health records—requiring automated PII scrubbing, retention limits, and trace sampling.
+      </p>
     </section>
 
   </div>
@@ -260,48 +293,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In tracing terminology, what is a \"span\"?",
+          q: "In a waterfall trace for a multi-step agent, parent span 'subagent' has duration 300 ms and encloses child span 'LLM call: summarize' of 250 ms. Why would simply summing every span's duration (400 + 150 + 300 + 250 + 350 = 1,450 ms) overcount the total request latency?",
           options: [
-            "A single step or operation within a run (e.g. one LLM call or tool call) with a start time and duration",
-            "The entire multi-week model training run",
-            "A type of neural network layer",
-            "A database index used for vector search"
+            "Because nested child spans execute inside their parent span's wall-clock window rather than sequentially after it",
+            "Because LLM calls execute asynchronously after the final response is returned to the user",
+            "Because vector_search spans run zero-copy in GPU memory without wall-clock delay",
+            "Because OpenTelemetry automatically subtracts input token processing time from total duration"
           ],
           answer: 0,
-          explanation: "A span represents one discrete operation inside a trace — an LLM call, a tool call, a sub-agent call — each with timing and metadata."
+          explanation: "In nested span trees, the parent span's 300 ms duration already encompasses the 250 ms child call plus ~50 ms of wrapper overhead—so end-to-end wall-clock time along the critical path is 1,200 ms, not 1,450 ms."
         },
         {
-          q: "Which fields does a genuinely useful LLM trace need to capture, at minimum?",
+          q: "Product managers report that users complain the assistant 'feels sluggish,' even though the observability dashboard shows average latency is a fast 950 ms. Which metric should engineers inspect first?",
           options: [
-            "Just the span's name, nothing else",
-            "Inputs/outputs, token usage, latency, cost, and errors",
-            "Only the GPU's current temperature",
-            "The developer's name and nothing about execution"
+            "p95 / p99 tail latency and per-span breakdown (including TTFT vs. tool-call duration), since rare slow retries or long contexts pull tail UX far above the mean",
+            "Minimum (p0) latency across cached warm-up requests",
+            "Average input token length divided by model vocabulary size",
+            "Total number of spans emitted per minute regardless of duration"
+          ],
+          answer: 0,
+          explanation: "Averages hide skewed tails: if 90% of requests finish in 600 ms and 10% stall for 4–8 seconds on tool retries, mean latency stays under 1 second while 1 in 10 users suffers. p95/p99 plus waterfall span attribution exposes the bottleneck."
+        },
+        {
+          q: "You are adopting OpenTelemetry GenAI semantic conventions to attribute monthly AI spend across features and catch silent degradation. Which minimal attribute set must every LLM span record?",
+          options: [
+            "Only span_name and start_time, because cost can be inferred accurately from wall-clock milliseconds",
+            "Model identifier, input/output token counts, latency (TTFT & total), cost, error/status code, and redacted input/output references",
+            "Only the final user-facing string and HTTP 200 status code",
+            "GPU clock frequency and kernel launch count per transformer block"
           ],
           answer: 1,
-          explanation: "Without inputs/outputs, token usage, latency, cost, and error status, a trace can't actually be used to debug or monitor an AI system."
+          explanation: "Wall-clock duration does not map cleanly to dollars across cached/prompt/completion pricing tiers. Recording model ID, input/output tokens, cost, timing, error status, and scrubbed payloads enables full cost attribution and debugging."
         },
         {
-          q: "In the exercise, what happens as you increase the injected latency slider on the vector_search tool call?",
+          q: "Which operational practices make LLM tracing safe and actionable at scale? (Select all that apply.)",
           options: [
-            "Nothing else in the trace changes",
-            "That span's bar grows, later spans shift right in time, and the total trace duration increases correspondingly",
-            "The total trace duration decreases",
-            "Only the span's token count changes"
-          ],
-          answer: 1,
-          explanation: "Because later spans start only after earlier ones finish, slowing one span down pushes every subsequent span later and increases the overall trace duration."
-        },
-        {
-          q: "Which of these are legitimate reasons to aggregate individual traces into dashboards? (select all that apply)",
-          options: [
-            "Tracking p95 latency trends across many runs",
-            "Tracking cost per run over time",
-            "Tracking error rate trends across runs",
-            "Aggregation removes any need to ever inspect an individual trace"
+            "Redacting or hashing PII, secrets, and bearer tokens before spans leave the application boundary",
+            "Attaching trace_id to user feedback and online eval scores so bad outputs link straight to the failing span",
+            "Alerting on sudden shifts in p95 latency, error rate, or cost-per-run across prompt versions",
+            "Storing raw, unredacted customer inputs indefinitely on every debug trace regardless of compliance policy"
           ],
           answer: [0, 1, 2],
-          explanation: "Dashboards are for spotting trends across many runs (latency, cost, errors); they complement, but don't replace, drilling into an individual trace when something specific goes wrong."
+          explanation: "PII scrubbing, linking user feedback/evals to trace IDs, and dashboard alerts on tail latency/cost/errors are core production practices. Logging raw PII indefinitely creates severe security and compliance risk."
         }
       ]
     });

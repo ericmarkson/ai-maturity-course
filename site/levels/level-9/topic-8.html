@@ -22,35 +22,42 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Describe one concrete way a foundation-model technique (e.g.,
-      attention, diffusion, self-supervised pretraining) transferred from language into a scientific domain, and
-      one domain-specific reliability risk that doesn't exist in a pure chat setting.
+      <strong>Learning objective:</strong> Explain how biological sequence/structure priors (Evo, ESM, AlphaFold-3 Pairformer + SE(3) diffusion) and Vision-Language-Action (VLA) robotic control loops adapt foundation-model primitives, and diagnose domain-specific reliability hazards absent in text chat.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Cross-disciplinary AI means applying foundation-model techniques outside language — to protein
-          structure, molecular design, robotic control, and general scientific discovery. The same underlying
-          building blocks (attention, diffusion, self-supervised pretraining) that power chatbots get repurposed
-          to predict how a protein folds, how a molecule binds, or how a robot arm should move next.
+          Cross-disciplinary AI adapts transformer attention, diffusion/flow matching, and self-supervised pretraining into domains governed by physical conservation laws, 3D Euclidean symmetries, evolutionary sequences, and real-time closed-loop actuation—where unverified hallucinations carry physical, biological, or laboratory cost.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Simply feeding SMILES strings or joint angles into a vanilla chatbot underperforms because physical domains embed hard geometric and temporal structure:
+      </p>
       <ul>
-        <li>Structural biology: AlphaFold-3-class models predicting protein/ligand/nucleic-acid structures, and
-          open-weight alternatives (e.g., ESM-family models) enabling in-house fine-tuning</li>
-        <li>Molecular design and drug discovery: models predicting binding affinity jointly with structure, and
-          emerging scaling laws in molecular AI</li>
-        <li>Embodied AI/robotics: vision-language-action models that connect perception, language instruction,
-          and physical control</li>
-        <li>Scientific reliability: the hallucination/reliability problem when generative AI is used to propose
-          or summarize scientific claims</li>
+        <li><strong>Biological sequence &amp; structure priors:</strong> Masked protein language models (ESM) learn evolutionary co-variation across billions of UniRef sequences, while genomic models (Evo) tokenize megabase-scale DNA sequences via hybrid striped/SSM architectures. AlphaFold-3-class models pair a <em>Pairformer</em> (triangle-attention over 2D residue–residue / atom–atom pair representations) with a continuous 3D <em>diffusion structure module</em> operating across proteins, nucleic acids, and small-molecule ligands.</li>
+        <li><strong>Molecular 3D diffusion &amp; steric constraints:</strong> Equivariant 3D diffusion/co-folding models denoise atomic coordinates directly in <code>ℝ<sup>3</sup></code> while predicting binding affinity, enforcing bond valency and steric non-overlap rather than arbitrary text likelihood.</li>
+        <li><strong>Robotics VLA closed control loops:</strong> Vision-Language-Action (VLA) models combine a pretrained VLM backbone (semantic grounding at ~2–5 Hz) with an <em>action-chunking</em> or diffusion/flow-matching motor head outputting smooth joint trajectories at 20–50 Hz inside a continuous sensor-action feedback loop.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Biological &amp; Embodied Pipelines Need Physical Verifiers</h3>
+      <p>
+        In an AlphaFold-3 / molecular diffusion workflow, a candidate binder can achieve high pLDDT confidence yet exhibit subtle steric clashes or unrealistic solvation energy—or worse, a generative literature synthesizer fabricates an assay IC<sub>50</sub> citation. Wet-lab synthesis takes weeks per batch, so robust pipelines filter generated poses through physics-based energy minimization (OpenMM), RDKit valency/PAINS checks, and experimental assay controls before ordering molecules.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Ignoring closed-loop latency and sim-to-real distribution shift in VLAs:</strong> Running a heavy multi-billion-parameter VLM synchronously at every 50 Hz control step causes actuator lag and unstable oscillation, while subtle lighting or friction shifts outside training demonstrations cause compounding compounding-error crashes unless paired with fast low-level safety interlocks.
+      </p>
     </section>
   </div>
 
@@ -347,48 +354,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What do AlphaFold-3-class models and their open-weight alternatives (e.g., ESM-family) predict?",
+          q: "Why do AlphaFold-3-class models combine a pairwise Pairformer representation with a 3D diffusion module instead of predicting 3D coordinates directly via a 1D causal autoregressive LLM?",
           options: [
-            "Protein, ligand, and nucleic-acid structures",
-            "Stock market prices",
-            "Only 2D images of cats",
-            "Network bandwidth requirements"
+            "1D autoregressive LLMs cannot tokenize amino-acid characters from standard FASTA biological files",
+            "Pairwise residue/atom representations preserve 2D inter-atomic distance relationships (invariance to global rotation/translation), while 3D diffusion jointly captures multi-modal conformational geometry across proteins, nucleic acids, and bound ligands",
+            "Diffusion modules eliminate the need for evolutionary sequence priors or self-attention entirely",
+            "Pairformer blocks reduce inference complexity from quadratic O(n²) in residue length to O(1) constant time"
           ],
-          answer: 0,
-          explanation: "These models take biological sequences and predict the 3D structures they fold into, including complexes with ligands and nucleic acids."
+          answer: 1,
+          explanation: "3D folding depends on inter-residue geometric interactions invariant to rigid-body rotation and translation. Pairwise representations encode relational geometry cleanly, and diffusion handles multi-atom complex assembly and conformational flexibility."
         },
         {
-          q: "What is a vision-language-action (VLA) model designed to do?",
+          q: "How do practical Vision-Language-Action (VLA) robotics architectures bridge slow high-level VLM reasoning with smooth, high-frequency physical motor actuation?",
           options: [
-            "Connect perception, language instruction, and physical control for embodied/robotic systems",
-            "Only generate text with no other modality",
-            "Predict protein folding exclusively",
-            "Compress video files"
+            "They run full 70B text generation synchronously at 50 Hz inside the motor firmware loop",
+            "They pair semantic VLM perception/instruction tokens with a lightweight action-chunking or flow-matching policy head predicting multi-step motor trajectories at high frequency",
+            "They discard camera RGB observations during execution and rely strictly on open-loop text plans",
+            "They quantize robot joint torques to binary discrete vocabulary tokens matching BPE text IDs"
           ],
-          answer: 0,
-          explanation: "VLA models fuse a camera feed and a natural-language instruction into a sequence of physical robot actions."
+          answer: 1,
+          explanation: "Continuous physical control requires fast (20–50 Hz), smooth trajectories; action chunking and diffusion/flow-matching action heads let the VLA fuse rich VLM semantics with responsive closed-loop motor execution."
         },
         {
-          q: "What reliability risk is specifically called out as a concern when generative AI is used in scientific contexts?",
+          q: "A drug-discovery team generates 500 novel ligand candidates using a 3D molecular diffusion model with high predicted affinity scores. Why must physics/chemistry verifiers run before wet-lab synthesis?",
           options: [
-            "The hallucination/reliability problem when AI proposes or summarizes scientific claims that may be false but sound plausible",
-            "AI is always 100% correct in scientific domains",
-            "Scientific claims can never be verified by any means",
-            "AI models refuse to engage with scientific topics at all"
+            "Generative diffusion models lack evolutionary sequence pretraining and always fail to converge on carbon rings",
+            "Diffusion samples can satisfy learned statistical likelihood while violating hard physical constraints (steric clashes, strained ring torsions, PAINS alerts, or synthetic unfeasibility), making wet-lab failure expensive",
+            "Molecular diffusion models output 2D SMILES strings that cannot be parsed into 3D coordinates",
+            "Open-weight protein models forbid commercial teams from running downstream molecular docking"
           ],
-          answer: 0,
-          explanation: "A fabricated citation or a subtly wrong scientific claim can look just as fluent and confident as a correct one, making scientific hallucination a distinct reliability risk."
+          answer: 1,
+          explanation: "Unlike text chat where a minor error is trivial, synthesizing an impossible or sterically strained molecule wastes weeks of wet-lab time—making RDKit/physics strain and energy checks mandatory."
         },
         {
-          q: "Which foundation-model technique transferring from language into biology best illustrates cross-disciplinary transfer, per the material?",
+          q: "In DNA-scale foundation models like Evo, why are hybrid striped/SSM architectures paired with single-nucleotide tokenization instead of standard 6-mer BPE tokens and pure full attention?",
           options: [
-            "Attention and self-supervised pretraining techniques from language models being adapted to model protein sequences and structures",
-            "Building physical robots with no software",
-            "Ignoring transformers entirely for biology",
-            "Using only rule-based expert systems, no learning"
+            "Single-nucleotide resolution preserves exact base-pair frameshift and splice-site boundaries while linear/hybrid recurrence scales across hundreds of thousands of base pairs without O(n²) memory blowup",
+            "BPE tokenizers cannot compress sequences composed of a 4-letter alphabet (A, C, G, T)",
+            "Striped/SSM layers automatically compute wet-lab binding affinity without training on genomic data",
+            "Full attention models cannot represent sequences longer than 1,024 nucleotides under RoPE scaling"
           ],
           answer: 0,
-          explanation: "Attention and self-supervised pretraining, first developed for language, were repurposed to model residue relationships and protein structure."
+          explanation: "Coarse k-mer BPE tokens blur single-nucleotide mutations (SNPs and reading-frame shifts); single-nucleotide tokenization preserves fine genomic precision while SSM/hybrid layers keep megabase-scale sequences computationally tractable."
         }
       ]
     });

@@ -41,14 +41,49 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Data parallelism — same model, different data shards, on each device</li>
-        <li>Model parallelism — splitting a single model's layers/parameters across devices</li>
-        <li>Synchronizing gradients/weights across devices — why communication overhead matters</li>
-        <li>When distributed training becomes necessary — model/dataset size thresholds</li>
+        <li>
+          <strong>Data Parallelism (DP / DDP):</strong> Each of <code>N</code> GPUs holds a complete copy of the model
+          weights and optimizer states, while processing a distinct shard of the training batch. After backpropagation,
+          GPUs execute an <strong>All-Reduce</strong> collective to average gradients across devices before updating
+          weights identically. DP scales cleanly until a single GPU can no longer hold the model + optimizer state.
+        </li>
+        <li>
+          <strong>Model Parallelism (Pipeline &amp; Tensor Parallelism):</strong> When a model exceeds one GPU's VRAM,
+          it must be partitioned across devices. <strong>Pipeline Parallelism (PP)</strong> assigns groups of sequential
+          layers to different GPUs and passes activations forward/backward (mitigating idle "pipeline bubbles" via
+          micro-batching). <strong>Tensor Parallelism (TP)</strong> splits individual weight matrices across GPUs in the
+          same node, requiring ultra-fast All-Reduce syncs inside every layer.
+        </li>
+        <li>
+          <strong>Why Communication Limits Scaling:</strong> Adding GPUs cuts per-device compute work, but collective
+          synchronization (gradient All-Reduce in DP, or inter-layer activation/tensor syncs in MP) grows with device
+          count and network hops. Once sync time rivals compute time, throughput gains flatten sub-linearly.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Compare configurations on 4 × 80 GB GPUs:
+      </p>
+      <ul>
+        <li><strong>Fits on one GPU (<code>28 GB</code> base + activations):</strong> Data Parallelism keeps a full replica on each GPU (~<code>29.6 GB</code> at batch <code>32</code>), delivering near-4× speedup with ~<code>11%</code> All-Reduce gradient sync overhead.</li>
+        <li><strong>Oversized model (<code>120 GB</code> weights + optimizer):</strong> Data Parallelism hits out-of-memory (<code>OOM</code>) immediately because <code>120 GB &gt; 80 GB</code>. Switching to 4-way Model Parallelism shards model state to <code>~30 GB</code> per GPU, fitting inside 80 GB while accepting higher inter-device activation transfer overhead.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Ignoring interconnect topology and global batch-size drift.</strong> Running Tensor Parallelism across
+        slow inter-node Ethernet instead of high-bandwidth intra-node NVLink stalls every transformer layer on
+        All-Reduce latency. Similarly, scaling Data Parallelism from 2 to 16 GPUs without adjusting gradient
+        accumulation or learning rate multiplies the <em>global</em> batch size by 8×, often destabilizing convergence.
+      </p>
     </section>
   </div>
 
@@ -428,48 +463,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In data parallelism, what does each GPU typically hold?",
+          q: "A 70B-parameter model's weights, gradients, and Adam optimizer states exceed the 80 GB VRAM of a single GPU even at micro-batch size 1. Why does standard Data Parallelism (DDP) fail to solve this?",
           options: [
-            "A full copy of the model, but only a shard of the current data batch",
-            "A shard of the model, but the full dataset",
-            "No copy of the model at all",
-            "The entire dataset and no model weights"
+            "Because DDP only supports batch size 1 and cannot process multiple micro-batches",
+            "Because DDP replicates the full model and optimizer states on every GPU, so per-device memory stays above 80 GB regardless of GPU count",
+            "Because DDP requires an All-Reduce across dataset shards before the forward pass begins",
+            "Because DDP automatically falls back to CPU offloading whenever GPU count exceeds 2"
           ],
-          answer: 0,
-          explanation: "Data parallelism replicates the full model on every device; each device processes a different slice of data, then gradients are synchronized."
+          answer: 1,
+          explanation: "Data parallelism shards the data batch, not the model parameters—each GPU still holds a complete replica of weights and optimizer states. Fitting an oversized model requires Model Parallelism (TP/PP) or parameter/optimizer sharding (like FSDP/ZeRO)."
         },
         {
-          q: "In model parallelism, what is split across devices?",
+          q: "When do GPUs communicate during standard Data Parallelism versus Pipeline/Tensor Model Parallelism?",
           options: [
-            "The model's own layers/parameters, with activations passed between devices",
-            "Only the input data, never the model",
-            "The optimizer's random seed",
-            "Nothing — it's identical to data parallelism"
+            "Data Parallelism exchanges activations after every layer; Model Parallelism only syncs gradients once per epoch",
+            "Data Parallelism synchronizes gradients via All-Reduce at the end of the backward pass; Model Parallelism passes intermediate activations (PP) or partial tensor outputs (TP) during every forward and backward pass",
+            "Both patterns communicate only when saving checkpoints to disk",
+            "Pipeline Parallelism eliminates all inter-GPU communication by duplicating layers"
           ],
-          answer: 0,
-          explanation: "Model parallelism divides the model itself (e.g., different layers) across devices, so intermediate activations must be passed between them during the forward and backward pass."
+          answer: 1,
+          explanation: "In DP, forward and backward passes run independently on each GPU until gradients are averaged via All-Reduce before the optimizer step. In MP, layers/matrices live on different GPUs, so activations and activation-gradients must cross devices inside each pass."
         },
         {
-          q: "As you add more GPUs to data-parallel training, why doesn't throughput keep increasing linearly forever?",
+          q: "Why do distributed training systems typically keep Tensor Parallelism within a single 8-GPU NVLink node while spanning Data Parallelism or Pipeline Parallelism across nodes?",
           options: [
-            "Because synchronizing gradients across more devices adds communication overhead that eats into the compute gains",
-            "Because GPUs physically stop functioning after 4 devices",
-            "Because the batch size automatically drops to zero",
-            "Because adding GPUs always decreases model accuracy"
+            "Tensor Parallelism cannot compute gradients on more than 8 data samples at once",
+            "Tensor Parallelism executes synchronous All-Reduce collectives inside every transformer layer, making slower inter-node Ethernet latency a severe bottleneck",
+            "Data Parallelism uses peer-to-peer NVLink only and rejects Ethernet interconnects",
+            "Pipeline Parallelism eliminates the need for any micro-batching across slow links"
           ],
-          answer: 0,
-          explanation: "Every additional GPU means more gradient data to synchronize; that communication overhead grows with GPU count and eventually limits speedup."
+          answer: 1,
+          explanation: "TP synchronizes tensor shards twice per transformer layer (attention + MLP), so even microsecond network latency compounds drastically across layers. Keeping TP inside NVLink and using DP/PP across slower inter-node links matches communication volume to link bandwidth."
         },
         {
-          q: "Which of the following are true about distributed training? (Select all that apply.)",
+          q: "Which statements accurately describe scaling distributed training across more GPUs? (Select all that apply.)",
           options: [
-            "Model parallelism can let you train models too large to fit on a single GPU",
-            "Data parallelism keeps a full model copy on every GPU",
-            "Communication overhead is irrelevant to distributed training performance",
-            "Adding more devices generally means more communication is needed to keep them in sync"
+            "Adding GPUs in Data Parallelism reduces per-GPU weight memory proportionally to the number of devices",
+            "In Data Parallelism, scaling from 2 to 8 GPUs with fixed per-GPU batch size quadruples the effective global batch size",
+            "Adding more GPUs increases communication overhead, causing throughput speedup to scale sub-linearly",
+            "Model Parallelism lowers per-GPU weight memory as the model is partitioned across more devices"
           ],
-          answer: [0, 1, 3],
-          explanation: "Model parallelism exists specifically to fit oversized models; data parallelism replicates the model; and communication overhead is a central, not irrelevant, factor in distributed training performance."
+          answer: [1, 2, 3],
+          explanation: "Global batch size equals per_gpu_batch × num_gpus (unless gradient accumulation is adjusted), sync overhead limits scaling, and MP partitions model memory across GPUs. Standard DP replicates weights, so it does not split model weight memory."
         }
       ]
     });

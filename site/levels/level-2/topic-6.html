@@ -32,31 +32,47 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Look at a plotted curve fit to sample data points and correctly
-      diagnose it as overfit, underfit, or well-fit.
+      <strong>Learning objective:</strong> Diagnose whether a model is underfit, well-fit, or overfit from both
+      curve visuals and train/test accuracy scores, and pick the right corrective step for each failure mode.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Overfitting</strong> happens when a model memorizes the training data too closely,
-          including its noise, and then fails on new data. <strong>Underfitting</strong> happens when a
-          model is too simple to capture the real pattern, so it performs poorly even on the data it was
-          trained on. The goal is a model complex enough to capture the true pattern but not so complex it
-          starts fitting noise.
+          <strong>Underfitting</strong> happens when a model is too simple to capture the real pattern, scoring poorly
+          even on training data. <strong>Overfitting</strong> happens when an overly flexible model memorizes random
+          noise in the training set—scoring great in training while failing on unseen test data. A
+          <strong>well-fit</strong> model matches the true trend cleanly across both.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (The Study Habit Analogy)</h2>
       <ul>
-        <li>The "just right" fit vs. an overly wiggly curve (overfitting) vs. an overly flat curve (underfitting)</li>
-        <li>Symptoms: overfitting shows great training accuracy but poor test accuracy; underfitting shows poor accuracy everywhere</li>
-        <li>Common causes: too little data, too complex a model, or training too long (overfitting); too simple a model (underfitting)</li>
-        <li>Basic intuition for the fix direction: simplify vs. add capacity/data</li>
+        <li><strong>Underfitting = Barely skimming chapter titles:</strong> You spend 5 minutes glancing at bold headings and fail both the practice quiz and the real test. Fix: add model flexibility/features or train longer.</li>
+        <li><strong>Overfitting = Memorizing exact word-for-word phrasing:</strong> You memorize "Question 4's answer is C" without understanding why, acing the practice sheet (99%) while bombing a reworded final exam (58%). Fix: gather more varied data, simplify the model, or add regularization.</li>
+        <li><strong>Just right = Learning the underlying rule:</strong> You do well on practice questions (89%) and almost just as well on fresh test questions (87%).</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Reading the Numbers</h3>
+      <ul>
+        <li><code>Train error = 42, Test error = 45</code> &rarr; Both high &rarr; <strong>Underfitting</strong> (curve too rigid/flat).</li>
+        <li><code>Train error = 1, Test error = 65</code> &rarr; Huge gap &rarr; <strong>Overfitting</strong> (curve wiggles wildly through noise).</li>
+        <li><code>Train error = 8, Test error = 10</code> &rarr; Both low &amp; close &rarr; <strong>Well-fit</strong>.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Chasing 100% Training Score</h3>
+      <p>
+        Real-world data always contains natural randomness (two identical houses rarely sell for the exact same dollar).
+        Pushing complexity until training error hits zero almost guarantees your model started memorizing noise rather
+        than signal—always watch the <em>gap</em> between training and validation/test error!
+      </p>
     </section>
   </div>
 
@@ -288,38 +304,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A model has 98% accuracy on training data but only 60% on test data. What is this a symptom of?",
-          options: ["Underfitting", "Overfitting", "Perfect fitting", "Data leakage only"],
-          answer: 1,
-          explanation: "A big gap between great training performance and poor test performance is the classic signature of overfitting."
-        },
-        {
-          q: "A model performs poorly on both the training set and the test set. What is this most likely a symptom of?",
-          options: ["Overfitting", "Underfitting", "A perfectly tuned model", "Data leakage"],
-          answer: 1,
-          explanation: "Poor performance everywhere, including on training data, suggests the model is too simple to capture the pattern — underfitting."
-        },
-        {
-          q: "In the exercise, what generally happened to the fitted curve as you raised the complexity slider very high?",
+          q: "A model scores 98% accuracy on its training split and 60% on its held-out test split. Which diagnosis fits best?",
           options: [
-            "It became a perfectly flat line",
-            "It became increasingly wiggly, chasing individual training points at the cost of test accuracy",
-            "It disappeared from the canvas",
-            "Nothing changed"
+            "Underfitting, because test accuracy is too low",
+            "Overfitting, because the wide gap shows it memorized training noise that doesn't transfer to unseen examples",
+            "A well-generalized model that merely needs a larger test set",
+            "Label-noise imbalance in the validation metric"
           ],
           answer: 1,
-          explanation: "Very high polynomial degree lets the curve bend to hit every training point closely, which usually hurts its fit to new (test) data."
+          explanation: "Near-perfect training performance paired with poor test performance is the unmistakable signature of overfitting."
         },
         {
-          q: "Which is a reasonable fix direction for an underfit model?",
+          q: "A model scores 59% on training data and 57% on test data (well below the 90% human baseline). What does this indicate?",
           options: [
-            "Make the model simpler and train it for less time",
-            "Increase the model's capacity or let it train longer/on more relevant features",
-            "Evaluate it only on training data",
-            "Remove all the training data"
+            "Overfitting to training data",
+            "Underfitting—the model is too simple or constrained to capture the underlying pattern even in training",
+            "Severe data leakage between splits",
+            "A well-fit model capped by random test noise"
           ],
           answer: 1,
-          explanation: "Underfitting usually needs more capacity or better features/training, the opposite direction from fixing overfitting."
+          explanation: "When error stays high on BOTH training and test sets, the model lacks the capacity or features to represent the true relationship."
+        },
+        {
+          q: "In the polynomial slider exercise, what happened as you pushed complexity up to degree 8 or 9 on 12 noisy points?",
+          options: [
+            "The curve flattened toward a horizontal average across all points",
+            "The curve bent sharply to pass near every training point, driving train error down while test error shot up",
+            "Both train error and test error dropped smoothly together toward zero",
+            "The curve stopped passing near the training points so test points got closer"
+          ],
+          answer: 1,
+          explanation: "High polynomial degrees grant extreme flexibility, letting the curve chase random training noise at the expense of wild swings between points where test data lives."
+        },
+        {
+          q: "Which action moves an UNDERFIT model in the right direction?",
+          options: [
+            "Collect fewer training samples so the curve fits faster",
+            "Add more informative features, increase model capacity/complexity, or train longer",
+            "Stop training earlier before weights drift away from initialization",
+            "Increase regularization penalties to constrain model weights further"
+          ],
+          answer: 1,
+          explanation: "Underfitting needs MORE expressive power or richer features so the model can capture the real trend; stopping early, shrinking capacity, or increasing penalties would only worsen underfitting."
         }
       ]
     });

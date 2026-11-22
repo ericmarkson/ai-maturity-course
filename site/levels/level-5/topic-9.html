@@ -22,42 +22,63 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can distinguish the core generation mechanism of a
-      GAN (adversarial generator vs. discriminator), a VAE (encode to a latent distribution, then
-      decode/sample), and a diffusion model (iterative denoising), and can describe at a high level
-      what "generating a sample" looks like for each.
+      <strong>Learning objective:</strong> Contrast the core training and sampling mechanisms of GANs, VAEs, and
+      diffusion models, and evaluate their trade-offs in sample sharpness, diversity, training stability, and inference speed.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>generative model</strong> learns the underlying patterns in a set of training data
-          (images, text, audio, etc.) well enough to produce brand-new, realistic-looking samples —
-          rather than just labeling or predicting something about existing data. GANs, VAEs, and
-          diffusion models are three different mechanisms for doing this, each with its own training
-          dynamics and trade-offs between sample quality, diversity, and training stability.
+          <strong>Generative models</strong> learn the probability distribution of complex data (images, audio, molecules)
+          so they can synthesize novel, realistic samples rather than only predicting labels. <strong>GANs</strong>,
+          <strong>VAEs</strong>, and <strong>diffusion models</strong> solve this through three distinct mechanisms:
+          adversarial competition, probabilistic latent encoding/decoding, and iterative noise reversal.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. GANs (Adversarial Game):</strong> A <em>generator</em> transforms random noise <code>z</code> into
+        candidate images while a <em>discriminator</em> tries to tell real dataset examples from generator fakes. At
+        equilibrium, the discriminator is reduced to a 50/50 guess. Sampling requires only a single fast forward pass,
+        yielding crisp textures—but the minimax game is fragile and prone to <strong>mode collapse</strong> (generating
+        only a narrow subset of outputs).
+      </p>
+      <p>
+        <strong>2. VAEs (Variational Autoencoders):</strong> An <em>encoder</em> compresses input <code>x</code> into
+        mean and variance parameters <code>(μ, σ²)</code> in a compact latent space, and a <em>decoder</em> reconstructs
+        <code>x</code> from a sampled point <code>z ~ N(μ, σ²)</code>. Adding a KL-divergence penalty keeps the latent
+        space smooth and continuous so random samples decode sensibly in one fast pass—though pixel-wise reconstruction
+        objectives often produce softer, blurrier details.
+      </p>
+      <p>
+        <strong>3. Diffusion Models (Iterative Denoising):</strong> Training defines a fixed forward process that corrupts
+        clean data with Gaussian noise over <code>T</code> steps, then trains a neural net to predict the added noise at
+        any step <code>t</code>. Generation starts from pure noise <code>x_T</code> and runs the denoiser iteratively
+        back to <code>x_0</code>, achieving high fidelity and diversity at the expense of multi-step sampling latency.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Comparing Inference Passes for One 512×512 Image</h3>
       <ul>
-        <li><strong>GANs (Generative Adversarial Networks)</strong> — a <em>generator</em> network
-          tries to produce fake samples realistic enough to fool a <em>discriminator</em> network,
-          while the discriminator tries to tell real from fake; the two improve together in an
-          adversarial game.</li>
-        <li><strong>VAEs (Variational Autoencoders)</strong> — an <em>encoder</em> compresses input
-          data into a compact probability distribution (the latent space), and a <em>decoder</em>
-          samples from that distribution to reconstruct or generate new data.</li>
-        <li><strong>Diffusion models</strong> — trained to gradually add noise to data step by step,
-          then learn to reverse that process, so generation starts from pure random noise and
-          "denoises" it over many steps into a realistic sample.</li>
-        <li><strong>Trade-offs</strong> — GANs can produce sharp samples but are notoriously unstable
-          to train; VAEs train more stably but samples can be blurrier; diffusion models tend to
-          produce high-quality, diverse samples but generation requires many sequential steps.</li>
+        <li><strong>GAN:</strong> Draw noise <code>z</code> &rarr; <strong>1 pass</strong> through Generator (~15 ms). Fast and sharp, but harder to condition cleanly and may under-represent rare modes.</li>
+        <li><strong>VAE:</strong> Draw <code>z ~ N(0, I)</code> &rarr; <strong>1 pass</strong> through Decoder (~15 ms). Smooth latent interpolation, yet fine edges often soften (which is why modern Latent Diffusion runs diffusion inside a VAE's compressed latent space!).</li>
+        <li><strong>Diffusion:</strong> Draw random noise tensor &rarr; run <strong>20–50 sequential denoising steps</strong> (~500–1,500 ms). Highest detail and diversity, trading single-pass speed for iterative refinement.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Misreading GAN Equilibrium &amp; Diffusion Latency</h3>
+      <p>
+        In GAN training, a falling generator loss alone does not prove high sample diversity—the generator may have
+        collapsed onto 2 or 3 safe images that fool a lagging discriminator (mode collapse). Meanwhile, deploying a raw
+        50-step diffusion model directly in an interactive mobile app often blows latency budgets unless accelerated via
+        latent-space compression and step distillation.
+      </p>
     </section>
   </div>
 
@@ -320,48 +341,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In a GAN, what is the discriminator's job?",
+          q: "In a well-trained GAN, what does it signify when the discriminator's real-vs.-fake accuracy settles near 50%?",
           options: [
-            "To generate new fake samples",
-            "To try to distinguish real training samples from the generator's fake samples",
-            "To compress data into a latent space",
-            "To add noise to training data"
+            "The discriminator has failed to train and is ignoring input pixels",
+            "Generated samples match the real distribution closely enough that the discriminator can do no better than random guessing",
+            "The generator has memorized the entire training set verbatim",
+            "Training has diverged into mode collapse, forcing equal probability on real and fake classes"
           ],
           answer: 1,
-          explanation: "The discriminator is trained to classify samples as real or fake, while the generator tries to produce fakes realistic enough to fool it — an adversarial game where both improve together."
+          explanation: "At the adversarial equilibrium, fake samples are indistinguishable from real data, driving an optimal discriminator to 50% (coin-flip) accuracy. (Note: poorly balanced training can also cause instability, so sample diversity must still be inspected.)"
         },
         {
-          q: "What does a VAE's encoder produce?",
+          q: "Why does a VAE encode inputs into a probability distribution (mean μ and variance σ²) regularized toward a Gaussian prior rather than deterministic bottleneck points?",
           options: [
-            "A single fixed output image",
-            "A compact probability distribution (the latent representation) that the decoder can sample from",
-            "A discriminator score",
-            "A fully denoised sample directly"
+            "So the discriminator can compute adversarial gradients on the latent space",
+            "To keep the latent space continuous and smooth so sampling or interpolating between points decodes into coherent new outputs",
+            "Because deterministic encoders cannot backpropagate through convolutional layers",
+            "To eliminate the reconstruction blurriness common in pixel-wise autoencoder losses"
           ],
           answer: 1,
-          explanation: "A VAE's encoder maps input data to parameters of a distribution in latent space; the decoder then samples from that distribution to reconstruct or generate data."
+          explanation: "A plain autoencoder can leave dead gaps between encoded clusters, causing random latent samples to decode into garbage. KL regularization toward N(0, I) packs encodings smoothly so any sampled point decodes cleanly."
         },
         {
-          q: "How does a diffusion model generate a new sample?",
+          q: "How does a diffusion model turn pure Gaussian noise into a coherent image during inference?",
           options: [
-            "By playing an adversarial game between two networks",
-            "By starting from random noise and iteratively removing noise over many steps, reversing the training-time noising process",
-            "By directly copying a training example",
-            "By encoding input into a fixed latent vector and decoding once"
+            "It passes the noise once through a decoder trained against a discriminator",
+            "It searches the latent space for the closest training image and blends its edges",
+            "It applies a learned denoiser over many sequential steps, predicting and subtracting a fraction of the noise at each step",
+            "It compresses the noise into a low-dimensional latent vector via an encoder first"
           ],
-          answer: 1,
-          explanation: "Diffusion models learn to reverse a gradual noising process, so generation starts at pure noise and denoises step by step into a realistic sample."
+          answer: 2,
+          explanation: "Diffusion models reverse a gradual forward noising schedule step by step: starting from random noise x_T, each step estimates and removes noise to refine structure into x_0."
         },
         {
-          q: "Which trade-off is commonly associated with GANs compared to VAEs and diffusion models?",
+          q: "Which limitation most clearly distinguishes standard diffusion models from single-pass GANs or VAEs at serving time?",
           options: [
-            "GANs require no training data",
-            "GANs can produce very sharp samples but are notoriously less stable to train",
-            "GANs always train faster than any other approach with no downsides",
-            "GANs cannot generate images at all"
+            "Diffusion models cannot produce diverse outputs across random seeds",
+            "Diffusion generation is slower because producing one sample requires dozens of sequential network passes rather than one forward pass",
+            "Diffusion models suffer more severely from adversarial mode collapse",
+            "Diffusion outputs are inherently blurrier than standard VAE reconstructions"
           ],
           answer: 1,
-          explanation: "GANs are known for sharp, realistic outputs, but the adversarial training dynamic can be unstable (e.g., mode collapse), unlike the generally steadier training of VAEs and diffusion models."
+          explanation: "Standard diffusion trades single-pass generation speed for iterative quality and high mode coverage—needing multiple sequential denoising passes unless accelerated with step distillation."
         }
       ]
     });

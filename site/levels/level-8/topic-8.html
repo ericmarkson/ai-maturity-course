@@ -38,31 +38,63 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Identify at least one bias risk in an LLM-as-judge setup and
-      explain why a 2-percentage-point difference on a 20-example eval set may not be statistically
-      meaningful.
+      <strong>Learning objective:</strong> Diagnose and mitigate LLM-as-judge biases (position, verbosity,
+      self-preference), calibrate automated judges against human labels using Cohen's kappa (&kappa;), and
+      apply confidence intervals, paired significance tests, and sample-size planning to eval comparisons.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Rigorous eval design is the practice of building AI system evaluations that produce trustworthy,
-          reproducible results — including using another LLM as an automated judge and applying
-          statistical rigor to the resulting scores, so a difference in reported scores actually reflects
-          a real difference in quality rather than sampling noise.
+          <strong>Rigorous eval design</strong> combines calibrated automated scoring (including LLM-as-judge
+          rubrics) with inferential statistics so model and prompt comparisons reflect genuine capability gains
+          rather than judge bias or finite-sample noise. Without calibration and statistical power, teams ship
+          regressions disguised as "+2% improvements."
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Scaling evaluations reliably requires guarding both the <em>measurement instrument</em> (the judge) and
+        the <em>statistical inference</em>:
+      </p>
       <ul>
-        <li><strong>LLM-as-judge</strong> — using a model to score or compare outputs, and its known biases (position bias, verbosity bias, self-preference bias)</li>
-        <li><strong>Calibrating judges</strong> — validating judge scores against human ratings, and rubric design</li>
-        <li><strong>Statistical significance basics</strong> — sample size, confidence intervals, avoiding false conclusions from small eval sets</li>
-        <li><strong>Regression test suites</strong> — tracking eval scores over time (tools like promptfoo, DeepEval as illustrative examples)</li>
+        <li><strong>Judge bias mitigation:</strong> Pairwise and rubric LLM judges exhibit systematic distortions: <em>position bias</em> (favoring Option A or B regardless of content &mdash; mitigated by running swapped order A|B and B|A and keeping only consistent wins or averaging), <em>verbosity bias</em> (preferring longer, padded responses), and <em>self-preference bias</em> (scoring outputs from the judge's own model family higher).</li>
+        <li><strong>Judge calibration (Cohen's &kappa;):</strong> Validate automated verdicts on a stratified human-annotated golden set using <strong>Cohen's kappa</strong>, <code>&kappa; = (p_o &minus; p_e) / (1 &minus; p_e)</code>, which adjusts raw agreement <em>p</em><sub>o</sub> for chance agreement <em>p</em><sub>e</sub> (unlike raw % accuracy, which misleads on imbalanced pass/fail datasets). Target &kappa; &ge; 0.75&ndash;0.80 before trusting automated runs.</li>
+        <li><strong>Statistical significance &amp; paired power:</strong> Standard error shrinks as <code>1 / &radic;N</code>: <code>SE = &radic;(p(1 &minus; p) / N)</code>. Running Candidate A and Candidate B on the <em>exact same</em> prompts allows <strong>paired testing</strong> (paired bootstrap resampling or McNemar's test), canceling item-difficulty variance and yielding tighter CIs than independent two-proportion tests.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose Model B beats Model A on <strong>11 of 20</strong> prompts (55.0% win rate vs. 50% coin-flip
+        baseline). With <em>N</em> = 20, the standard error is
+        <code>&radic;(0.55 &times; 0.45 / 20) &approx; 11.1%</code>, giving a 95% CI of
+        <strong>[33.2%, 76.8%]</strong> (<em>p</em> &approx; 0.65). That "+5 pp win" is completely buried in
+        sampling noise.
+      </p>
+      <p>
+        Now assume the true win rate is 58% and you scale the paired eval to <em>N</em> = 400 prompts:
+        <code>SE &approx; &radic;(0.58 &times; 0.42 / 400) = 2.47%</code>, tightening the 95% CI to
+        <strong>[53.2%, 62.8%]</strong> and clearing <code>p = 0.0014 &lt; 0.05</code>. Similarly, running an
+        A/B order-swap check flags position bias immediately if the judge changes its winner whenever A and B
+        swap slots.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Multiple-comparison p-hacking &amp; raw % calibration illusions:</strong> Tweaking a prompt 15
+        times against a small 30-example dev set until one run hits <code>p = 0.04</code> yields a
+        <code>1 &minus; 0.95<sup>15</sup> &approx; 54%</code> chance of a pure false positive unless you adjust
+        thresholds or confirm on a held-out test split. Likewise, celebrating "90% raw agreement" with human
+        raters on a dataset where 90% of answers pass masks a collapsed judge with Cohen's &kappa; &approx; 0.
+      </p>
     </section>
 
   </div>
@@ -297,48 +329,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which of these is a known bias risk of using an LLM as a judge?",
+          q: "An engineer observes that a pairwise LLM-as-judge picks whichever response appears in Slot A 68% of the time. They propose fixing it by setting the judge temperature to 0.0. Why will that fail?",
           options: [
-            "Judges never have any biases if the prompt is well written",
-            "Position bias — the judge may favor whichever response is shown first (or second) regardless of quality",
-            "LLM judges are always more accurate than any human rater",
-            "LLM judges cannot be used to compare two model outputs"
+            "Temperature 0.0 disables JSON schema adherence during rubric output",
+            "Temperature 0.0 only removes sampling randomness; it makes a systematic slot preference deterministic rather than balanced, whereas swapping A/B order across two passes detects and neutralizes position bias",
+            "Temperature 0.0 causes the judge to evaluate only the first 50 tokens of Slot B",
+            "Position bias only occurs in pointwise 1-to-5 scoring, never in pairwise comparisons"
           ],
           answer: 1,
-          explanation: "Position bias, verbosity bias (favoring longer answers), and self-preference bias (favoring outputs that resemble the judge's own style) are all documented LLM-as-judge failure modes."
+          explanation: "Low temperature eliminates token randomness, not systematic positional bias in the judge's attention/prior. Running every pair twice in swapped orders (A|B and B|A) and discarding or tying inconsistent flips actually controls position bias."
         },
         {
-          q: "Why might a 2-percentage-point difference on a 20-example eval set NOT be statistically meaningful?",
+          q: "Model v2 scores 12/20 (60%) vs. Model v1's 11/20 (55%) on a human-verified coding benchmark. What is the main statistical reason NOT to declare v2 superior based on this run alone?",
           options: [
-            "Because percentages are never meaningful in evals",
-            "Because with only 20 examples, the confidence interval around the observed rate is wide enough that a 2-point gap can easily fall within normal sampling noise",
-            "Because 20 examples is always too many to compute a percentage",
-            "Because eval scores must always be exactly 0% or 100%"
+            "Because win-rate percentages are biased unless the denominator is at least 100",
+            "At N=20, the standard error is ~11 percentage points (95% CI roughly 40 pp wide), so a 5-point gap lies well inside random sampling noise",
+            "Because LLM benchmarks must evaluate at temperature > 0.7 before significance tests apply",
+            "Because binomial confidence intervals cannot be computed when both scores are above 50%"
           ],
           answer: 1,
-          explanation: "Small sample sizes produce wide confidence intervals; a small observed gap can be fully explained by chance rather than reflecting a genuine capability difference."
+          explanation: "Standard error scales with 1/sqrt(N). With N=20, even a genuine tie easily produces a 1-example (5 pp) swing by chance; you need substantially larger N (or paired testing across more items) to resolve small gains."
         },
         {
-          q: "In the exercise, what happens to the confidence interval as you increase the sample size N (with the same hidden true win rate)?",
+          q: "On a safety compliance eval where 92% of real model outputs are safe, a lazy LLM judge predicts 'PASS' on 99% of inputs and achieves 91% raw agreement with human annotators. Which calibration metric immediately exposes the judge as broken?",
           options: [
-            "It gets wider and less certain",
-            "It narrows, since standard error decreases as sample size grows, giving a more precise estimate",
-            "It has no relationship to N",
-            "It always jumps to exactly the true win rate at any N"
+            "Mean response token length (verbosity ratio)",
+            "Cohen's kappa (k), which corrects for expected chance agreement and drops near zero when a judge mimics majority-class priors without discriminating unsafe cases",
+            "Time-To-First-Token (TTFT) p99 across the judge endpoint",
+            "Pairwise self-preference rate relative to GPT-4 class baselines"
           ],
           answer: 1,
-          explanation: "Standard error scales with 1/sqrt(N), so larger samples produce tighter confidence intervals around the observed win rate."
+          explanation: "Raw percent agreement looks misleadingly high under class imbalance. Cohen's kappa subtracts expected chance agreement (p_e), revealing that a constant-'PASS' judge has almost zero true skill over chance."
         },
         {
-          q: "What is the purpose of a regression test suite for evals (e.g. using tools like promptfoo or DeepEval)?",
+          q: "When comparing Prompt A vs. Prompt B on an automated eval suite, why do paired tests (McNemar's test or paired bootstrap over the exact same N prompts) have higher statistical power than evaluating Prompt A and B on two separate random 200-prompt draws?",
           options: [
-            "To permanently freeze a model so it can never be updated",
-            "To track eval scores over time so a drop in quality after a change is caught rather than going unnoticed",
-            "To replace the need for any statistical analysis",
-            "To generate marketing copy for the AI product"
+            "Paired tests reduce sample-size requirements by ignoring examples where both prompts fail or both pass, without using the same test set",
+            "Testing both prompts on identical items eliminates item-difficulty variance between samples, isolating the true per-prompt difference",
+            "Paired bootstrap automatically adjusts p-values for multiple prompt iterations without a held-out split",
+            "Independent two-sample z-tests require continuous floating-point scores and fail on binary pass/fail verdicts"
           ],
           answer: 1,
-          explanation: "Regression test suites re-run a fixed eval set over time (e.g. after prompt or model changes) so quality regressions are caught early rather than silently shipped."
+          explanation: "Comparing Model A and B on the exact same eval items removes prompt-to-prompt difficulty noise (every hard item affects both models equally), yielding much tighter variance and higher power than two disjoint prompt subsets."
         }
       ]
     });

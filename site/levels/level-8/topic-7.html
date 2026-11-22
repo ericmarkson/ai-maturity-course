@@ -3,23 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pretraining Considerations — AI Maturity Course</title>
-<meta name="description" content="The data and objective decisions made before training a foundation model from scratch.">
+<title>LLM Inference Optimization: KV-Cache, Speculative Decoding &amp; Serving — AI Maturity Course</title>
+<meta name="description" content="Overcoming prefill compute limits and memory-bandwidth-bound autoregressive decode using KV-cache sizing, GQA/MLA, PagedAttention, continuous batching, and speculative decoding.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "8-7";
 </script>
 <style>
-  .pt-layout { display: flex; flex-direction: column; gap: var(--space-4); }
-  .pt-mix-note { color: var(--color-text-muted); font-size: var(--font-size-sm); margin: 0; }
-  .pt-caps { display: flex; flex-direction: column; gap: var(--space-3); }
-  .pt-cap-row { display: flex; align-items: center; gap: var(--space-3); }
-  .pt-cap-label { min-width: 130px; font-weight: 600; }
-  .pt-cap-track { flex: 1; height: 20px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
-  .pt-cap-fill { height: 100%; background: var(--color-primary); transition: width 0.3s ease; }
-  .pt-cap-num { min-width: 40px; text-align: right; font-family: var(--font-mono); }
-  .pt-sum-warning { color: var(--color-error); font-weight: 700; }
+  .inf-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .inf-controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
+  .inf-card {
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  .inf-card label { font-weight: 700; font-size: var(--font-size-sm); color: var(--color-text); }
+  .inf-card select {
+    padding: 6px 10px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm);
+    background: var(--color-bg); color: var(--color-text);
+  }
+  .inf-slider-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .inf-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inf-preset-btn {
+    padding: 2px 8px; border: 1px solid var(--color-border-strong); border-radius: 999px;
+    background: var(--color-bg-alt); color: var(--color-text-muted); font-family: var(--font-mono);
+    font-size: var(--font-size-xs); cursor: pointer;
+  }
+  .inf-preset-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  .inf-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: var(--space-3); }
+  .inf-metric {
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    padding: var(--space-3); text-align: center;
+  }
+  .inf-metric .num { font-family: var(--font-mono); font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary); display: block; }
+  .inf-metric .lbl { font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 600; }
+  .inf-metric .sub { font-size: var(--font-size-xs); color: var(--color-text-faint); display: block; margin-top: 2px; }
+  .inf-formula {
+    font-family: var(--font-mono); font-size: var(--font-size-xs); background: var(--color-bg-inset);
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+    overflow-x: auto; white-space: nowrap;
+  }
+  .inf-canvas-wrap { background: #ffffff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .inf-canvas-wrap canvas { width: 100%; height: auto; display: block; }
+  .inf-status {
+    border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-sm); font-weight: 600; border-left: 4px solid var(--color-primary);
+    background: var(--color-primary-light); color: var(--color-text);
+  }
+  .inf-status.oom { border-left-color: var(--color-error); background: var(--color-error-bg); color: var(--color-error); }
+  .inf-status.ok { border-left-color: var(--color-success); background: var(--color-success-bg); color: var(--color-success); }
 </style>
 </head>
 <body>
@@ -29,36 +61,86 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 8 — Expert</p>
-  <h1>Pretraining Considerations</h1>
+  <h1>LLM Inference Optimization: KV-Cache, Speculative Decoding &amp; Serving</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> List at least three data-quality decisions that must be made
-      before pretraining begins, and explain why the data mixture (e.g. percentage of code vs. web text
-      vs. books) affects downstream model behavior.
+      <strong>Learning objective:</strong> Explain why autoregressive LLM decode is memory-bandwidth bound
+      while prefill is compute bound, calculate KV-cache VRAM from model dimensions and batch/context
+      parameters, and combine GQA/FP8 KV quantization, PagedAttention, continuous batching, and speculative
+      decoding to meet latency and cost SLOs.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Pretraining considerations are the major design decisions made before training a foundation
-          model from scratch, covering what data to use, how to prepare it, and what objective to train
-          against. These choices are made once, at huge cost, so getting them wrong is expensive to
-          correct later.
+          <strong>LLM inference optimization</strong> is the systems and architectural discipline of minimizing
+          Time-To-First-Token (TTFT), Inter-Token Latency (ITL), and serving cost per token without degrading
+          model quality. Because Transformer generation splits into two physically distinct phases &mdash;
+          parallel prompt <em>prefill</em> and sequential token-by-token <em>decode</em> &mdash; production
+          engines must balance GPU compute saturation, HBM memory capacity, and HBM memory bandwidth.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        During <strong>prefill</strong>, all <em>S</em> prompt tokens are processed together using large
+        matrix-matrix multiplications (GEMMs), yielding high arithmetic intensity that saturates GPU Tensor
+        Cores (<strong>compute-bound</strong>). During <strong>autoregressive decode</strong>, generating one
+        new token per request reduces projections to matrix-vector operations (GEMVs): the GPU must stream
+        every model weight and cached Key/Value tensor from HBM into on-chip SRAM just to produce one token
+        per sequence, leaving Tensor Cores mostly idle (<strong>HBM memory-bandwidth bound</strong>).
+      </p>
+      <p>
+        Caching past Key and Value projections avoids recomputing earlier tokens, but exact KV-cache VRAM
+        grows linearly with layers (<em>L</em>), KV heads (<em>H</em><sub>kv</sub>), head dimension
+        (<em>d</em><sub>head</sub>), sequence length (<em>S</em>), batch size (<em>B</em>), and precision bytes:
+      </p>
+      <pre class="code-block"><code>KV_VRAM_bytes = 2 * L * H_kv * d_head * S * B * bytes_per_elem</code></pre>
+      <p>
+        Modern inference stacks attack both the capacity ceiling and the bandwidth bottleneck simultaneously:
+      </p>
       <ul>
-        <li><strong>Data curation and mixture</strong> — sourcing, deduplication, filtering, and balancing domains/languages</li>
-        <li><strong>Data contamination and quality control</strong> — avoiding test-set leakage, toxic or low-quality content</li>
-        <li><strong>Pretraining objectives</strong> — e.g. next-token prediction, and tokenizer design choices</li>
-        <li><strong>Compute/infrastructure planning</strong> — checkpointing, data pipeline throughput tied to pretraining decisions</li>
+        <li><strong>Attention KV compression (MQA / GQA / MLA) &amp; FP8 KV quantization:</strong> Multi-Query Attention (1 KV head) and Grouped-Query Attention (e.g., 8 KV heads shared across 64 query heads) slash <em>H</em><sub>kv</sub> by 4&times;&ndash;16&times;, while Multi-Head Latent Attention (MLA) compresses KV into a low-rank latent vector. Quantizing KV entries from FP16 (2 B) to FP8/INT8 (1 B) halves remaining KV memory.</li>
+        <li><strong>PagedAttention &amp; Prefix Caching:</strong> PagedAttention (vLLM) allocates KV storage in fixed-size, non-contiguous memory blocks via a block table &mdash; eliminating internal buffer fragmentation &mdash; and lets concurrent requests share read-only blocks for common system prompts or RAG prefixes.</li>
+        <li><strong>Continuous (iteration-level) batching:</strong> Inserts new requests and evicts completed sequences at every decode step rather than stalling an entire batch on the longest output.</li>
+        <li><strong>Speculative decoding:</strong> A tiny fast draft model proposes &gamma; tokens sequentially; the target model scores all &gamma; + 1 positions in a single parallel verification pass (nearly the same memory-bandwidth time as 1 decode step). Modified rejection sampling preserves the target model's <em>mathematically exact</em> output distribution.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Consider a 70B GQA-8 model (<em>L</em> = 80, <em>H</em><sub>kv</sub> = 8, <em>d</em><sub>head</sub> = 128)
+        in FP16 (2 bytes). Per token, KV-cache requires:
+        <code>2 &times; 80 &times; 8 &times; 128 &times; 2 = 327,680 bytes</code> (~328 KB, or 320 KiB/token &mdash;
+        8&times; smaller than MHA's 2.5 MiB/token). At context <em>S</em> = 8,192 and batch <em>B</em> = 32,
+        KV-cache alone consumes <code>327,680 &times; 8,192 &times; 32 &approx; 85.9 GB</code> (80.0 GiB). Switching
+        to <strong>FP8 KV</strong> halves this to 42.9 GB, and a <strong>50% shared prefix cache</strong> drops
+        it further to ~22.1 GB.
+      </p>
+      <p>
+        On decode latency, suppose a small draft model generates &gamma; = 4 tokens at relative step cost
+        <em>c</em><sub>draft</sub> = 0.06 and achieves acceptance rate &alpha; = 0.75. Expected accepted tokens
+        per verification pass are <code>(1 &minus; 0.75<sup>5</sup>) / (1 &minus; 0.75) = 3.05</code> tokens, giving
+        net speedup <code>3.05 / (1 + 4 &times; 0.06) &approx; 2.46&times;</code> with zero quality degradation.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Static max-length KV allocation &amp; high-batch speculative slowdown:</strong> Pre-allocating
+        contiguous KV buffers up to <code>max_model_len</code> wastes 60&ndash;80% of HBM on unused padding,
+        capping batch size <em>B</em> and starving throughput. Conversely, enabling speculative decoding at
+        large batch sizes (<em>B</em> &ge; 64) can actually <em>increase</em> latency: verifying &gamma; &times; <em>B</em>
+        tokens at once pushes the GPU from memory-bandwidth bound into compute-bound territory, erasing the
+        "free parallel verification" advantage.
+      </p>
     </section>
 
   </div>
@@ -88,169 +170,462 @@
   (function () {
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
+    var PRESETS = {
+      "8b": {
+        label: "8B (Llama-style)",
+        layers: 32,
+        qHeads: 32,
+        gqaKvHeads: 8,
+        headDim: 128,
+        weightsGB: 16.0,
+        cDraft: 0.10,
+        baseStreamTokSec: 135
+      },
+      "70b": {
+        label: "70B (Llama-style)",
+        layers: 80,
+        qHeads: 64,
+        gqaKvHeads: 8,
+        headDim: 128,
+        weightsGB: 140.0,
+        cDraft: 0.06,
+        baseStreamTokSec: 32
+      },
+      "405b": {
+        label: "405B (Frontier dense)",
+        layers: 126,
+        qHeads: 128,
+        gqaKvHeads: 8,
+        headDim: 128,
+        weightsGB: 810.0,
+        cDraft: 0.03,
+        baseStreamTokSec: 9
+      }
+    };
+
+    var H100_VRAM_GB = 80.0;
+
+    function computeConfig(state) {
+      var preset = PRESETS[state.preset];
+      var kvHeads = state.attention === "mha"
+        ? preset.qHeads
+        : (state.attention === "gqa" ? preset.gqaKvHeads : 1);
+      var bytesPerElem = state.kvPrecision === "fp16" ? 2 : 1;
+
+      // With PagedAttention prefix sharing: shared prefix stored once across batch B, unique suffix stored B times
+      var hitFrac = state.prefixHitPct / 100;
+      var effectiveBatch = state.batch === 1 ? 1 : (hitFrac + state.batch * (1 - hitFrac));
+
+      var bytesPerTokenSeq = 2 * preset.layers * kvHeads * preset.headDim * bytesPerElem;
+      var kvBytes = bytesPerTokenSeq * state.contextLen * effectiveBatch;
+      var kvGB = kvBytes / 1e9;
+      var totalGB = preset.weightsGB + kvGB;
+      var gpusNeeded = Math.ceil(totalGB / 76.0); // ~4 GB activation/framework overhead headroom per 80GB H100
+
+      // Speculative decoding math
+      var alpha = state.alpha;
+      var gamma = state.gamma;
+      var expectedTokens = Math.abs(1 - alpha) < 1e-6
+        ? (gamma + 1)
+        : (1 - Math.pow(alpha, gamma + 1)) / (1 - alpha);
+      var rawSpeedup = expectedTokens / (1 + gamma * preset.cDraft);
+
+      // At high batch sizes verification approaches compute saturation, modestly tempering speedup
+      var batchPenalty = state.batch <= 16 ? 1.0 : Math.max(0.55, 1 - 0.01 * (state.batch - 16));
+      var effectiveSpeedup = Math.max(0.4, rawSpeedup * batchPenalty);
+
+      // Baseline aggregate system throughput scales sublinearly with batch size (memory-bandwidth -> compute crossover)
+      var batchGain = 1 + 0.62 * Math.min(state.batch - 1, 24) + 0.20 * Math.max(0, state.batch - 25);
+      var stdThroughput = preset.baseStreamTokSec * batchGain;
+      var specThroughput = stdThroughput * effectiveSpeedup;
+
+      return {
+        preset: preset,
+        kvHeads: kvHeads,
+        bytesPerElem: bytesPerElem,
+        effectiveBatch: effectiveBatch,
+        bytesPerTokenSeq: bytesPerTokenSeq,
+        kvGB: kvGB,
+        weightsGB: preset.weightsGB,
+        totalGB: totalGB,
+        gpusNeeded: gpusNeeded,
+        expectedTokens: expectedTokens,
+        rawSpeedup: rawSpeedup,
+        effectiveSpeedup: effectiveSpeedup,
+        stdThroughput: stdThroughput,
+        specThroughput: specThroughput
+      };
+    }
+
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Data Mixture Planner",
+      title: "KV-Cache VRAM & Speculative Decoding Calculator",
       instructions:
-        "Drag any slider to change that data source's share of the pretraining mix — the other three " +
-        "sliders automatically rebalance so the total always stays at 100%. Watch the predicted " +
-        "downstream capability bars update live.",
+        "Configure the model preset, attention variant, KV precision, context length, batch size, prefix cache hit rate, " +
+        "and speculative decoding parameters (acceptance rate alpha and draft length gamma). Observe VRAM vs. an 80 GB H100 " +
+        "budget and effective decode speedup.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
-        var SOURCES = [
-          { key: "web", label: "Web text" },
-          { key: "code", label: "Code" },
-          { key: "books", label: "Books" },
-          { key: "conv", label: "Conversational data" }
-        ];
-
-        var state = { web: 40, code: 20, books: 20, conv: 20 };
+        var state = {
+          preset: "8b",
+          attention: "gqa",
+          kvPrecision: "fp16",
+          contextLen: 8192,
+          batch: 16,
+          prefixHitPct: 30,
+          alpha: 0.75,
+          gamma: 4
+        };
 
         var wrap = document.createElement("div");
-        wrap.className = "pt-layout";
+        wrap.className = "inf-layout";
 
-        var note = document.createElement("p");
-        note.className = "pt-mix-note";
-        note.textContent = "The four sliders always sum to 100% of the pretraining data mixture.";
-        wrap.appendChild(note);
+        var grid = document.createElement("div");
+        grid.className = "inf-controls-grid";
 
-        var sliders = {};
-        var readouts = {};
+        function makeSelectCard(id, labelText, options, initialVal, onChange) {
+          var card = document.createElement("div");
+          card.className = "inf-card";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          lbl.textContent = labelText;
+          var sel = document.createElement("select");
+          sel.id = id;
+          options.forEach(function (opt) {
+            var o = document.createElement("option");
+            o.value = opt.value;
+            o.textContent = opt.text;
+            sel.appendChild(o);
+          });
+          sel.value = initialVal;
+          sel.addEventListener("change", function () { onChange(sel.value); });
+          card.appendChild(lbl);
+          card.appendChild(sel);
+          return { card: card, sel: sel };
+        }
 
-        SOURCES.forEach(function (src) {
-          var row = document.createElement("div");
-          row.className = "slider-row";
-          var label = document.createElement("label");
-          label.textContent = src.label;
-          label.setAttribute("for", "pt-slider-" + src.key);
-          var slider = document.createElement("input");
-          slider.type = "range";
-          slider.min = "0";
-          slider.max = "100";
-          slider.value = String(state[src.key]);
-          slider.id = "pt-slider-" + src.key;
+        function makeSliderCard(id, labelText, min, max, step, val, formatFn, onInput, presets) {
+          var card = document.createElement("div");
+          card.className = "inf-card";
+          var head = document.createElement("div");
+          head.className = "inf-slider-head";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          lbl.textContent = labelText;
           var readout = document.createElement("span");
           readout.className = "readout";
-          readout.textContent = state[src.key] + "%";
-          row.appendChild(label);
-          row.appendChild(slider);
-          row.appendChild(readout);
-          wrap.appendChild(row);
-          sliders[src.key] = slider;
-          readouts[src.key] = readout;
-        });
+          readout.textContent = formatFn(val);
+          head.appendChild(lbl);
+          head.appendChild(readout);
 
-        var sumWarning = document.createElement("p");
-        sumWarning.className = "pt-sum-warning";
-        sumWarning.style.display = "none";
-        wrap.appendChild(sumWarning);
+          var input = document.createElement("input");
+          input.type = "range";
+          input.id = id;
+          input.min = String(min);
+          input.max = String(max);
+          input.step = String(step);
+          input.value = String(val);
+          input.addEventListener("input", function () {
+            var v = parseFloat(input.value);
+            readout.textContent = formatFn(v);
+            onInput(v);
+          });
 
-        var capsHeading = document.createElement("h4");
-        capsHeading.textContent = "Predicted downstream capability (toy weighting formula)";
-        wrap.appendChild(capsHeading);
+          card.appendChild(head);
+          card.appendChild(input);
 
-        var caps = document.createElement("div");
-        caps.className = "pt-caps";
-        var CAP_DEFS = [
-          { key: "coding", label: "Coding" },
-          { key: "reasoning", label: "Reasoning" },
-          { key: "chat", label: "Chat quality" }
-        ];
-        var capFills = {};
-        var capNums = {};
-        CAP_DEFS.forEach(function (cap) {
-          var row = document.createElement("div");
-          row.className = "pt-cap-row";
-          var label = document.createElement("span");
-          label.className = "pt-cap-label";
-          label.textContent = cap.label;
-          var track = document.createElement("div");
-          track.className = "pt-cap-track";
-          var fill = document.createElement("div");
-          fill.className = "pt-cap-fill";
-          track.appendChild(fill);
+          if (presets && presets.length) {
+            var pRow = document.createElement("div");
+            pRow.className = "inf-presets";
+            presets.forEach(function (p) {
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "inf-preset-btn";
+              btn.textContent = p.label;
+              btn.addEventListener("click", function () {
+                input.value = String(p.value);
+                readout.textContent = formatFn(p.value);
+                onInput(p.value);
+              });
+              pRow.appendChild(btn);
+            });
+            card.appendChild(pRow);
+          }
+
+          return { card: card, input: input, readout: readout };
+        }
+
+        grid.appendChild(makeSelectCard("inf-preset", "Model Preset (FP16 Weights)", [
+          { value: "8b", text: "8B (32 layers, 16 GB weights)" },
+          { value: "70b", text: "70B (80 layers, 140 GB weights)" },
+          { value: "405b", text: "405B (126 layers, 810 GB weights)" }
+        ], state.preset, function (v) { state.preset = v; update(); }).card);
+
+        grid.appendChild(makeSelectCard("inf-attn", "Attention Variant", [
+          { value: "mha", text: "MHA (H_kv = H_q)" },
+          { value: "gqa", text: "GQA-8 (8 KV heads)" },
+          { value: "mqa", text: "MQA (1 KV head)" }
+        ], state.attention, function (v) { state.attention = v; update(); }).card);
+
+        grid.appendChild(makeSelectCard("inf-prec", "KV-Cache Precision", [
+          { value: "fp16", text: "FP16 / BF16 (2 bytes)" },
+          { value: "fp8", text: "FP8 / INT8 (1 byte)" }
+        ], state.kvPrecision, function (v) { state.kvPrecision = v; update(); }).card);
+
+        grid.appendChild(makeSliderCard("inf-ctx", "Context Length (S)", 1024, 131072, 1024, state.contextLen,
+          function (v) { return v.toLocaleString() + " tok"; },
+          function (v) { state.contextLen = v; update(); },
+          [
+            { label: "2k", value: 2048 },
+            { label: "8k", value: 8192 },
+            { label: "32k", value: 32768 },
+            { label: "128k", value: 131072 }
+          ]
+        ).card);
+
+        grid.appendChild(makeSliderCard("inf-batch", "Concurrent Batch Size (B)", 1, 64, 1, state.batch,
+          function (v) { return "B = " + v; },
+          function (v) { state.batch = v; update(); }
+        ).card);
+
+        grid.appendChild(makeSliderCard("inf-prefix", "Prefix Cache Hit %", 0, 90, 5, state.prefixHitPct,
+          function (v) { return v + "%"; },
+          function (v) { state.prefixHitPct = v; update(); }
+        ).card);
+
+        grid.appendChild(makeSliderCard("inf-alpha", "Draft Acceptance Rate (alpha)", 0.10, 0.95, 0.05, state.alpha,
+          function (v) { return v.toFixed(2); },
+          function (v) { state.alpha = v; update(); }
+        ).card);
+
+        grid.appendChild(makeSliderCard("inf-gamma", "Draft Length (gamma tokens)", 1, 8, 1, state.gamma,
+          function (v) { return String(v); },
+          function (v) { state.gamma = v; update(); }
+        ).card);
+
+        wrap.appendChild(grid);
+
+        var formulaBox = document.createElement("div");
+        formulaBox.className = "inf-formula";
+        wrap.appendChild(formulaBox);
+
+        var metrics = document.createElement("div");
+        metrics.className = "inf-metrics";
+        function makeMetric(lbl) {
+          var box = document.createElement("div");
+          box.className = "inf-metric";
           var num = document.createElement("span");
-          num.className = "pt-cap-num";
-          row.appendChild(label);
-          row.appendChild(track);
-          row.appendChild(num);
-          caps.appendChild(row);
-          capFills[cap.key] = fill;
-          capNums[cap.key] = num;
-        });
-        wrap.appendChild(caps);
+          num.className = "num";
+          var lab = document.createElement("span");
+          lab.className = "lbl";
+          lab.textContent = lbl;
+          var sub = document.createElement("span");
+          sub.className = "sub";
+          box.appendChild(num);
+          box.appendChild(lab);
+          box.appendChild(sub);
+          metrics.appendChild(box);
+          return { num: num, sub: sub };
+        }
+        var mWeights = makeMetric("Model Weights");
+        var mKv = makeMetric("KV-Cache VRAM");
+        var mTotal = makeMetric("Total VRAM vs 80 GB");
+        var mSpeedup = makeMetric("Effective Decode Speedup");
+        wrap.appendChild(metrics);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "inf-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 760;
+        canvas.height = 250;
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", "Stacked bar chart comparing Model Weights and KV-Cache VRAM against the 80 GB H100 budget, alongside Standard vs. Speculative Decode throughput.");
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var statusBox = document.createElement("p");
+        statusBox.className = "inf-status";
+        statusBox.setAttribute("role", "status");
+        statusBox.setAttribute("aria-live", "polite");
+        wrap.appendChild(statusBox);
 
         root.appendChild(wrap);
 
-        function clamp(v) { return Math.max(0, Math.min(100, v)); }
+        var ctx2d = canvas.getContext("2d");
 
-        function redistribute(changedKey, rawNewVal) {
-          var keys = SOURCES.map(function (s) { return s.key; });
-          var newVal = clamp(rawNewVal);
-          var otherKeys = keys.filter(function (k) { return k !== changedKey; });
-          var othersCurrentSum = otherKeys.reduce(function (s, k) { return s + state[k]; }, 0);
-          var remaining = 100 - newVal;
+        function drawChart(res) {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          ctx2d.fillStyle = "#ffffff";
+          ctx2d.fillRect(0, 0, w, h);
 
-          var floatVals = {};
-          if (othersCurrentSum <= 0) {
-            otherKeys.forEach(function (k) { floatVals[k] = remaining / otherKeys.length; });
+          // Left panel: Stacked VRAM bar vs 80 GB H100 ceiling
+          var leftX = 30, leftW = 350;
+          ctx2d.fillStyle = "#151c2e";
+          ctx2d.font = "bold 13px sans-serif";
+          ctx2d.textAlign = "left";
+          ctx2d.fillText("VRAM Footprint vs. 1x 80 GB H100", leftX, 24);
+
+          var maxVramScale = Math.max(100, Math.ceil((res.totalGB * 1.1) / 20) * 20);
+          var barY = 72, barH = 46;
+          var wPx = (res.weightsGB / maxVramScale) * leftW;
+          var kvPx = (res.kvGB / maxVramScale) * leftW;
+
+          // Track background
+          ctx2d.fillStyle = "#eaedf6";
+          ctx2d.fillRect(leftX, barY, leftW, barH);
+
+          // Weights segment
+          ctx2d.fillStyle = "#2554e8";
+          ctx2d.fillRect(leftX, barY, Math.min(leftW, wPx), barH);
+
+          // KV segment
+          var kvStart = leftX + wPx;
+          if (kvStart < leftX + leftW) {
+            ctx2d.fillStyle = res.totalGB > H100_VRAM_GB ? "#d97706" : "#0d946e";
+            ctx2d.fillRect(kvStart, barY, Math.min(leftX + leftW - kvStart, kvPx), barH);
+          }
+
+          // 80GB ceiling marker
+          var limitX = leftX + (H100_VRAM_GB / maxVramScale) * leftW;
+          ctx2d.save();
+          ctx2d.strokeStyle = "#b9251c";
+          ctx2d.lineWidth = 2.5;
+          ctx2d.setLineDash([5, 3]);
+          ctx2d.beginPath();
+          ctx2d.moveTo(limitX, barY - 16);
+          ctx2d.lineTo(limitX, barY + barH + 16);
+          ctx2d.stroke();
+          ctx2d.restore();
+
+          ctx2d.fillStyle = "#b9251c";
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.textAlign = "center";
+          ctx2d.fillText("80 GB H100", limitX, barY - 22);
+
+          // Scale labels
+          ctx2d.fillStyle = "#46506b";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.textAlign = "left";
+          ctx2d.fillText("0 GB", leftX, barY + barH + 30);
+          ctx2d.textAlign = "right";
+          ctx2d.fillText(maxVramScale + " GB", leftX + leftW, barY + barH + 30);
+
+          // Legend left
+          ctx2d.textAlign = "left";
+          ctx2d.fillStyle = "#2554e8";
+          ctx2d.fillRect(leftX, 178, 12, 12);
+          ctx2d.fillStyle = "#151c2e";
+          ctx2d.fillText("Weights: " + res.weightsGB.toFixed(1) + " GB", leftX + 18, 188);
+
+          ctx2d.fillStyle = res.totalGB > H100_VRAM_GB ? "#d97706" : "#0d946e";
+          ctx2d.fillRect(leftX, 200, 12, 12);
+          ctx2d.fillStyle = "#151c2e";
+          ctx2d.fillText("KV-Cache: " + res.kvGB.toFixed(1) + " GB", leftX + 18, 210);
+
+          ctx2d.font = "bold 12px sans-serif";
+          ctx2d.fillStyle = res.totalGB > H100_VRAM_GB ? "#b9251c" : "#0d7a4a";
+          ctx2d.fillText(
+            "Total: " + res.totalGB.toFixed(1) + " GB (" + (res.totalGB > H100_VRAM_GB ? "OOM on 1 GPU" : "Fits 1x H100") + ")",
+            leftX, 234
+          );
+
+          // Divider
+          ctx2d.strokeStyle = "#d5dce9";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(405, 16);
+          ctx2d.lineTo(405, h - 16);
+          ctx2d.stroke();
+
+          // Right panel: Throughput bars
+          var rightX = 430, rightW = 300;
+          ctx2d.fillStyle = "#151c2e";
+          ctx2d.font = "bold 13px sans-serif";
+          ctx2d.textAlign = "left";
+          ctx2d.fillText("Decode Throughput (tok/s, batch B=" + state.batch + ")", rightX, 24);
+
+          var maxTp = Math.max(res.stdThroughput, res.specThroughput, 50) * 1.18;
+          var rows = [
+            { label: "Standard Decode", val: res.stdThroughput, color: "#64748b", y: 74 },
+            { label: "Speculative (" + res.effectiveSpeedup.toFixed(2) + "x)", val: res.specThroughput, color: "#2554e8", y: 144 }
+          ];
+
+          rows.forEach(function (r) {
+            ctx2d.fillStyle = "#151c2e";
+            ctx2d.font = "bold 12px sans-serif";
+            ctx2d.textAlign = "left";
+            ctx2d.fillText(r.label, rightX, r.y - 8);
+
+            ctx2d.fillStyle = "#eaedf6";
+            ctx2d.fillRect(rightX, r.y, rightW, 32);
+
+            var bw = Math.max(4, (r.val / maxTp) * rightW);
+            ctx2d.fillStyle = r.color;
+            ctx2d.fillRect(rightX, r.y, bw, 32);
+
+            ctx2d.fillStyle = "#151c2e";
+            ctx2d.font = "bold 11px monospace";
+            ctx2d.textAlign = bw > 190 ? "right" : "left";
+            var tx = bw > 190 ? rightX + bw - 8 : rightX + bw + 8;
+            ctx2d.fillStyle = bw > 190 ? "#ffffff" : "#151c2e";
+            ctx2d.fillText(Math.round(r.val).toLocaleString() + " tok/s", tx, r.y + 20);
+          });
+
+          ctx2d.fillStyle = "#46506b";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.textAlign = "left";
+          ctx2d.fillText("Expected tokens / verify step: " + res.expectedTokens.toFixed(2) + " (gamma=" + state.gamma + ", c_draft=" + res.preset.cDraft + ")", rightX, 212);
+          ctx2d.fillText("Theoretical formula speedup: " + res.rawSpeedup.toFixed(2) + "x", rightX, 232);
+        }
+
+        function update() {
+          var res = computeConfig(state);
+
+          formulaBox.textContent =
+            "KV = 2 * " + res.preset.layers + "L * " + res.kvHeads + " H_kv * " + res.preset.headDim + "d * " +
+            state.contextLen.toLocaleString() + "S * " + res.effectiveBatch.toFixed(1) + " B_eff * " +
+            res.bytesPerElem + "B = " + res.kvGB.toFixed(2) + " GB (" +
+            (res.bytesPerTokenSeq / 1024).toFixed(0) + " KB/tok/seq)";
+
+          mWeights.num.textContent = res.weightsGB.toFixed(1) + " GB";
+          mWeights.sub.textContent = state.preset.toUpperCase() + " FP16 params";
+
+          mKv.num.textContent = res.kvGB.toFixed(1) + " GB";
+          mKv.sub.textContent = state.attention.toUpperCase() + " / " + state.kvPrecision.toUpperCase() + " (" + state.prefixHitPct + "% shared)";
+
+          mTotal.num.textContent = res.totalGB.toFixed(1) + " GB";
+          mTotal.num.style.color = res.totalGB > H100_VRAM_GB ? "var(--color-error)" : "var(--color-success)";
+          mTotal.sub.textContent = res.totalGB > H100_VRAM_GB
+            ? "OOM! Needs >= " + res.gpusNeeded + "x 80GB H100"
+            : ((res.totalGB / H100_VRAM_GB) * 100).toFixed(0) + "% of 80 GB H100";
+
+          mSpeedup.num.textContent = res.effectiveSpeedup.toFixed(2) + "x";
+          mSpeedup.num.style.color = res.effectiveSpeedup >= 1.2 ? "var(--color-primary)" : "var(--color-error)";
+          mSpeedup.sub.textContent = "Raw formula: " + res.rawSpeedup.toFixed(2) + "x";
+
+          drawChart(res);
+
+          if (res.totalGB > H100_VRAM_GB) {
+            statusBox.className = "inf-status oom";
+            statusBox.textContent =
+              "OOM Warning: Total VRAM (" + res.totalGB.toFixed(1) + " GB) exceeds a single 80 GB H100 GPU by " +
+              (res.totalGB - H100_VRAM_GB).toFixed(1) + " GB. Deploy across " + res.gpusNeeded +
+              "+ GPUs (Tensor Parallelism) or cut KV memory via GQA/MQA, FP8 KV quantization, smaller batch, or higher prefix caching.";
+          } else if (res.effectiveSpeedup < 1.0) {
+            statusBox.className = "inf-status";
+            statusBox.textContent =
+              "Speculative overhead warning: With alpha=" + state.alpha.toFixed(2) + " and batch B=" + state.batch +
+              ", speculative verification yields " + res.effectiveSpeedup.toFixed(2) + "x (slower than standard decode). Raise alpha, shorten gamma, or lower batch size.";
           } else {
-            otherKeys.forEach(function (k) { floatVals[k] = (state[k] / othersCurrentSum) * remaining; });
-          }
-
-          var runningSum = newVal;
-          for (var i = 0; i < otherKeys.length - 1; i++) {
-            var k = otherKeys[i];
-            var rounded = Math.max(0, Math.round(floatVals[k]));
-            state[k] = rounded;
-            runningSum += rounded;
-          }
-          var lastKey = otherKeys[otherKeys.length - 1];
-          state[lastKey] = Math.max(0, 100 - runningSum);
-          state[changedKey] = newVal;
-        }
-
-        function updateSlidersUI() {
-          SOURCES.forEach(function (src) {
-            sliders[src.key].value = String(state[src.key]);
-            readouts[src.key].textContent = state[src.key] + "%";
-          });
-          var total = SOURCES.reduce(function (s, src) { return s + state[src.key]; }, 0);
-          if (total !== 100) {
-            sumWarning.style.display = "block";
-            sumWarning.textContent = "Mix currently sums to " + total + "% (rounding).";
-          } else {
-            sumWarning.style.display = "none";
+            statusBox.className = "inf-status ok";
+            statusBox.textContent =
+              "Fits inside 1x 80 GB H100 (" + ((res.totalGB / H100_VRAM_GB) * 100).toFixed(0) + "% VRAM used) with " +
+              res.effectiveSpeedup.toFixed(2) + "x speculative decode speedup (" +
+              Math.round(res.specThroughput).toLocaleString() + " tok/s aggregate).";
           }
         }
 
-        function updateCapabilities() {
-          var web = state.web, code = state.code, books = state.books, conv = state.conv;
-
-          var coding = clamp(8 + code * 0.85 + web * 0.05 - conv * 0.05);
-          var reasoning = clamp(12 + books * 0.55 + code * 0.30 - conv * 0.05);
-          var chat = clamp(15 + conv * 0.75 + web * 0.15 - code * 0.15);
-
-          var scores = { coding: Math.round(coding), reasoning: Math.round(reasoning), chat: Math.round(chat) };
-          Object.keys(scores).forEach(function (key) {
-            capFills[key].style.width = scores[key] + "%";
-            capNums[key].textContent = scores[key];
-            capFills[key].style.background = scores[key] >= 65 ? "var(--color-success)" : (scores[key] >= 35 ? "var(--color-primary)" : "var(--color-error)");
-          });
-        }
-
-        function refreshAll() {
-          updateSlidersUI();
-          updateCapabilities();
-        }
-
-        SOURCES.forEach(function (src) {
-          sliders[src.key].addEventListener("input", function () {
-            redistribute(src.key, parseInt(sliders[src.key].value, 10));
-            refreshAll();
-          });
-        });
-
-        refreshAll();
+        update();
       }
     });
 
@@ -259,48 +634,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which of these is a data-quality decision that must be made BEFORE pretraining begins?",
+          q: "Why does autoregressive LLM decode typically run far below GPU Tensor Core FLOP saturation compared to prompt prefill?",
           options: [
-            "Which user interface theme the eventual chat product will use",
-            "How to deduplicate and filter the training corpus to remove toxic or low-quality content",
-            "What color scheme the API documentation will use",
-            "How many support tickets the company will receive after launch"
+            "Because attention during decode uses nonlinear softmax operations that cannot run on Tensor Cores",
+            "Because generating one token per sequence requires streaming all model weights and KV-cache from HBM for a low-intensity matrix-vector step, making it HBM memory-bandwidth bound",
+            "Because the KV-cache must be recomputed from scratch across all prior prompt tokens on every generated token",
+            "Because GPUs execute decode strictly on CPU memory before copying logits back to VRAM"
           ],
           answer: 1,
-          explanation: "Deduplication and quality filtering are core pretraining data-curation decisions — they directly shape what the model learns from."
+          explanation: "Prefill runs parallel matrix-matrix GEMMs across all prompt tokens (compute-bound), whereas decode emits one token at a time per sequence via matrix-vector GEMVs that repeatedly stream weights and KV tensors from HBM (memory-bandwidth bound). Decode specifically avoids recomputing prior tokens via the KV-cache."
         },
         {
-          q: "Why does increasing the percentage of code in the pretraining mixture tend to affect downstream reasoning ability?",
+          q: "A serving cluster runs a 70B model (80 layers, d_head=128) with MHA (64 KV heads) in FP16 at S=8,192 and hits an OOM error at batch B=8. Which architectural/serving change reduces KV-cache VRAM per unique sequence the MOST?",
           options: [
-            "Code has no relationship to reasoning capability",
-            "Code data often has explicit, structured logical patterns, and models trained on more of it tend to show improved structured/step-by-step reasoning",
-            "Code always hurts every downstream capability",
-            "Reasoning ability is entirely determined by model size, not data mixture"
+            "Enabling continuous batching so completed requests exit immediately",
+            "Replacing MHA with GQA-8 (8x fewer KV heads) and quantizing the KV-cache from FP16 to FP8 (16x total KV reduction)",
+            "Turning on speculative decoding with draft length gamma = 4",
+            "Increasing Tensor Core clock frequency without changing memory precision"
           ],
           answer: 1,
-          explanation: "Empirically, higher proportions of code in pretraining data have been associated with improved reasoning-style performance, likely due to code's structured, logical nature."
+          explanation: "Switching 64 KV heads (MHA) to 8 KV heads (GQA-8) reduces KV memory 8x, and FP16 -> FP8 halves it again (16x total). Continuous batching improves GPU utilization and reduces queue time, and speculative decoding speeds decode latency, but neither shrinks per-token KV storage by 16x."
         },
         {
-          q: "What is 'data contamination' a risk of, in the context of pretraining?",
+          q: "How does speculative decoding accelerate generation while guaranteeing an output distribution mathematically identical to the target model?",
           options: [
-            "The model accidentally including benchmark/test-set examples in its training data, inflating apparent performance without real generalization",
-            "The training data being stored in the wrong file format",
-            "The model's weights becoming corrupted during checkpointing",
-            "Using too much conversational data"
-          ],
-          answer: 0,
-          explanation: "Contamination means test or eval examples leaked into the training set, so reported benchmark scores may reflect memorization rather than genuine capability."
-        },
-        {
-          q: "In the exercise, why do the four sliders always sum to 100%?",
-          options: [
-            "It's a display bug",
-            "Because they represent shares of one fixed pretraining data budget — increasing one source's share necessarily decreases the others' shares",
-            "Because only one slider can be greater than zero at a time",
-            "Because the sliders are not actually linked to each other"
+            "It permanently distills the target model's logits into the draft model so only the draft model runs in production",
+            "A fast draft model proposes gamma tokens and the target model verifies all gamma + 1 positions in one parallel forward pass using modified rejection sampling",
+            "It runs greedy decoding (temperature = 0) on both models and accepts whenever their top-1 argmax matches",
+            "It skips every other transformer layer in the target model when draft confidence exceeds 0.8"
           ],
           answer: 1,
-          explanation: "The mixture percentages describe how a single, fixed pool of training data is divided among sources, so they must always add up to the whole (100%)."
+          explanation: "Parallel verification scores gamma + 1 candidate positions in roughly one memory-bandwidth-bound pass, and rejection sampling (accepting with min(1, p_target/p_draft) and resampling from the normalized residual) mathematically preserves the exact target distribution across any temperature. Top-1 greedy matching alters sampling distributions, and skipping layers changes weights/outputs."
+        },
+        {
+          q: "Your team handles multi-tenant traffic where every request begins with a 4,000-token RAG policy prompt and averages 300 unique output tokens. Which two techniques directly eliminate redundant memory and prefill compute?",
+          options: [
+            "Static max-length padding + increasing draft length gamma to 8",
+            "PagedAttention block management + Prefix (prompt) caching",
+            "Disabling KV caching during prefill + lowering batch size to B = 1",
+            "Switching from FP8 KV back to FP32 KV to avoid block rounding"
+          ],
+          answer: 1,
+          explanation: "PagedAttention manages KV in small non-contiguous blocks to avoid padding waste, while prefix caching lets all requests share the precomputed 4,000-token KV blocks once in VRAM and skip re-prefilling them. Static padding wastes memory, and disabling KV caching multiplies compute."
         }
       ]
     });

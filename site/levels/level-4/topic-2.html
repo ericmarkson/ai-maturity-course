@@ -31,30 +31,67 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Manually apply a small (3x3) filter to a toy pixel grid and
-      compute the resulting feature-map value at one position, and explain why weight-sharing makes CNNs
-      far more efficient than a fully-connected network for images.
+      <strong>Learning objective:</strong> Compute a 3×3 convolution response at an image patch by hand, explain how
+      weight sharing reduces parameters compared to dense layers, and trace how stacked convolutions + pooling build
+      hierarchical visual features.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>Convolutional Neural Network (CNN)</strong> is a network architecture specialized for
-          images. It uses small sliding filters ("kernels") that detect local patterns like edges and
-          textures, then stacks those detected patterns into increasingly complex shapes across layers.
+          A <strong>Convolutional Neural Network (CNN)</strong> processes grid-structured inputs like images by sliding
+          small learned filters (<strong>kernels</strong>, e.g., 3×3 weights) across height and width. At every position,
+          the kernel takes a dot product with the local pixel patch to emit a <strong>feature map</strong>—detecting
+          edges first, then textures, parts, and objects across deeper layers.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Sliding Dot Products:</strong> At patch position <code>(r, c)</code>, a 3×3 filter multiplies its 9
+        weights element-by-element against the 9 overlapping pixels and sums them (plus bias). Sliding the kernel across
+        an <code>8×8</code> grid without padding produces a <code>6×6</code> feature map highlighting wherever that
+        pattern occurs.
+      </p>
+      <p>
+        <strong>2. Weight Sharing Over Dense Connections:</strong> Connecting every pixel of a 224×224 RGB image
+        (150,528 inputs) directly to 1,000 dense hidden units requires <strong>150 million weights</strong> in one
+        layer—and memorizing a cat in the top-left doesn't help recognize it in the bottom-right. A CNN shares the
+        <em>same</em> 3×3 filter weights across every pixel location (32 filters × 3×3×3 = just <strong>864 weights</strong>),
+        detecting patterns anywhere in the image.
+      </p>
+      <p>
+        <strong>3. Hierarchy &amp; Spatial Pooling:</strong> Early layers combine raw pixels into edges; deeper layers
+        apply new kernels over earlier feature maps to compose shapes and parts. <strong>Pooling</strong> (such as 2×2
+        max-pooling) downsamples spatial size by keeping the strongest response in each small window, cutting compute
+        and adding tolerance to small pixel shifts.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Computing One Vertical-Edge Convolution Value</h3>
+      <p>
+        Apply the 3×3 vertical-edge kernel <code>[[1, 0, −1], [1, 0, −1], [1, 0, −1]]</code> to two patches from a
+        black-left (<code>0</code>), white-right (<code>1</code>) image:
+      </p>
       <ul>
-        <li>Convolution as a sliding filter/kernel over pixels</li>
-        <li>Feature maps and stacking layers to go from edges to shapes to objects</li>
-        <li>Pooling (downsampling) to reduce size while keeping important information</li>
-        <li>Why CNNs share weights across an image instead of having one weight per pixel</li>
+        <li><strong>Boundary patch</strong> <code>[[0, 1, 1], [0, 1, 1], [0, 1, 1]]</code>:
+          row sums <code>(0·1 + 1·0 + 1·−1) = −1</code> across all 3 rows &rarr; total response <code>−3</code> (strong edge magnitude <code>3</code>).</li>
+        <li><strong>Uniform white patch</strong> <code>[[1, 1, 1], [1, 1, 1], [1, 1, 1]]</code>:
+          row sums <code>(1·1 + 1·0 + 1·−1) = 0</code> &rarr; total response <code>0</code> (no vertical edge).</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Unpadded Shrinking &amp; Over-Aggressive Pooling</h3>
+      <p>
+        Without zero-padding ("same" padding), every 3×3 convolution trims 2 pixels off height and width, and repeated
+        2×2 pooling quarters spatial area. In deep CNNs, stacking too many unpadded or aggressively pooled layers can
+        erase tiny targets (like distant road signs or small lesions) before the final classification layer ever sees them.
+      </p>
     </section>
   </div>
 
@@ -334,43 +371,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the exercise, sliding the vertical-edge filter across the image produces the strongest response near which part of the image?",
-          options: ["Anywhere, it's uniform", "The boundary column between the black and white halves", "Only the very top row", "Only the very bottom row"],
-          answer: 1,
-          explanation: "A vertical-edge kernel responds strongly where pixel intensity changes sharply left-to-right — exactly at the black/white boundary column."
+          q: "In the 8×8 edge exercise, why does the vertical-edge kernel output 0 on solid black or solid white regions and spike only along the middle column?",
+          options: [
+            "Because the kernel multiplies center pixels by zero and sums left minus right intensities, canceling out wherever left and right pixels match",
+            "Because max-pooling deletes uniform regions before convolution runs",
+            "Because CNNs only evaluate convolutions on pixel columns near the image center",
+            "Because activation functions clamp uniform background pixel values to zero"
+          ],
+          answer: 0,
+          explanation: "With left weights +1 and right weights −1, uniform patches yield (+v) + (−v) = 0, while an intensity transition produces a large positive or negative response right along the boundary."
         },
         {
-          q: "Why does a CNN share the same filter weights across every position of the image, instead of learning a unique weight per pixel?",
+          q: "Why does spatial weight sharing give CNNs a major advantage over dense fully-connected layers on images?",
           options: [
-            "Because pixels don't matter",
-            "Because a pattern like an edge can appear anywhere, so one learned filter can detect it everywhere with far fewer parameters",
-            "Because it makes training slower on purpose",
-            "Because fully-connected weights are illegal to use"
+            "Weight sharing locks filter values at pre-set edge detectors so they never need backpropagation",
+            "Reusing the same small kernel across every location slashes parameter count and lets a feature learned in one spot generalize anywhere in the image",
+            "Weight sharing guarantees the output feature map has the exact same pixel dimensions as the input",
+            "Dense layers cannot process multi-channel RGB inputs without converting them to grayscale"
           ],
           answer: 1,
-          explanation: "Weight-sharing means one small filter (e.g. 9 numbers for a 3x3 kernel) can detect the same local pattern anywhere in the image, which is dramatically more parameter-efficient than a unique weight per pixel-position pair."
+          explanation: "Sharing a 3×3 filter across all coordinates drastically reduces weights (preventing overfitting) and gives translation equivariance—an edge or wheel detector works at any position."
         },
         {
-          q: "What is a 'feature map' in a CNN?",
+          q: "What does a single output 'feature map' represent in a convolutional layer?",
           options: [
-            "The original raw image",
-            "The grid of outputs produced by sliding one filter across the input",
-            "The final classification label",
-            "A list of all training images"
+            "A downsampled copy of the original RGB image channels",
+            "A 2D grid recording how strongly one specific learned kernel matched at each spatial position",
+            "The flattened probability vector across output class labels",
+            "The set of kernel weights shared across all filters in that layer"
           ],
           answer: 1,
-          explanation: "A feature map is the output grid you get after convolving a filter across the input — each value shows how strongly that filter's pattern matched at that position."
+          explanation: "Each filter sweeps across the image and writes its dot-product responses into one 2D feature map. A conv layer with 64 filters produces 64 stacked feature maps."
         },
         {
-          q: "What does pooling (downsampling) primarily achieve in a CNN?",
+          q: "What is the main trade-off of inserting a 2×2 max-pooling layer between convolutional blocks?",
           options: [
-            "It increases the image resolution",
-            "It reduces the spatial size of feature maps while keeping the most important information",
-            "It removes all color from the image",
-            "It replaces convolution entirely"
+            "It increases parameter count in exchange for sharper edge detail",
+            "It shrinks spatial resolution and compute while adding small-shift tolerance, at the cost of discarding exact sub-window locations",
+            "It converts local 3×3 filters into global attention across every pixel pair",
+            "It enforces zero-padding so spatial dimensions expand at deeper layers"
           ],
           answer: 1,
-          explanation: "Pooling (e.g. max-pooling) shrinks feature maps, reducing computation and giving some tolerance to small shifts in where a pattern appears, while retaining the strongest signals."
+          explanation: "Max-pooling keeps only the strongest activation in each 2×2 patch, halving height and width (4× fewer values) and tolerating tiny translations while discarding fine positional detail."
         }
       ]
     });

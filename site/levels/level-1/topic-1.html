@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>What AI, ML, and Deep Learning Actually Are (and How They Differ) — AI Maturity Course</title>
-<meta name="description" content="How Artificial Intelligence, Machine Learning, and Deep Learning relate as nested fields, with a drag-and-drop sorting exercise.">
+<title>Rules vs. Pattern Learning vs. Deep Networks: How Modern AI Tools Differ — AI Maturity Course</title>
+<meta name="description" content="How fixed rules, rule-based AI, machine learning, and deep learning relate as nested layers, illustrated with everyday modern tools.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
@@ -18,48 +18,58 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 1 — Beginner</p>
-  <h1>What AI, ML, and Deep Learning Actually Are (and How They Differ)</h1>
+  <h1>Rules vs. Pattern Learning vs. Deep Networks: How Modern AI Tools Differ</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can correctly place a given real-world system
-      (e.g., a spam filter, a spreadsheet formula, ChatGPT) into the right layer of the AI/ML/DL
-      nesting diagram and explain why.
+      <strong>Learning objective:</strong> Place everyday modern software and AI tools (such as a thermostat, a
+      menu chatbot, a taste recommender, and ChatGPT) into the nested layers of Fixed Rules, AI, Machine Learning,
+      and Deep Learning, and explain what separates each layer.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          These three terms get used almost interchangeably in headlines, but they describe three
-          nested fields, not three separate ones. <strong>Artificial Intelligence (AI)</strong> is
-          the broad goal: building machines that behave intelligently, however that behavior is
-          produced. <strong>Machine Learning (ML)</strong> is the subset of AI that reaches that
-          goal by learning patterns from data instead of following rules a person wrote by hand.
-          <strong>Deep Learning (DL)</strong> is the subset of ML that learns those patterns using
-          neural networks stacked into many layers. Every deep learning system is machine
-          learning; every machine learning system is AI. The reverse isn't true — plenty of AI is
-          neither ML nor deep learning.
+          People often call every smart-looking feature "AI," yet modern tools sit inside four nested layers:
+          <strong>Artificial Intelligence (AI)</strong> is the broad umbrella of machines performing tasks that seem
+          intelligent. Inside AI, <strong>Machine Learning (ML)</strong> learns patterns from examples rather than
+          hand-written instructions. Inside ML, <strong>Deep Learning (DL)</strong> learns those patterns using neural
+          networks stacked into many layers. Every deep learning app is ML and AI—while ordinary fixed-logic apps sit
+          outside AI altogether.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Four Everyday Layers)</h2>
       <ul>
-        <li>The nesting relationship: AI ⊃ ML ⊃ Deep Learning — three concentric circles, not three separate boxes</li>
-        <li>Rule-based / symbolic AI (the pre-ML era, where humans hand-wrote the logic) vs. learning-based AI (where the system infers the logic from examples)</li>
-        <li>Why "deep" refers to having many layers of neurons stacked on top of each other — not to how sophisticated or "smart" the system feels</li>
-        <li>Common confusions: marketing uses "AI" loosely for almost any automation, while the technical term is much narrower and more specific</li>
+        <li><strong>Not AI at all (Fixed code &amp; arithmetic):</strong> A spreadsheet <code>=SUM()</code> formula or a basic thermostat turning heat on below <code>68°F</code> simply obeys explicit arithmetic or one fixed threshold—no reasoning and no learning.</li>
+        <li><strong>AI via hand-written rules (not ML):</strong> A phone-tree support bot (<em>"Type 1 for Billing, 2 for Shipping"</em>) or rigid fraud checklist (<em>"If card country ≠ billing country, block"</em>) acts helpfully like a human clerk, yet never improves from new examples—every branch had to be typed by a person.</li>
+        <li><strong>Machine Learning (learns patterns from data, shallow models):</strong> Spotify's taste matcher, email spam filters, or home-price estimators scan thousands of labeled examples to tune internal scoring dials automatically—without relying on deep stacked neural layers.</li>
+        <li><strong>Deep Learning (many-layered neural networks):</strong> ChatGPT, live voice-to-text captions, Face ID, and photo search (<em>"show photos of golden retrievers"</em>) stack dozens of neural layers so raw pixels, sound waves, and messy sentences are understood automatically.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: The Two-Question Gut Check</h3>
       <p>
-        A useful gut-check: if a system's behavior comes entirely from logic a person wrote (if
-        this, then that), it's AI but not ML, no matter how clever the rules are. If it improves
-        by looking at data and adjusting internal numbers, it's ML. And if those internal numbers
-        live inside a neural network with several stacked layers, it's deep learning specifically.
-        A neural network with just one shallow layer is still ML — it only earns the "deep" label
-        once it has real depth.
+        Want to classify any tool you use today? Ask two quick questions:
+      </p>
+      <ol>
+        <li><strong>Did it learn its behavior from data examples, or did a programmer type every rule?</strong> A customer-service menu bot follows typed branching scripts (Rule-Based AI), whereas Netflix's "Top Picks for You" adjusts automatically from millions of viewing histories (Machine Learning).</li>
+        <li><strong>Does it rely on a neural network with many stacked layers?</strong> A one-layer classifier sorting tidy spreadsheet numbers is ML without depth, whereas a transformer chatbot or speech recognizer stacks dozens of neural layers (Deep Learning).</li>
+      </ol>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: "Deep" Means Stacked Layers—Not "Deeply Intelligent"</h3>
+      <p>
+        In marketing headlines, "deep" sounds like "philosophical" or "genius-level." Technically, <strong>deep</strong>
+        simply describes architecture: stacking many layers of artificial neurons between input and output so Layer 1
+        spots simple edges or word clues and Layer 20 spots full concepts. A shallow neural net with one hidden layer
+        still counts as ML, just not deep learning.
       </p>
     </section>
 
@@ -91,29 +101,30 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     var ZONES = [
-      { key: "notai", label: "Not AI at all", hint: "No intelligence, no learning — just fixed logic/arithmetic." },
-      { key: "ai", label: "AI (rule-based / symbolic)", hint: "Hand-written rules produce intelligent-seeming behavior — no learning from data." },
-      { key: "ml", label: "Machine Learning (not deep)", hint: "Learns patterns from data, but not with a deep neural network." },
-      { key: "dl", label: "Deep Learning", hint: "Learns patterns using a neural network with many stacked layers." }
+      { key: "notai", label: "Not AI at all", hint: "Fixed arithmetic or simple threshold code — no judgment, no learning." },
+      { key: "ai", label: "AI (rule-based / hand-coded)", hint: "Acts smart using hand-written if/then decision trees — no learning from data." },
+      { key: "ml", label: "Machine Learning (not deep)", hint: "Learns patterns from data examples, without a deep multi-layer network." },
+      { key: "dl", label: "Deep Learning", hint: "Learns complex patterns using a neural network with many stacked layers." }
     ];
 
     var ITEMS = [
-      { id: "calc", label: "Spreadsheet SUM formula", zone: "notai", note: "Just fixed arithmetic — no intelligence, no learning. Not AI at all." },
-      { id: "chess", label: "1970s rule-based chess program", zone: "ai", note: "Hand-written if/then rules play chess — intelligent behavior, but nothing is learned from data, so it's AI without being ML." },
-      { id: "expert", label: "Medical expert system (rule book)", zone: "ai", note: "Encodes a doctor's rules as if/then logic. Classic symbolic AI — no training data involved." },
-      { id: "spam", label: "1990s Naive Bayes spam filter", zone: "ml", note: "Learns spam-vs-not patterns from a dataset of labeled emails — that's ML, but a shallow statistical model, not deep learning." },
-      { id: "reco", label: "Collaborative-filtering recommender", zone: "ml", note: "Learns from ratings data using matrix math, not a stacked neural network — ML without depth." },
-      { id: "digits", label: "Single-hidden-layer digit recognizer", zone: "ml", note: "Technically a tiny neural network, but with only one shallow layer it doesn't count as “deep” — still just ML." },
-      { id: "imgnet", label: "CNN image recognizer (e.g. ResNet)", zone: "dl", note: "Many stacked convolutional layers learning features automatically — this is deep learning." },
-      { id: "gpt", label: "GPT-style chatbot", zone: "dl", note: "A deep transformer network with dozens of layers trained on huge datasets — deep learning." },
-      { id: "voice", label: "Modern voice-assistant speech recognizer", zone: "dl", note: "Uses deep neural networks to convert audio to text — deep learning under the hood." }
+      { id: "calc", label: "Spreadsheet =SUM() formula", zone: "notai", note: "Fixed arithmetic written in a cell — no pattern learning and no intelligent behavior." },
+      { id: "therm", label: "Basic thermostat (heat on below 68°F)", zone: "notai", note: "Follows a single hard-coded temperature threshold — straightforward control logic, not AI." },
+      { id: "menubot", label: "Scripted support menu bot ('Press 1 for Billing')", zone: "ai", note: "Mimics a helpful clerk using hand-written branching rules, but never learns from past chats — Rule-Based AI." },
+      { id: "routing", label: "Email inbox rule ('If Subject has Invoice, tag Finance')", zone: "ai", note: "Automated triage via explicit human-written if/then rules — no training data involved." },
+      { id: "spam", label: "Email spam filter trained on tagged emails", zone: "ml", note: "Learns spam word patterns from millions of labeled emails using statistical ML rather than deep stacked layers." },
+      { id: "reco", label: "Spotify / Netflix taste matcher", zone: "ml", note: "Learns viewing and listening preferences from ratings data using matrix/tabular ML without needing deep neural vision/language stacks." },
+      { id: "digits", label: "Single-hidden-layer credit-score predictor", zone: "ml", note: "Even though it uses a neural network, a single shallow hidden layer counts as ML rather than 'deep' learning." },
+      { id: "faceid", label: "Phone Face ID / photo search ('find my dog')", zone: "dl", note: "Many stacked convolutional layers automatically turn raw pixels into recognizable faces and objects — Deep Learning." },
+      { id: "gpt", label: "ChatGPT / Claude conversational assistant", zone: "dl", note: "A deep transformer neural network with dozens of stacked attention layers trained on vast text — Deep Learning." },
+      { id: "voice", label: "Live phone voice-to-text transcription", zone: "dl", note: "Multi-layer deep neural networks turn messy raw audio waveforms directly into words — Deep Learning." }
     ];
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Sort each system into AI, ML, or Deep Learning",
+      title: "Sort everyday modern tools into Rules, AI, ML, or Deep Learning",
       instructions: "Drag each chip below onto the zone you think it belongs in (or click/press Enter on a " +
         "chip to pick it up, then click/press Enter on a zone to place it there). AI, ML, and DL are " +
-        "nested (AI ⊃ ML ⊃ DL), so pick the innermost/most-specific zone that still applies. " +
+        "nested (AI ⊃ ML ⊃ DL), so pick the innermost/most-specific zone that applies. " +
         "Correct drops turn green and lock in place with an explanation; wrong drops bounce back.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
@@ -267,7 +278,7 @@
         function updateStatus() {
           var count = Object.keys(solved).length;
           if (count === ITEMS.length) {
-            status.textContent = "All " + ITEMS.length + " systems sorted correctly! Nice work.";
+            status.textContent = "All " + ITEMS.length + " modern tools sorted correctly! Nice work.";
             status.style.color = "var(--color-success)";
           } else {
             status.textContent = count + " / " + ITEMS.length + " placed correctly.";
@@ -317,28 +328,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which nesting relationship between the three fields is correct?",
-          options: ["AI ⊃ ML ⊃ Deep Learning", "ML ⊃ AI ⊃ Deep Learning", "Deep Learning ⊃ ML ⊃ AI", "They are three separate, unrelated fields"],
+          q: "Which nesting diagram correctly describes how Artificial Intelligence, Machine Learning, and Deep Learning relate?",
+          options: [
+            "AI ⊃ ML ⊃ Deep Learning (DL sits inside ML, which sits inside AI)",
+            "ML ⊃ AI ⊃ Deep Learning (AI is one specialized subset of ML)",
+            "Deep Learning ⊃ ML ⊃ AI (all AI tools rely on multi-layer neural nets)",
+            "Rule-based AI, ML, and Deep Learning are three separate, non-overlapping fields"
+          ],
           answer: 0,
-          explanation: "AI is the broadest goal; ML is the subset that learns from data; deep learning is the subset of ML that uses many-layered neural networks."
+          explanation: "AI is the broadest umbrella; ML is the data-learning subset of AI; Deep Learning is the many-layered neural subset of ML."
         },
         {
-          q: "A 1970s chess program that follows only hand-written if/then rules and never looks at data is best classified as:",
-          options: ["Deep learning", "Machine learning, but not deep", "AI, but not ML", "Not AI at all"],
+          q: "A modern customer-support chatbot follows a strict branching menu typed by engineers ('Press 1 for Billing, 2 for Shipping') and never adjusts from user feedback. Where does it fit?",
+          options: [
+            "Deep learning, because all conversational chatbots run on neural networks",
+            "Machine learning, because it processes customer text inputs",
+            "Rule-based AI (not ML), because intelligent behavior comes from hand-written if/then logic rather than learning from data",
+            "Every automated response system automatically qualifies as ML"
+          ],
           answer: 2,
-          explanation: "It behaves intelligently (so it's AI) but never learns from data (so it isn't ML, and therefore can't be deep learning either)."
+          explanation: "Automated decision behavior qualifies under the broad AI umbrella, yet without adjusting internal dials from data examples, it is rule-based AI—not machine learning."
         },
         {
-          q: "What does the word “deep” in “deep learning” actually refer to?",
-          options: ["How sophisticated or smart the system seems", "Having many stacked layers in the neural network", "Requiring deep math expertise to build", "Using an especially large dataset"],
+          q: "What does the word 'deep' in 'Deep Learning' (like Face ID or ChatGPT) literally refer to?",
+          options: [
+            "Having deep philosophical reasoning that equals human common sense",
+            "Stacking many layers of artificial neurons between the raw input and final output",
+            "Training on an unusually large dataset regardless of how simple the model is",
+            "Connecting multiple independent rule-based chatbots in a pipeline"
+          ],
           answer: 1,
-          explanation: "“Deep” is a structural term — it means the network has many layers stacked between input and output, not a claim about intelligence."
+          explanation: "'Deep' refers strictly to network depth—many stacked neural layers that gradually transform raw pixels or words into higher-level patterns."
         },
         {
-          q: "A neural network with just one shallow hidden layer, trained on labeled data, is:",
-          options: ["Not AI", "AI but not ML", "ML, but not deep enough to be called deep learning", "Automatically deep learning because it's a neural network"],
+          q: "A tiny neural network with just ONE shallow hidden layer learns from labeled loan spreadsheet rows. How is it classified?",
+          options: [
+            "Rule-based AI, because tabular spreadsheets don't require neural depth",
+            "Not AI at all, because spreadsheets rely purely on arithmetic",
+            "Machine learning, because it learns from data—but too shallow to be called Deep Learning",
+            "Automatically Deep Learning simply because it uses artificial neurons"
+          ],
           answer: 2,
-          explanation: "It learns from data, so it's ML — but with only one shallow layer it doesn't have the depth needed to be called deep learning."
+          explanation: "Learning weights from examples makes it ML, yet a single shallow hidden layer lacks the multi-layer depth required for Deep Learning."
         }
       ]
     });

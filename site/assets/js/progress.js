@@ -2,24 +2,15 @@
  * progress.js
  * ---------------------------------------------------------------------------
  * localStorage-backed progress tracker, exposed as `window.Progress`.
- * Depends on `window.COURSE` (course-data.js) being loaded first for total
- * counts. Safe to load on any page; does nothing destructive if COURSE is
- * missing (falls back to total = 0 rather than throwing).
- *
- * Storage: a single localStorage key holding a JSON array of completed
- * topic id strings, e.g. ["1-1", "1-3", "2-7"].
- *
- * Change notification: every mutating call fires a
- * `document.dispatchEvent(new CustomEvent("progress:change", { detail }))`
- * AND calls any callbacks registered via `Progress.onChange(fn)`, so nav /
- * home page / level pages can re-render live. `detail` is
- * `{ completed: number, total: number }`.
+ * Compatible with `aimc:progress:v1`, plus last-visited tracking and JSON
+ * export/import helpers.
  * ---------------------------------------------------------------------------
  */
 (function () {
   "use strict";
 
   var STORAGE_KEY = "aimc:progress:v1";
+  var LAST_VISITED_KEY = "aimc:lastVisited:v1";
   var listeners = [];
 
   function readSet() {
@@ -43,26 +34,35 @@
       var arr = Object.keys(set);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
     } catch (e) {
-      /* localStorage unavailable (private mode / quota) — fail silently,
-         in-memory state for this page load still works via `cache`. */
+      /* localStorage unavailable — fail silently */
     }
   }
 
-  // In-memory cache, kept in sync with localStorage on every mutation and
-  // re-read on init so multiple tabs mostly behave, though we don't listen
-  // for the storage event (out of scope for this simple tracker).
   var cache = readSet();
 
-  function allTopicIds() {
-    var ids = [];
+  function allTopics() {
+    var list = [];
     if (window.COURSE && Array.isArray(window.COURSE.levels)) {
       window.COURSE.levels.forEach(function (level) {
         (level.topics || []).forEach(function (t) {
-          ids.push(t.id);
+          list.push({
+            id: t.id,
+            num: t.num,
+            title: t.title,
+            file: t.file,
+            levelNum: level.num,
+            levelName: level.name,
+            tier: level.tier || "",
+            tierSlug: level.tierSlug || ""
+          });
         });
       });
     }
-    return ids;
+    return list;
+  }
+
+  function allTopicIds() {
+    return allTopics().map(function (t) { return t.id; });
   }
 
   function getTotalCount() {
@@ -77,8 +77,6 @@
   }
 
   function getCompletedCount() {
-    // Only count ids that still exist in COURSE, so stale localStorage
-    // entries (e.g. from a renamed topic) don't inflate the count.
     var valid = allTopicIds();
     var count = 0;
     for (var i = 0; i < valid.length; i++) {
@@ -93,18 +91,117 @@
       try {
         fn(detail);
       } catch (e) {
-        /* one bad listener shouldn't break the others */
+        /* isolate listener failures */
       }
     });
     try {
       document.dispatchEvent(new CustomEvent("progress:change", { detail: detail }));
     } catch (e) {
-      /* CustomEvent unsupported in extremely old browsers — ignore */
+      /* ignore */
+    }
+  }
+
+  function setLastVisited(topicId) {
+    if (!topicId) return;
+    try {
+      localStorage.setItem(LAST_VISITED_KEY, String(topicId));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  function getLastVisited() {
+    try {
+      return localStorage.getItem(LAST_VISITED_KEY) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getNextRecommended() {
+    var topics = allTopics();
+    if (!topics.length) return null;
+
+    var lastId = getLastVisited();
+    if (lastId) {
+      for (var i = 0; i < topics.length; i++) {
+        if (topics[i].id === lastId && !cache[lastId]) {
+          return { topic: topics[i], reason: "resume" };
+        }
+      }
+      // If last visited is complete, recommend the very next incomplete topic after it
+      var lastIdx = -1;
+      for (var j = 0; j < topics.length; j++) {
+        if (topics[j].id === lastId) {
+          lastIdx = j;
+          break;
+        }
+      }
+      if (lastIdx !== -1) {
+        for (var k = lastIdx + 1; k < topics.length; k++) {
+          if (!cache[topics[k].id]) {
+            return { topic: topics[k], reason: "next" };
+          }
+        }
+      }
+    }
+
+    for (var m = 0; m < topics.length; m++) {
+      if (!cache[topics[m].id]) {
+        return {
+          topic: topics[m],
+          reason: getCompletedCount() > 0 ? "next" : "start"
+        };
+      }
+    }
+
+    return { topic: topics[0], reason: "review" };
+  }
+
+  function exportJSON() {
+    var validSet = {};
+    allTopicIds().forEach(function (id) { validSet[id] = true; });
+    var completed = Object.keys(cache).filter(function (id) { return !!validSet[id]; });
+    return JSON.stringify({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      completed: completed,
+      lastVisited: getLastVisited()
+    }, null, 2);
+  }
+
+  function importJSON(jsonStr) {
+    try {
+      var parsed = JSON.parse(String(jsonStr || ""));
+      var arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.completed) ? parsed.completed : null);
+      if (!arr) {
+        return { ok: false, error: "Expected a JSON array or an object with a `completed` array." };
+      }
+      var validSet = {};
+      allTopicIds().forEach(function (id) { validSet[id] = true; });
+      var next = {};
+      var count = 0;
+      arr.forEach(function (id) {
+        if (typeof id === "string" && validSet[id]) {
+          if (!next[id]) count++;
+          next[id] = true;
+        }
+      });
+      cache = next;
+      writeSet(cache);
+      if (parsed && typeof parsed.lastVisited === "string" && validSet[parsed.lastVisited]) {
+        setLastVisited(parsed.lastVisited);
+      }
+      notify();
+      return { ok: true, count: count };
+    } catch (e) {
+      return { ok: false, error: "Invalid JSON file." };
     }
   }
 
   var Progress = {
     STORAGE_KEY: STORAGE_KEY,
+    LAST_VISITED_KEY: LAST_VISITED_KEY,
 
     isComplete: function (topicId) {
       return !!cache[topicId];
@@ -158,14 +255,23 @@
       return result;
     },
 
+    setLastVisited: setLastVisited,
+    getLastVisited: getLastVisited,
+    getNextRecommended: getNextRecommended,
+    exportJSON: exportJSON,
+    importJSON: importJSON,
+
     reset: function () {
       cache = {};
       writeSet(cache);
+      try {
+        localStorage.removeItem(LAST_VISITED_KEY);
+      } catch (e) {
+        /* ignore */
+      }
       notify();
     },
 
-    /** Register a callback fired on every progress mutation. Returns an
-     * unsubscribe function. */
     onChange: function (fn) {
       if (typeof fn !== "function") return function () {};
       listeners.push(fn);

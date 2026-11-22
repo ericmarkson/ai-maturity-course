@@ -33,31 +33,62 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain the difference between optimizing for latency and
-      optimizing for throughput, and choose an appropriate rollout strategy (canary, shadow, or full)
-      for a given risk scenario.
+      <strong>Learning objective:</strong> Define latency, throughput, and error-budget SLOs for production ML
+      serving, select GPU-aware autoscaling and rollout strategies (shadow, canary, A/B) for a given risk
+      profile, and design circuit breakers and fallback tiers to prevent cascading outages.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Production ML systems at scale is the engineering discipline of running ML/LLM systems
-          reliably for real users — serving infrastructure, load, cost, and failure handling — not just
-          model quality. A model that scores well offline is only useful if it can also be served fast
-          enough, cheaply enough, and safely enough for real traffic.
+          <strong>Production ML systems at scale</strong> encompass the serving architecture, telemetry, rollout
+          discipline, and fault tolerance required to run models under real traffic SLOs. Offline benchmark
+          accuracy means little if tail latency violates product expectations, GPU cost per 1,000 requests
+          breaks unit economics, or a subtle regression breaks live users before monitoring catches it.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Scaling ML inference requires managing four coupled operational dimensions:
+      </p>
       <ul>
-        <li><strong>Serving patterns</strong> — batching, caching, streaming responses, load balancing across model instances</li>
-        <li><strong>Latency vs. throughput vs. cost tradeoffs</strong></li>
-        <li><strong>Rollout strategies</strong> — canary releases, shadow deployment, A/B testing model versions</li>
-        <li><strong>Graceful failure handling</strong> — fallback models, timeouts, rate limiting, circuit breakers</li>
+        <li><strong>SLIs, SLOs &amp; GPU utilization:</strong> Track <em>tail latency</em> (p95/p99 Time-To-First-Token and total latency), throughput (tokens/s or req/s), and error rate against explicit Service Level Objectives. Dynamic batching increases GPU Tensor Core utilization and drops cost per request, while queueing wait adds tail latency; streaming tokens lowers perceived user wait even when full generation takes seconds.</li>
+        <li><strong>ML-aware autoscaling:</strong> Traditional CPU utilization triggers fail for GPU-bound models. Autoscale on <em>GPU KV-cache occupancy, active request queue depth, or tokens/sec saturation</em>, and mitigate 20&ndash;90s weight-loading cold starts with pre-warmed pools or cached fast storage.</li>
+        <li><strong>Risk-tiered rollouts:</strong> <em>Shadow deployment</em> mirrors live requests asynchronously to the candidate model without exposing users (ideal for verifying crashes, memory, and p99 latency at 2&times; compute cost). <em>Canary releases</em> shift a small traffic slice (e.g. 1&ndash;10%) to catch regressions early, while <em>A/B tests</em> split traffic across large enough samples to measure product-level lift.</li>
+        <li><strong>Graceful degradation:</strong> Timeouts, rate limits (token-bucket per tenant), and <em>circuit breakers</em> isolate failing model pods so retries do not snowball into cascading outages &mdash; shedding load cleanly to a smaller, cheaper fallback model when queues saturate.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a customer-facing assistant has a <strong>p99 latency SLO &le; 1,200 ms</strong> and baseline
+        error rate of <strong>2.0%</strong>. You want to ship a new quantized checkpoint that might have a hidden
+        long-context regression pushing errors to <strong>5.5%</strong>.
+      </p>
+      <p>
+        First, run a <strong>shadow deploy</strong> for 30 minutes to verify zero OOMs and confirm p99 latency
+        stays under 1,200 ms. Next, launch a <strong>10% canary</strong>. At 100 requests total (10 canary),
+        observing 1 error looks like 10% &mdash; pure binomial noise. After sending 10,000 total requests
+        (~1,000 canary), the canary shows ~55 errors (5.5%, 95% CI [4.1%, 7.0%]) vs. control ~180/9,000 (2.0%,
+        95% CI [1.7%, 2.3%]). Because the gap is statistically clear, automated rollback halts promotion before
+        90% of users are impacted.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Scaling on CPU metrics &amp; reacting to tiny canary samples:</strong> Inference servers often
+        sit at 15% host CPU while GPU compute or KV-cache queues hit 100%, causing CPU-based Kubernetes HPAs to
+        scale too late. Just as common, teams either monitor only <em>p50</em> latency (missing batching
+        queue spikes that wreck p99) or abort/promote a canary after 30 requests when sampling noise dominates
+        the signal.
+      </p>
     </section>
 
   </div>
@@ -321,48 +352,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Increasing batch size in the exercise tends to do what to per-request latency and throughput?",
+          q: "Increasing dynamic batch size with a 25 ms max wait window boosts GPU throughput from 40 to 210 req/s and drops cost per 1,000 requests by 70%, yet p99 latency worsens. Why?",
           options: [
-            "Decreases both latency and throughput",
-            "Increases per-request latency (more queueing) but increases overall throughput",
-            "Has no effect on either metric",
-            "Increases latency and decreases throughput"
+            "Larger batches disable response caching, forcing duplicate compute for identical prompts",
+            "Requests arriving early in the window sit queued waiting for the batch to fill, trading higher tail latency for better GPU Tensor Core amortization",
+            "GPU clock speeds automatically throttle downward whenever batch size exceeds 8",
+            "Dynamic batching forces models to switch from FP16 to FP32 matrix multiplications"
           ],
           answer: 1,
-          explanation: "Bigger batches mean a request waits longer for the batch to fill (higher latency) but the server processes more requests per second overall (higher throughput) — a classic tradeoff."
+          explanation: "Batching amortizes weight reads across multiple requests (raising throughput and lowering cost/req), but requests wait in a queue for batch assembly and execute alongside slower peers, increasing p95/p99 latency."
         },
         {
-          q: "What is the main purpose of a canary release?",
+          q: "You built a new fraud-scoring model with a modified feature pipeline and want to verify latency under real traffic spikes and zero-crash stability before ANY customer decision is affected. Which rollout pattern fits best?",
           options: [
-            "To permanently replace the old model version immediately",
-            "To route a small percentage of real traffic to a new version so problems surface on limited exposure before a full rollout",
-            "To reduce serving cost by skipping the new model entirely",
-            "To increase batch size automatically"
+            "Immediate 50/50 A/B split so statistical power accumulates twice as fast",
+            "Shadow deployment mirroring live requests asynchronously to the new model while still serving the stable model's decision",
+            "Blue-green DNS cutover with manual rollback if support tickets rise",
+            "Increasing the semantic cache TTL to 24 hours on the old model first"
           ],
           answer: 1,
-          explanation: "A canary limits the blast radius: only a slice of traffic sees the new version, so a regression is caught while affecting few users."
+          explanation: "Shadow deployment tests real production payloads, tail latency, and crash rates at zero user blast radius (paying 2x compute temporarily). A/B splits and blue-green expose real users to unverified decisions immediately."
         },
         {
-          q: "In the exercise, why does the canary's error rate stay noisy with only a handful of requests sent to it?",
+          q: "Five minutes into a 5% canary rollout, the canary shows 2 errors out of 35 requests (5.7%) vs. 2.0% on control (14 errors out of 700). An engineer proposes immediate rollback based strictly on that rate. What is the key issue?",
           options: [
-            "Because the canary model is broken by design",
-            "Because small sample sizes produce noisy rate estimates — more traffic is needed before the observed rate reliably reflects the true rate",
-            "Because the control version is also canary traffic",
-            "Because caching is disabled during canary tests"
+            "Canary rollouts can never detect error regressions; only offline unit tests can",
+            "At N=35, binomial variance is huge (one extra failure shifts the rate by ~2.9 pp), so more sample volume is needed unless errors are severe/deterministic crashes",
+            "The 5% canary automatically receives lower-priority GPU memory than the 95% control pool",
+            "Control error rates are always smoothed over 24 hours while canary rates are instantaneous"
           ],
           answer: 1,
-          explanation: "With few requests, random variation dominates the observed error rate; only after enough traffic accumulates does the estimate stabilize near the true underlying rate."
+          explanation: "With N=35, 2 errors vs. an expected 0.7 errors is well within random binomial fluctuation. Checking statistical confidence (or accumulating N >= several hundred requests) prevents false rollbacks while still catching catastrophic 500-spikes immediately."
         },
         {
-          q: "A circuit breaker in a production ML serving system is best described as:",
+          q: "During a traffic spike, your primary 70B LLM service starts timing out at 8s. Clients keep retrying aggressively, pushing GPU queues into total collapse. Which architectural pattern stops the cascading failure?",
           options: [
-            "A hardware component that powers the GPU cluster",
-            "A mechanism that stops sending requests to a failing dependency for a period, to avoid cascading failures",
-            "A setting that increases the cache-hit rate",
-            "A rollout strategy that mirrors production traffic without affecting real users"
+            "Raising client request timeouts from 8s to 60s so fewer requests get marked as errors",
+            "Tripping a circuit breaker to stop hammering the overloaded 70B cluster and shedding traffic to a fast fallback model (plus token-bucket rate limiting)",
+            "Scaling pods strictly when host CPU utilization exceeds 80%",
+            "Disabling streaming responses so the load balancer holds connections open longer"
           ],
           answer: 1,
-          explanation: "Circuit breakers detect repeated failures and temporarily stop calling a failing component, giving it time to recover and preventing failures from cascading through the system."
+          explanation: "A circuit breaker halts retry storms against an exhausted downstream cluster and degrades gracefully via a lighter fallback model. Raising timeouts holds connections open longer and worsens queue collapse, and host CPU often stays low during GPU saturation."
         }
       ]
     });

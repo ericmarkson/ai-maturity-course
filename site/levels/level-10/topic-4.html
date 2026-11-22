@@ -39,31 +39,42 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Design a benchmark specification (what it measures, how items are constructed, how gaming is detected/prevented) for a stated capability or safety property, and identify the specific way it could saturate or be gamed.
+      <strong>Learning objective:</strong> Design a field-grade capability or safety benchmark specification—spanning construct validity, IRT item calibration, anti-contamination holdouts, and debiased scoring—and diagnose how it could saturate or be Goodharted.
     </div>
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Designing eval and safety benchmarks for the field means creating the standardized tests that the rest of
-          the field will use to measure capability or safety. A benchmark you publish doesn't just grade your own
-          model — it shapes what "good" means for every lab, paper, and leaderboard that adopts it, which makes
-          getting the design right a field-level responsibility, not just a technical exercise.
+          Designing eval and safety benchmarks for the field means authoring the standardized measurement instruments that shape model training incentives across labs and leaderboards. Once published, a benchmark ceases to be a passive thermometer and becomes an active optimization target—making construct validity, anti-gaming architecture, and deprecation planning primary engineering requirements.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        A durable benchmark balances measurement fidelity against adversarial pressure across four technical pillars:
+      </p>
       <ul>
-        <li><strong>What makes a benchmark good</strong> — construct validity (does it measure what it claims to),
-          resistance to gaming/contamination, and statistical power.</li>
-        <li><strong>Capability benchmarks vs. safety/red-team benchmarks</strong>, and why the latter needs
-          adversarial, continuously-refreshed design.</li>
-        <li><strong>LLM-as-judge and process-based evaluation</strong> as scalable-oversight-adjacent benchmark
-          techniques, and their known biases.</li>
-        <li><strong>Benchmark lifecycle</strong> — saturation, deprecation, and the "benchmark becomes a target"
-          problem (Goodhart's law applied to eval design).</li>
+        <li><strong>Construct vs. predictive validity:</strong> Construct validity verifies that an item tests the underlying capability (e.g., genuine multi-step debugging) rather than surface shortcuts (memorized syntax or multiple-choice elimination). Item Response Theory (IRT) calibrates difficulty spread so items discriminate reliably across frontier capability tiers instead of saturating at 95%+.</li>
+        <li><strong>Contamination &amp; canary controls:</strong> Static public benchmarks leak quickly into web scrapes and synthetic training pipelines. Field-grade suites embed unique GUID canary strings, maintain private continuously-refreshed splits (e.g., LiveBench / FrontierMath-style), and audit train-test perplexity differentials.</li>
+        <li><strong>Debiased scoring &amp; process verification:</strong> Exact-match grading breaks on valid paraphrases; rubric-based LLM-as-judge handles open-ended reasoning but introduces verbosity, position, and self-preference biases—requiring pairwise position swapping, blind grading, and human calibration splits.</li>
+        <li><strong>Goodhart lifecycle &amp; deprecation:</strong> As models approach ceiling accuracy or optimize specifically to the rubric, benchmark scores decouple from real-world utility, requiring versioned retirements and harder follow-on tasks.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Fixing a Saturating Safety Benchmark</h3>
+      <p>
+        Suppose a public 500-item multiple-choice bio-safety benchmark saturates at 94% within 6 months while labs simultaneously claim low uplift. Auditing reveals: (1) 38% of items overlap public exam prep corpora, and (2) surface refusal keywords pass exact-match scoring. Redesigning replaces MCQs with <em>private multi-turn troubleshooting scenarios</em> graded against expert wet-lab rubrics and rotated quarterly.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Unvalidated LLM-as-judge leaderboards:</strong> Evaluating a candidate model with a judge from the same model family without human-annotated calibration splits or length normalization systematically rewards verbose, stylistically familiar outputs over concise, accurate solutions.
+      </p>
     </section>
   </div>
 
@@ -325,48 +336,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What does 'construct validity' mean when evaluating whether a benchmark is good?",
+          q: "A published 10,000-item coding benchmark shows Model A beating Model B by 12%, yet human engineers find Model A worse at real PRs because it simply emits memorized boilerplate matching exact-match unit fixtures. Which validity property failed?",
           options: [
-            "Whether the benchmark runs quickly",
-            "Whether the benchmark actually measures the capability or property it claims to measure",
-            "Whether the benchmark has a large number of items",
-            "Whether the benchmark was published at a top venue"
+            "Statistical power, because 10,000 items yields confidence intervals too wide to rank two frontier models",
+            "Construct validity—high score on the test fails to measure the intended real-world engineering capability",
+            "Inter-rater reliability, because exact-match unit fixtures cannot be scored deterministically",
+            "IRT difficulty calibration, because exact-match grading always lowers ceiling scores below random chance"
           ],
           answer: 1,
-          explanation: "Construct validity is about whether the test truly captures the target property, not just whether it's popular, fast, or large."
+          explanation: "Construct validity asks whether the test actually measures the underlying target capability. Here, high sample count gave narrow CIs (high statistical precision), yet the scoring fixture measured superficial boilerplate memorization rather than real engineering skill."
         },
         {
-          q: "Why do safety/red-team benchmarks typically need adversarial, continuously-refreshed design more than most capability benchmarks?",
+          q: "Why do adversarial safety benchmarks require private, continuously refreshed holdout splits more urgently than basic linguistic benchmarks?",
           options: [
-            "They don't — both need identical static designs",
-            "Because a fixed, published safety benchmark quickly gets 'trained around' or memorized once its exact items are known",
-            "Because safety benchmarks are always shorter",
-            "Because safety benchmarks require no scoring rubric"
+            "Because safety prompts cannot be tokenized deterministically across BPE vocabularies unless rotated weekly",
+            "Because once exact red-team prompts are public, labs and web scrapes incorporate them into refusal SFT and training corpora—allowing models to memorize specific surface triggers without generalizing safety",
+            "Because static capability benchmarks never experience data contamination or Goodhart saturation",
+            "Because continuously refreshed items eliminate the need for human expert calibration rubrics"
           ],
           answer: 1,
-          explanation: "Once safety test items are public and static, models (or their developers) can specifically patch or train around those exact items without truly fixing the underlying issue, so ongoing refresh matters more."
+          explanation: "Static public safety suites quickly leak into training mixes and safety SFT patches, making models appear safe on known prompts while failing trivially on rephrased or novel adversarial trajectories."
         },
         {
-          q: "What is the 'benchmark becomes a target' problem, as an application of Goodhart's law?",
+          q: "When deploying rubric-based LLM-as-judge scoring in a public benchmark, which protocol mitigates known judge biases (position bias, verbosity bias, and self-preference)?",
           options: [
-            "Benchmarks are always too difficult for any model to pass",
-            "Once a benchmark score becomes the optimization target, it stops being a reliable measure of the underlying quality it was meant to track",
-            "Benchmarks cannot be automated",
-            "Benchmarks always require human graders"
+            "Use exact-match string comparison alongside the judge so only verbatim reference phrases earn full marks",
+            "Evaluate responses blind to model identity, swap A/B comparison order across pairwise trials, control for response length, and anchor calibration against an expert human audit set",
+            "Select the newest flagship model from the same family as the top leaderboard contender to serve as sole judge",
+            "Lower the sampling temperature of the evaluated candidate models to 0.0 so style differences disappear"
           ],
           answer: 1,
-          explanation: "Goodhart's law: when a measure becomes a target, it ceases to be a good measure — heavy optimization pressure on a benchmark's score can decouple that score from genuine underlying progress."
+          explanation: "LLM judges systematically favor the first slot (position bias), longer answers (verbosity bias), and outputs matching their own stylistic distribution (self-preference). Pairwise order swapping, length controls, blind panels, and human calibration anchor the rubric."
         },
         {
-          q: "In the benchmark-design exercise, which combination of choices is scored as the most robustness-risky?",
+          q: "In the benchmark-design workbench above, why does combining static public items ('None — fixed public test set'), a narrow difficulty band (<35%), and exact-match scoring fail rapidly as a field standard?",
           options: [
-            "High task diversity, broad difficulty spread, continuously refreshed items, human expert grading",
-            "Low task diversity, narrow difficulty band, no contamination controls, exact-match scoring",
-            "Moderate diversity, broad difficulty spread, static deduplication, rubric-based LLM-as-judge",
-            "High task diversity, narrow difficulty band, continuously refreshed items, human expert grading"
+            "It maximizes judge-bias risk because exact-match scoring relies heavily on LLM-as-judge style preferences",
+            "It stacks contamination leakage, rapid ceiling saturation across frontier models, and surface pattern-matching shortcuts—leaving zero signal once labs optimize against it",
+            "It prevents researchers from running statistical significance tests across benchmark items",
+            "It lowers construct coverage exclusively by making the test suite run too slowly at inference time"
           ],
           answer: 1,
-          explanation: "Low diversity plus a narrow difficulty band plus no contamination controls plus exact-match scoring stacks nearly every weakness at once: gameable, contamination-prone, saturation-prone, and narrow in coverage."
+          explanation: "Fixed public items invite corpus contamination, narrow difficulty bands saturate as soon as one model tier clears the threshold, and exact-match scoring rewards brittle string heuristics rather than genuine capability."
         }
       ]
     });

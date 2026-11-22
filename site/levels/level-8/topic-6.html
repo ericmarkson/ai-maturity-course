@@ -40,31 +40,64 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Describe, at a conceptual level, how an image and a text prompt
-      both end up as inputs a transformer can process, and give one example use case each for
-      vision-language and audio-language models.
+      <strong>Learning objective:</strong> Trace how images and audio waveforms are tokenized into
+      embeddings inside a unified transformer, calculate the context-window token cost of high-resolution
+      inputs, compare early/native fusion vs. cross-attention vs. dual-encoder designs, and prevent visual
+      hallucinations caused by aggressive image downsampling.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Multi-modal models are AI systems that can process and/or generate more than one type of data —
-          such as text, images, and audio — within a single model. Each modality is encoded into vectors
-          that live in a shared representation (embedding) space, so a transformer can reason over text,
-          image, and audio content side by side.
+          <strong>Multi-modal models</strong> encode heterogeneous inputs &mdash; text subwords, image patches,
+          and audio frames &mdash; into compatible vector sequences so a single Transformer backbone can reason
+          jointly across modalities. Rather than piping outputs sequentially through fragile wrappers (like
+          standalone OCR + text LLM), cross-modal models preserve spatial, visual, and acoustic nuances
+          directly inside attention layers.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Each sensory modality goes through a specialized front-end encoder and projection before entering the
+        transformer:
+      </p>
       <ul>
-        <li><strong>Shared representation space</strong> — how different modalities get encoded into vectors the model can compare</li>
-        <li><strong>Vision-language models</strong> — image understanding, captioning, visual question answering</li>
-        <li><strong>Audio modalities</strong> — speech-to-text, text-to-speech, and native audio understanding</li>
-        <li><strong>Fusion strategies</strong> — early vs. late fusion of modalities, and cross-modal attention</li>
+        <li><strong>Vision patch tokenization &amp; ViT projectors:</strong> An image is sliced into <em>P</em> &times; <em>P</em> patches (commonly 14&times;14 pixels), flattened, and encoded by a Vision Transformer (ViT such as SigLIP/CLIP) into visual patch embeddings. A learned <strong>vision projector</strong> (2-layer MLP or spatial pixel-unshuffle pooling module) aligns those embeddings into the LLM's hidden dimension <em>d</em><sub>model</sub>. For dense documents, <em>dynamic high-resolution tiling</em> splits large images into multiple sub-crops plus a global thumbnail.</li>
+        <li><strong>Audio frame &amp; codec tokenization:</strong> Speech/audio is either encoded from continuous log-mel spectrogram frames via a Whisper-style encoder + adapter, or discretized into neural audio codec tokens (RVQ) for native end-to-end audio-in / audio-out generation without intermediate ASR text loss.</li>
+        <li><strong>Fusion architectures:</strong> <em>Early / native fusion</em> concatenates visual, audio, and text tokens into one sequence so full self-attention mixes them at every layer. <em>Cross-attention fusion</em> keeps text in the main stream and injects visual features via periodic cross-attention blocks (avoiding long KV sequences). <em>Dual-encoder / late fusion</em> embeds each modality independently for fast vector retrieval, but lacks fine-grained spatial reasoning.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a Vision-Language Model inspects a <strong>1024 &times; 1024</strong> financial table image
+        using a 14&times;14-patch ViT with 2&times;2 spatial token pooling:
+      </p>
+      <pre class="code-block"><code>Raw patches   = floor(1024 / 14)^2 = 73 * 73 = 5,329 patches
+After 2x2 pool = 5,329 / 4         ~ 1,332 visual tokens</code></pre>
+      <p>
+        Adding a 60-second voice memo tokenized at 25 Hz audio frames adds another <code>60 &times; 25 = 1,500</code>
+        audio tokens. Combined with a 300-token question, a single user turn consumes <strong>~3,132 context
+        tokens</strong> of prefill compute and KV-cache VRAM &mdash; explaining why multimodal latency and
+        pricing scale tightly with image resolution and audio duration.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Low-resolution squashing &amp; language-prior hallucination:</strong> Downsampling a dense PDF
+        invoice or chart into a single fixed 336&times;336 square makes small digits illegible. Instead of
+        reporting unreadability, the LLM falls back on statistical language priors &mdash; confidently
+        hallucinating plausible-sounding totals or misbinding attributes across objects (<em>"red cube left of
+        blue sphere"</em>). High-detail OCR/UI tasks require dynamic resolution tiling and aspect-ratio
+        preservation.
+      </p>
     </section>
 
   </div>
@@ -288,48 +321,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "How do an image and a text prompt both become inputs a single transformer can process?",
+          q: "In a modern Vision-Language Model (VLM), what is the exact role of the ViT + vision projector (MLP/pooling adapter)?",
           options: [
-            "The image is converted to text using OCR and nothing else happens",
-            "Each modality is encoded (e.g. image patches, text tokens) into embeddings that are projected into a shared representation space the model can reason over",
-            "Images cannot be used as model input under any architecture",
-            "The transformer runs two completely separate, unrelated models with no shared space"
+            "It runs OCR to convert every image into plain ASCII text before the transformer sees any tokens",
+            "It splits the image into patches, encodes visual features via the ViT, and maps them into the LLM's hidden embedding dimension so attention processes visual and text tokens together",
+            "It compresses the LLM weights down to match the pixel dimensions of the input image",
+            "It converts text prompts into 2D pixel grids so a convolutional network can classify them"
           ],
           answer: 1,
-          explanation: "Vision-language models encode image patches and text tokens into embeddings that live in a common space, letting the same transformer attend across both."
+          explanation: "Patch embeddings produced by the ViT are projected into the LLM's d_model vector space, letting the transformer attend over visual patches and text subwords jointly without discarding layout, color, or graphics like OCR-only pipelines."
         },
         {
-          q: "Which of these is a vision-language use case (as opposed to an audio one)?",
+          q: "You are building a high-throughput semantic image-search engine over 50 million product photos and short text queries, NOT an open-ended visual reasoning assistant. Which fusion architecture fits best?",
           options: [
-            "Text-to-speech narration",
-            "Visual question answering — answering a question about the contents of an image",
-            "Speech-to-text transcription",
-            "Native audio understanding of a spoken command"
+            "Early/native fusion concatenating every candidate image's 1,300 patches into the LLM prompt per query",
+            "A dual-encoder / contrastive shared embedding architecture (like CLIP/SigLIP) that pre-indexes image vectors once for fast nearest-neighbor retrieval",
+            "Autoregressive neural audio codec tokenization paired with cross-attention decoding",
+            "Dynamic high-resolution 16-tile splitting inside a 70B decoder-only VLM for every database image at query time"
           ],
           answer: 1,
-          explanation: "Visual question answering combines an image with a text question, a classic vision-language task."
+          explanation: "Dual-encoder late fusion maps images and text independently into a shared embedding space, enabling offline vector indexing and millisecond ANN retrieval across millions of items — whereas early/cross-attention fusion requires running the heavy transformer jointly per pair."
         },
         {
-          q: "In the exercise, why do a dog photo, the text \"a dog running in a park\", and a bark sound end up near each other in the embedding space?",
+          q: "Why do multimodal APIs charge substantially more tokens (and show higher TTFT latency) when you upload a 2048x2048 screenshot using dynamic high-res tiling vs. a 336x336 thumbnail?",
           options: [
-            "Because all audio items are always placed near all image items regardless of content",
-            "Because they represent the same underlying concept, and a well-trained shared embedding space places semantically similar content from different modalities close together",
-            "It's a coincidence with no relationship to the model's training",
-            "Because embedding space position is based only on file size"
+            "Higher-resolution images force the model to switch from GQA to MHA during prefill",
+            "Dynamic tiling breaks the screenshot into multiple sub-crops, generating thousands of visual patch tokens that directly expand prefill FLOPs and KV-cache size",
+            "Images above 512px bypass the ViT and feed every raw RGB byte sequentially as text characters",
+            "Dynamic tiling automatically runs Best-of-8 test-time verification on every patch"
           ],
           answer: 1,
-          explanation: "A shared multi-modal embedding space is trained so that semantically related content — regardless of modality — ends up nearby, which is exactly what enables cross-modal retrieval and reasoning."
+          explanation: "Each extra image crop produces hundreds of patch tokens (even after 2x2 pooling), multiplying input sequence length S during prefill and increasing KV-cache consumption."
         },
         {
-          q: "What does 'cross-modal attention' refer to in a fusion strategy?",
+          q: "Your VLM invoice extractor reads clean studio photos accurately, but silently invents wrong dollar figures on dense 2-page PDF screenshots resized to 336x336. What is the root cause and fix?",
           options: [
-            "Only ever attending within a single modality's tokens",
-            "Letting the model's attention mechanism relate tokens/patches from one modality to representations from another modality",
-            "A method for compressing audio files",
-            "A rule that image models can never use audio input"
+            "The model's temperature is too low, causing greedy decoding loops on currency symbols",
+            "Excessive downsampling destroys tiny glyph features so the LLM hallucinates numbers from language priors; fix by enabling high-resolution dynamic tiling or higher-DPI crops",
+            "Cross-modal attention cannot attend to numeric tokens unless they are spoken as audio",
+            "Switching from early fusion to dual-encoder cosine similarity guarantees exact digit extraction"
           ],
           answer: 1,
-          explanation: "Cross-modal attention lets the model attend between, say, image patch embeddings and text token embeddings, which is core to how fusion connects modalities inside the transformer."
+          explanation: "Resizing dense documents down to 336x336 blurs small characters below legibility, causing language-prior hallucination. Preserving resolution via multi-crop tiling restores readable patch detail; dual-encoders actually lose fine spatial OCR fidelity."
         }
       ]
     });

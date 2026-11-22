@@ -36,37 +36,64 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a small messy dataset (missing values, mixed scales,
-      text categories), you should be able to propose a specific cleaning/encoding step for each
-      problem you spot, and explain why an un-normalized feature can distort a distance-based model
-      like k-NN.
+      <strong>Learning objective:</strong> Diagnose dirty tabular data (missing cells, inconsistent strings,
+      nominal categories, skewed numeric ranges), select appropriate imputation, encoding, and scaling transforms,
+      and prevent preprocessing data leakage across train/test splits.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Feature engineering and data cleaning</strong> is the practice of transforming raw,
-          messy data into the clean, informative inputs a model actually needs to learn well. Real
-          data almost never arrives ready to feed into a model — it has blanks, inconsistent
-          spellings of the same value, and numeric columns on wildly different scales, all of which
-          can quietly wreck a model's performance if left as-is.
+          <strong>Data cleaning and feature engineering</strong> convert raw, messy tables into consistent, numeric
+          representations that ML algorithms can optimize effectively. Often, cleanly engineered features (such as
+          standardized scales, proper categorical encodings, and domain ratios) boost accuracy more than swapping
+          model architectures.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Imputing Missing Values:</strong> Rather than throwing away an entire row when one column is blank,
+        imputation fills gaps with a column mean/median (for numbers) or mode/<code>"Unknown"</code> (for categories)—and
+        often adds a binary <code>was_missing</code> flag when missingness itself carries signal.
+      </p>
+      <p>
+        <strong>2. One-Hot vs. Ordinal Encoding:</strong> Text categories must become numbers. Assign integers
+        <code>1, 2, 3</code> only when order is real (<code>Low &lt; Medium &lt; High</code>). For nominal groups like
+        <code>Retail, Tech, Health</code>, <strong>one-hot encoding</strong> creates separate <code>0/1</code> columns so
+        the model doesn't falsely assume <code>Health &gt; Retail</code> or <code>Retail + Tech = Health</code>.
+      </p>
+      <p>
+        <strong>3. Feature Scaling &amp; Derived Features:</strong> Normalizing to <code>[0, 1]</code> or standardizing
+        to mean <code>0</code>, std <code>1</code> keeps large-unit features from drowning out small-unit features in
+        distance models (k-NN, k-means) and speeds up gradient descent. Domain combinations—like turning raw timestamps
+        into <code>day_of_week</code> or <code>loan / income</code>—expose relationships directly.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Unscaled Income Overwhelms Age in k-NN</h3>
+      <p>
+        Compare two customers in Euclidean distance: <strong>Ada</strong> <code>(age=30, income=$60,000)</code> and
+        <strong>Bo</strong> <code>(age=60, income=$60,500)</code>:
+      </p>
       <ul>
-        <li><strong>Handling missing values (drop, impute)</strong> — filling a blank with a sensible
-          value (like the column's mean) instead of leaving a hole a model can't process.</li>
-        <li><strong>Encoding categorical variables (one-hot, ordinal)</strong> — turning text categories
-          into numbers a model can use, without implying a false order between them.</li>
-        <li><strong>Scaling/normalizing numeric features</strong> — putting columns on comparable scales
-          so no single feature dominates just because its numbers happen to be bigger.</li>
-        <li><strong>Creating new features from existing ones</strong> — e.g. combining a date field into
-          a more informative "day of week."</li>
+        <li><strong>Unscaled:</strong> <code>√((30−60)² + (60,000−60,500)²) = √(900 + 250,000) ≈ 500.9</code>. A 30-year age gap contributes less than <code>0.2%</code> of the distance!</li>
+        <li><strong>Scaled to [0, 1]</strong> (ages 20–70, income $40k–$110k): age difference is <code>0.60</code> while income difference is <code>0.007</code>—restoring age as a meaningful signal.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Data Leakage From Fitting Scalers Before Splitting</h3>
+      <p>
+        Never compute imputation means, min/max bounds, or standardization parameters across the <em>combined</em>
+        dataset before splitting train and test sets. Using test-row averages inside training scalers leaks future
+        distribution stats into training—always split first, fit transforms on <code>train</code> only, and apply those
+        saved stats to <code>val</code> and <code>test</code>.
+      </p>
     </section>
   </div>
 
@@ -305,48 +332,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why can an un-normalized feature (e.g. income in dollars, ranging into six figures) distort a distance-based model like k-NN?",
+          q: "Why does leaving Income in raw dollars ($45k–$108k) alongside Age in years (29–52) distort a Euclidean k-NN classifier?",
           options: [
-            "It can't — k-NN ignores the scale of any feature automatically",
-            "Because distance calculations are dominated by whichever feature has the largest raw numeric range, drowning out smaller-scale features like age",
-            "Because k-NN only accepts values between 0 and 1 and will crash otherwise",
-            "Because income is always irrelevant to any prediction"
+            "k-NN automatically treats numbers larger than 1,000 as target labels instead of features",
+            "Squared differences in dollars (tens of thousands) completely overwhelm squared differences in years, causing k-NN to ignore Age",
+            "Raw dollar values cause floating-point overflow when computing the mean",
+            "k-NN requires every input feature to represent an integer count"
           ],
           answer: 1,
-          explanation: "Euclidean distance sums squared differences across features; a feature with a much larger numeric range will dominate the distance calculation unless features are scaled comparably."
+          explanation: "Distance metrics sum squared feature gaps directly—a $5,000 salary difference squares to 25,000,000, dwarfing a 20-year age gap (400) unless features are normalized to comparable ranges."
         },
         {
-          q: "In the exercise, what does clicking \"Standardize Subscribed labels\" do?",
+          q: "Why is ordinal integer encoding (Retail=1, Tech=2, Health=3) risky for a nominal Category column fed to linear regression or k-NN?",
           options: [
-            "Deletes the Subscribed column entirely",
-            "Converts inconsistent values like Y/yes/1/N/no/0 into a consistent Yes/No label",
-            "Sorts the table by Subscribed status",
-            "Converts Subscribed into a numeric income-like scale"
+            "It increases the number of columns linearly with the row count",
+            "It imposes a fake numeric order and spacing (implying Health > Tech > Retail and Tech is halfway between Retail and Health)",
+            "It converts missing cells into negative class predictions",
+            "It prevents decision trees from splitting on the Category column"
           ],
           answer: 1,
-          explanation: "The messy column mixes several different spellings/representations of the same yes/no idea; standardizing maps all of them onto one consistent label."
+          explanation: "One-hot encoding creates independent 0/1 indicator columns for unordered categories so linear weights and distances don't invent meaningless arithmetic relationships between labels."
         },
         {
-          q: "What does one-hot encoding a categorical column like \"Category\" (Retail/Tech/Health) actually produce?",
+          q: "In a dataset where 15% of rows lack an Age entry while Income, Subscribed, and Category are all recorded, why do engineers typically impute Age rather than dropping every incomplete row?",
           options: [
-            "A single numeric column where Retail=1, Tech=2, Health=3",
-            "Separate 0/1 columns, one per category, so no false ordering is implied between categories",
-            "It removes the category information entirely",
-            "A column of random numbers"
+            "Dropping rows introduces synthetic bias toward extreme high-income outliers",
+            "Imputing preserves the valid values in all other columns of those rows instead of discarding 15% of the training data",
+            "Imputing guarantees the imputed mean matches every customer's true age",
+            "Most models automatically drop columns with missing cells during inference"
           ],
           answer: 1,
-          explanation: "One-hot encoding creates one binary column per category value, avoiding the false implication of order/magnitude that a single numeric code (1, 2, 3) would introduce."
+          explanation: "Row-wise deletion wastes valid information in the remaining columns and shrinks training sample size—though adding a 'was_missing' flag alongside imputation helps if missingness itself is predictive."
         },
         {
-          q: "Why might a data scientist choose to impute a missing Age value with the column's mean instead of just dropping that row?",
+          q: "What is the correct workflow when scaling Income to [0, 1] and imputing missing Age across training and test splits?",
           options: [
-            "Dropping rows always improves model accuracy",
-            "Imputing lets you keep the rest of that row's information (income, subscription, category) instead of throwing the whole row away",
-            "Imputation is required by law",
-            "Missing values crash every ML algorithm if not imputed"
+            "Compute min/max Income and mean Age on the full dataset first, then split into train and test sets",
+            "Split into train and test first, compute min/max and mean strictly from the training split, and apply those exact values to transform the test split",
+            "Compute separate min/max and mean independently inside the training split and inside the test split",
+            "Only scale and impute the training split, leaving raw unscaled dollars in the test split"
           ],
           answer: 1,
-          explanation: "If only one field is missing, dropping the entire row discards otherwise-useful data in the other columns; imputing a reasonable estimate preserves that information."
+          explanation: "Fitting scalers/imputers before splitting leaks test-set statistics into training, while fitting separately on test shifts the coordinate system. Fit on train only, then apply those exact parameters to val/test."
         }
       ]
     });

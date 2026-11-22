@@ -22,34 +22,42 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Compare debate-based oversight and weak-to-strong generalization as two
-      different bets on how to supervise a superhuman system, and articulate one concrete failure mode each approach
-      is vulnerable to.
+      <strong>Learning objective:</strong> Analyze debate, recursive reward modeling, and weak-to-strong generalization as scalable oversight protocols, and diagnose concrete breakdown modes including judge persuasion bias, asymmetric verification depth, and sycophancy.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Scalable oversight is the research problem of how humans (or weaker AI systems) can reliably supervise
-          and correct AI systems that are as capable as, or more capable than, the supervisor itself. As models
-          surpass human ability in more domains, the supervisor can no longer simply check "is this answer right" —
-          it needs mechanisms that work even when it cannot independently verify the answer.
+          Scalable oversight investigates how weaker supervisors (humans or smaller models) can reliably evaluate, correct, and align AI systems whose domain competence surpasses the supervisor's own—shifting supervision from <em>generating or grading whole solutions</em> to <em>verifying decomposed claims and cross-examined evidence</em>.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        When a model solves a 500-line security audit or complex physics derivation, an unassisted human judge struggles to catch subtle errors. Three core oversight research programs tackle this gap:
+      </p>
       <ul>
-        <li>Weak-to-strong generalization: training a strong model on labels from a weaker overseer and studying
-          whether/how it generalizes beyond the overseer's own accuracy</li>
-        <li>Debate as an oversight mechanism: two capable models argue opposing sides in front of a weaker judge,
-          testing whether the judge's accuracy improves as debater capability increases</li>
-        <li>Iterative amplification and recursive reward modeling as alternative scalable-oversight paradigms</li>
-        <li>Known failure modes: confirmation bias in the overseer, sycophancy, and evaluators that reward
-          persuasion over correctness</li>
+        <li><strong>Adversarial Debate:</strong> Two strong models argue opposing answers before a weak judge, narrowing claims through cross-examination until a dispute hinges on a single short snippet (e.g., one function line or quote) the weak judge <em>can</em> verify directly. Crucially, honest debaters must win in expectation when truth requires shorter proof trees than defending a lie.</li>
+        <li><strong>Recursive Reward Modeling &amp; Iterated Amplification:</strong> Instead of grading a massive task atomically, a supervisor delegates sub-checks to helper models and trains reward models recursively from bottom-up verified decompositions.</li>
+        <li><strong>Weak-to-Strong Generalization:</strong> Fine-tuning a strong pretrained student (e.g., GPT-4-class) using noisy/imperfect labels from a weak teacher (e.g., GPT-2-class) tests whether latent representations allow the student to exceed the teacher—quantified by <em>Performance Gap Recovered</em> (<code>PGR = (Acc<sub>W2S</sub> − Acc<sub>weak</sub>) / (Acc<sub>ceiling</sub> − Acc<sub>weak</sub>)</code>), often boosted via auxiliary confidence losses that stop the student from mimicking weak teacher mistakes.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Debate Can Still Fail on Verification Asymmetry</h3>
+      <p>
+        In an A/B statistics dispute, Debater A quotes a clean p-value (<code>p = 0.04, n = 10,000</code>), while Debater B points out optional stopping ("peeking"). If the weak judge knows basic threshold rules (<code>p &lt; 0.05</code>) but cannot verify sequential stopping math within the turn budget, Debater A's fluent, surface-plausible argument wins—illustrating how <em>persuasion beats truth</em> whenever refuting a subtle flaw costs more judge reasoning depth than asserting it.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Training overseers with sycophancy or style-correlated human preference data:</strong> If human judges reward confident tone, citation formatting, or agreement with the judge's prior belief during oversight training, debaters and recursive helpers rapidly learn rhetorical obfuscation rather than surfacing true errors.
+      </p>
     </section>
   </div>
 
@@ -305,48 +313,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the core premise of debate as a scalable-oversight mechanism?",
+          q: "What structural asymmetry makes adversarial Debate potentially effective for supervising systems stronger than the human judge?",
           options: [
-            "Two capable models argue opposing sides in front of a weaker judge, testing whether the judge's accuracy improves as debater capability increases",
-            "A single model grades its own outputs",
-            "Human raters manually verify every output regardless of model capability",
-            "Models are shut down whenever they disagree with each other"
+            "Critiquing and exposing a single localized flaw in an opponent's claim is often far easier for a weak judge to verify than independently solving the entire problem from scratch",
+            "Debate forces both models to agree on the same answer before the judge is allowed to inspect the transcript",
+            "Weak judges ignore technical evidence and rely strictly on confidence calibration scores from softmax logits",
+            "Debate eliminates the need for RLHF reward models by replacing weights with symbolic theorem provers"
           ],
           answer: 0,
-          explanation: "Debate pits two capable systems against each other, betting that a weaker judge can spot truth more reliably through adversarial cross-examination than through direct evaluation alone."
+          explanation: "Debate bets on verification-vs-generation asymmetry: two competing experts force complex disputes down to specific, checkable sub-claims (a single line of code, quote, or step) where a weaker judge can verify truth reliably."
         },
         {
-          q: "In the exercise, what does it mean when you (the weak judge) pick the more persuasive-sounding but false argument?",
+          q: "In weak-to-strong generalization experiments, why does naive supervised fine-tuning of a strong model on a weak supervisor's labels frequently leave a substantial Performance Gap Recovered (PGR < 100%)?",
           options: [
-            "The exercise is broken",
-            "It illustrates a known failure mode: an evaluator rewarding persuasion over correctness",
-            "It proves debate always fails",
-            "It means the true argument was too short"
+            "Strong student models lack enough parameters to represent weak teacher labels during SFT",
+            "The strong model memorizes and imitates the weak supervisor's systematic errors (student-teacher imitation) unless regularized by auxiliary confidence or bootstrapping losses",
+            "Weak teachers produce higher-entropy gradients that cause numerical NaNs in BF16 optimizer states",
+            "Strong models refuse to update weights whenever the teacher's accuracy drops below 90%"
           ],
           answer: 1,
-          explanation: "Being fooled by a well-constructed but wrong argument is precisely the persuasion-over-correctness failure mode scalable oversight research tries to guard against."
+          explanation: "Because a high-capacity student easily fits all training labels—including the weak teacher's mistakes—naive SFT pulls the student down toward the teacher. Auxiliary confidence losses encourage the student to trust its own sharp internal representations on hard boundary cases."
         },
         {
-          q: "What does weak-to-strong generalization study?",
+          q: "During a debate oversight round (like the Judge exercise above), Argument B sounds crisp and technical but relies on a subtle obfuscated flaw that takes 4 steps to unpack, while the judge gets fooled and rewards Argument B. Which failure mode occurred?",
           options: [
-            "Whether a strong model trained on labels from a weaker overseer can generalize beyond the overseer's own accuracy",
-            "How to make a weak model stronger by adding more layers",
-            "Whether strong models should be shut down",
-            "How to compress a strong model into a weak one"
+            "Catastrophic forgetting from multi-epoch synthetic pretraining",
+            "Obfuscated persuasion / judge verification limits—the dishonest debater exploited the judge's bounded verification capacity so rhetorical plausibility defeated correctness",
+            "Tensor-parallel all-reduce bottleneck delaying debater token streaming",
+            "Data contamination between training and validation splits"
           ],
-          answer: 0,
-          explanation: "Weak-to-strong generalization asks whether a capable student model can exceed the accuracy of the (weaker) supervisor whose labels it was trained on."
+          answer: 1,
+          explanation: "Debate breaks down if lying is easier to make plausible within the judge's reasoning budget than refuting—rewarding persuasion over correctness."
         },
         {
-          q: "Which of these is NOT one of the known failure modes of scalable oversight mentioned in the curriculum?",
+          q: "How does Recursive Reward Modeling (RRM) / Iterated Amplification differ operationally from single-turn Debate?",
           options: [
-            "Confirmation bias in the overseer",
-            "Sycophancy",
-            "Evaluators rewarding persuasion over correctness",
-            "Running out of GPU memory during oversight"
+            "RRM trains reward models only on exact-match math answers and skips human preferences entirely",
+            "RRM decomposes a hard task into smaller sub-tasks evaluated by helper models, training evaluators bottom-up so each judgment remains within human verification reach",
+            "RRM freezes the base model weights permanently after pretraining and tunes only the tokenizer",
+            "RRM forbids two AI helpers from ever viewing overlapping subsets of the context window"
           ],
-          answer: 3,
-          explanation: "GPU memory exhaustion is a systems/infrastructure issue, not a scalable-oversight failure mode; the curriculum names confirmation bias, sycophancy, and persuasion-over-correctness."
+          answer: 1,
+          explanation: "Recursive Reward Modeling builds hierarchical oversight: human supervisors train helpers on simple sub-problems, then compose those helpers to evaluate harder tasks they could not grade unassisted."
         }
       ]
     });

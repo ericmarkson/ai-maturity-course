@@ -31,30 +31,71 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why two differently-worded sentences with the same meaning end up
-      near each other in embedding space, and manually compute/compare similarity between simple toy vectors.
+      <strong>Learning objective:</strong> Compute cosine similarity between embedding vectors, explain why geometric
+      proximity captures semantic relatedness without keyword overlap, and describe why vector indexes replace
+      brute-force search at scale.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Embeddings</strong> turn words, sentences, or documents into lists of numbers (vectors) positioned
-          so that similar meanings end up close together in that number-space, enabling "search by meaning" instead
-          of exact keyword match. Two phrases can share zero words in common and still land near each other in
-          embedding space if they mean similar things.
+          An <strong>embedding</strong> maps a word, sentence, or image into a dense numeric vector
+          <code>v ∈ ℝ^d</code> (often 384 to 3,072 dimensions) learned so that semantically similar items sit close
+          together in vector space. <strong>Vector search</strong> retrieves the nearest stored embeddings to a query
+          vector—enabling retrieval by meaning even when query and document share zero exact keywords.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Geometry of Meaning:</strong> Contrastive training pushes embeddings of related pairs (e.g., a
+        question and its answer, or paraphrases) closer together while pushing unrelated pairs apart. Each axis captures
+        latent semantic factors rather than single dictionary words.
+      </p>
+      <p>
+        <strong>2. Cosine Similarity &amp; Dot Products:</strong> Text retrieval typically ranks similarity using
+        <strong>cosine similarity</strong>, <code>cos(a, b) = (a · b) / (‖a‖ ‖b‖)</code>, which measures the angle
+        between vectors on a <code>[-1, +1]</code> scale regardless of vector length. When embeddings are normalized to
+        unit length (<code>‖a‖ = ‖b‖ = 1</code>), cosine similarity simplifies to a fast raw dot product <code>a · b</code>.
+      </p>
+      <p>
+        <strong>3. Approximate Nearest Neighbor (ANN) Vector Indexes:</strong> Brute-force exact search scans every stored
+        vector (<code>O(N · d)</code> per query), which becomes far too slow across tens of millions of documents. Vector
+        databases organize vectors using ANN structures—such as hierarchical graphs (<strong>HNSW</strong>) or cluster
+        partitions (<strong>IVF</strong>)—to visit only a tiny neighborhood of candidates and return top matches in
+        milliseconds with ~95–99% recall.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Cosine Similarity Without Word Overlap</h3>
+      <p>
+        Suppose a toy 3D embedding tracks <code>[animal, food, software]</code>:
+      </p>
       <ul>
-        <li>What a vector embedding represents geometrically (distance = similarity)</li>
-        <li>Cosine similarity / dot product as a similarity measure</li>
-        <li>Vector databases/indexes at a conceptual level (why brute-force search doesn't scale)</li>
-        <li>Semantic search vs. keyword search</li>
+        <li>Query <code>"famished feline"</code>: <code>q = [0.90, 0.40, 0.00]</code> (<code>‖q‖ ≈ 0.985</code>)</li>
+        <li>Doc A <code>"the cat ate dinner"</code>: <code>a = [0.85, 0.50, 0.00]</code> (<code>‖a‖ ≈ 0.986</code>)</li>
+        <li>Doc B <code>"patch the server bug"</code>: <code>b = [0.00, 0.10, 0.95]</code> (<code>‖b‖ ≈ 0.955</code>)</li>
       </ul>
+      <p>
+        Dot product <code>q · a = (0.90)(0.85) + (0.40)(0.50) + 0 = 0.965</code>, giving
+        <code>cos(q, a) ≈ 0.965 / (0.985 × 0.986) = 0.99</code>. Meanwhile <code>q · b = 0.040</code> gives
+        <code>cos(q, b) ≈ 0.04</code>. Even though <code>"famished feline"</code> and <code>"the cat ate dinner"</code>
+        share zero literal words, vector similarity ranks Doc A near <code>1.0</code>.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Replacing Keyword Search Everywhere &amp; Mixing Model Spaces</h3>
+      <p>
+        Pure embedding search struggles with exact alphanumeric identifiers like part numbers (<code>"SKU-8841B"</code>),
+        error codes (<code>"ERR_TIMEOUT_42"</code>), or rare names, where traditional lexical search (BM25) wins—which
+        is why production systems often combine both in hybrid search. Also never compare vectors from two different
+        embedding models (or versions): their coordinate axes are unaligned, so distances become meaningless.
+      </p>
     </section>
   </div>
 
@@ -267,43 +308,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In embedding space, what does it mean for two points to be close together?",
-          options: ["The underlying text is the same length", "The underlying meanings are similar, according to the model that produced the embeddings", "They were entered by the same user", "They must share every word"],
-          answer: 1,
-          explanation: "Embeddings are positioned so that geometric closeness (small distance) corresponds to similarity in meaning, not surface text overlap."
-        },
-        {
-          q: "In the exercise, the query 'the famished feline meowed' shares zero literal words with any preset phrase, yet it lands near the cat/food phrases. Why?",
+          q: "Why is cosine similarity often preferred over raw Euclidean distance when comparing unnormalized text embeddings?",
           options: [
-            "It's a coincidence",
-            "Its words ('famished', 'feline', 'meowed') are synonyms mapped to the same region of embedding space as 'hungry', 'cat', and 'meow'",
-            "The canvas randomly places unmatched queries",
-            "Keyword search found the match first"
-          ],
-          answer: 1,
-          explanation: "The toy embedding lexicon maps synonyms to the same coordinates as their related concept words, which is exactly what a real embedding model learns from data — semantically related words end up nearby even without literal overlap."
-        },
-        {
-          q: "Why doesn't a real-world semantic search system typically compare a query against every single stored vector with brute force?",
-          options: [
-            "Brute-force comparison doesn't scale to millions/billions of vectors, so approximate vector indexes are used instead",
-            "Brute force is illegal",
-            "Vectors can't be compared mathematically",
-            "It's actually always the best approach at any scale"
+            "Cosine similarity compares the angle/direction between vectors regardless of magnitude differences, whereas Euclidean distance shifts with vector norm",
+            "Euclidean distance cannot be computed in more than 3 dimensions",
+            "Cosine similarity guarantees exact keyword matches rank above paraphrases",
+            "Cosine similarity automatically aligns vectors generated by different embedding models"
           ],
           answer: 0,
-          explanation: "Comparing a query to every vector is O(n) per query; at large scale this becomes too slow, so specialized vector indexes (e.g. approximate nearest-neighbor structures) trade a little accuracy for large speed gains."
+          explanation: "Cosine similarity measures directional alignment on [−1, 1], preventing vector magnitude/length variations from skewing similarity. Note that embeddings from different models still cannot be compared meaningfully."
         },
         {
-          q: "What is a key limitation of pure keyword search that semantic (embedding) search addresses?",
+          q: "In the exercise, the query 'the famished feline meowed' lands next to cat/food phrases despite sharing zero literal words. Why does a real embedding model behave similarly?",
           options: [
-            "Keyword search is always faster",
-            "Keyword search can miss relevant results that use different words for the same meaning, while semantic search can still find them",
-            "Keyword search requires more storage than embeddings",
-            "There is no meaningful difference between the two"
+            "It runs a thesaurus lookup to rewrite the query before computing exact BM25 word overlap",
+            "Contrastive pretraining maps synonymous words and related concepts to neighboring regions of vector space",
+            "Embedding vectors encode character length and syllable counts rather than word identities",
+            "Vector search ignores unseen nouns and clusters queries purely by punctuation and verb tense"
           ],
           answer: 1,
-          explanation: "Keyword/exact-match search fails when the relevant content uses different wording; embeddings capture meaning, so semantically related content can still be found."
+          explanation: "Real embedding models learn during training to place paraphrased and conceptually related texts in nearby directions in ℝ^d, so semantic closeness works without literal word overlap or explicit synonym dictionaries."
+        },
+        {
+          q: "Why do large vector databases use Approximate Nearest Neighbor (ANN) indexes like HNSW instead of exact brute-force search?",
+          options: [
+            "Brute-force scanning requires comparing the query against every stored vector (O(N·d)), making latency unacceptable across tens of millions of items",
+            "Exact brute-force dot products suffer from floating-point overflow once N exceeds 10,000 vectors",
+            "ANN indexes guarantee 100% identical top-k results to brute force while shrinking embedding dimension d",
+            "Brute-force search only works with Euclidean distance and cannot compute cosine similarity"
+          ],
+          answer: 0,
+          explanation: "Exact linear scan latency grows proportionally with corpus size N. ANN indexes (like HNSW graphs or IVF clusters) inspect only promising neighborhoods to achieve sub-linear search time, trading a tiny ~1–5% recall drop for huge speedups."
+        },
+        {
+          q: "For which query would pure dense embedding search typically underperform literal keyword (BM25) search?",
+          options: [
+            "\"How do I fix a slow laptop battery drain?\"",
+            "\"Policy guidelines for parental leave\"",
+            "\"Error code INV-9042-X7 in billing module\"",
+            "\"Affordable vegetarian lunch recipes\""
+          ],
+          answer: 2,
+          explanation: "Exact alphanumeric identifiers, part numbers, and rare error codes carry little semantic nuance and can be blurred with nearby IDs in dense space, whereas exact lexical matching pinpoints 'INV-9042-X7' immediately."
         }
       ]
     });

@@ -22,31 +22,51 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can take a vague, underspecified prompt and
-      rewrite it into a well-structured prompt that includes role, context, task, and format,
-      and can explain why the rewrite should produce a better result.
+      <strong>Learning objective:</strong> Turn a vague, open-ended prompt into a crisp structured prompt using
+      <strong>role, context, task, format,</strong> and few-shot examples—and iterate effectively on the first draft.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Prompt engineering is the skill of writing clear instructions to an AI model —
-          specifying <strong>role, context, task, and format</strong> — to reliably get better,
-          more useful outputs. It isn't about "tricking" the model with magic words; it's about
-          removing ambiguity so the model has less guessing to do about what you actually want.
+          <strong>Prompt engineering</strong> is writing clear, unambiguous instructions—combining <strong>role,
+          context, task, and output format</strong> (plus optional examples)—so a language model narrows straight in
+          on what you need instead of guessing from millions of generic possibilities.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Briefing a Smart New Teammate)</h2>
+      <p>
+        Imagine handing a skilled new intern a sticky note reading <em>"Write about dogs."</em> Should they write a
+        veterinary textbook, a bedtime story for kids, or a social post? An AI faces the exact same ambiguity when you
+        underspecify. Specifying four anchors removes the guesswork:
+      </p>
       <ul>
-        <li>The four core elements of a good prompt: role, context, task, and desired output format</li>
-        <li>Being specific: vague prompts produce vague answers</li>
-        <li>Few-shot examples: showing the model 1-3 examples of the desired output style</li>
-        <li>Iterating: treating a first response as a draft to refine, not a final answer</li>
+        <li><strong>Role:</strong> Who the model should act like (<em>"You are a pediatric veterinarian"</em>).</li>
+        <li><strong>Context:</strong> Audience and constraints (<em>"Writing a handout for 8-year-old pet owners"</em>).</li>
+        <li><strong>Task:</strong> Exact job to perform (<em>"Explain 5 essential puppy care tips"</em>).</li>
+        <li><strong>Format (+ Few-Shot Examples):</strong> Exact output shape (<em>"5 numbered bullets, under 15 words each"</em>) plus 1–2 examples showing your exact tone or schema.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Vague vs. Structured Rewrite</h3>
+      <ul>
+        <li><strong>Vague prompt:</strong> <code>"Summarize this customer call."</code> &rarr; Often returns a rambling 3-paragraph essay missing action items.</li>
+        <li><strong>Structured prompt:</strong> <code>"Act as a QA team lead (Role) preparing a daily CRM note (Context). Summarize the transcript below (Task) into a 3-row Markdown table with columns Issue, Sentiment, and Next Action (Format), keeping each cell under 12 words (Constraint)."</code> &rarr; Instantly usable output!</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Expecting One-Shot Perfection &amp; Relying on Vague Adjectives</h3>
+      <p>
+        Asking an AI to <em>"make it better and punchier"</em> leaves room for wildly different interpretations. Show one
+        or two short <strong>few-shot examples</strong> of the exact style you want, treat the first output as a rough
+        draft, and refine whichever constraint missed the mark.
+      </p>
     </section>
   </div>
 
@@ -356,43 +376,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which four elements make up a well-structured prompt?",
+          q: "Which four structural elements work together to turn a vague request into a reliable prompt?",
           options: [
             "Role, context, task, and desired output format",
-            "Temperature, tokens, top-p, and seed",
-            "Grammar, spelling, punctuation, and length",
-            "The model's name, version, training date, and license"
+            "Temperature, top-p, max tokens, and random seed",
+            "Title, subtitle, citations, and word-count limit",
+            "Model checkpoint, tokenizer version, system latency, and API key"
           ],
           answer: 0,
-          explanation: "A strong prompt typically specifies who the AI should act as (role), the relevant situation (context), what to do (task), and how the answer should be shaped (format)."
+          explanation: "Specifying who the model should act as (role), the audience/situation (context), what action to perform (task), and how to shape the output (format) removes ambiguity."
         },
         {
-          q: "Why does a vague prompt like \"write about dogs\" tend to produce a vague answer?",
+          q: "Why does a broad prompt like 'Write about dogs' usually yield a bland, generic overview?",
           options: [
-            "Because the AI model doesn't know anything about dogs",
-            "Because the model has to guess the audience, purpose, and format, so it defaults to generic, average output",
-            "Because vague prompts are automatically rejected by the model",
-            "Because dogs are a topic the model was never trained on"
+            "Because general language models contain less training data about common pets than technical fields",
+            "Because without an audience, purpose, or format, the model predicts the safest average text covering many interpretations",
+            "Because short prompts under five words trigger a fallback summary mode in the tokenizer",
+            "Because omitting a role turns off multi-head attention across earlier tokens"
           ],
           answer: 1,
-          explanation: "With no role, context, or format specified, the model fills the gaps with the most generic, average response it can produce — not because it lacks knowledge, but because nothing narrowed down what you actually wanted."
+          explanation: "When you leave audience, depth, and layout unspecified, the model averages across countless possible documents it saw during training—producing generic middle-of-the-road prose."
         },
         {
-          q: "What is the main benefit of including a few-shot example in a prompt?",
+          q: "When you want replies formatted in a very specific house voice or tricky JSON/tag layout, why are 2–3 'few-shot examples' often better than writing longer adjectives?",
           options: [
-            "It makes the prompt shorter",
-            "It guarantees the model will never make a mistake",
-            "It shows the model the specific style, tone, or structure you want, rather than leaving it to guess",
-            "It is required by every AI system before it will respond"
+            "Because examples temporarily fine-tune the model's weights on the server for that session",
+            "Because showing concrete input→output patterns lets attention align directly with the exact structure and tone you want",
+            "Because models skip system instructions whenever few-shot examples appear in the user message",
+            "Because examples reduce total input token count below a zero-shot description"
           ],
-          answer: 2,
-          explanation: "One to three examples of the desired output demonstrate the exact style or structure you're after, which is often more effective than describing it in words alone."
+          answer: 1,
+          explanation: "In-context examples demonstrate your exact target pattern visually rather than relying on ambiguous adjectives like 'concise' or 'witty'."
         },
         {
-          q: "True or false: you should treat an AI's first response as the final, correct answer.",
-          options: ["True", "False"],
+          q: "The AI produces a decent summary, except it's 3 paragraphs long instead of the 4 bullets you hoped for. What is the best workflow?",
+          options: [
+            "Switch immediately to fine-tuning weights on 1,000 examples instead of prompting",
+            "Treat the first reply as a draft—add explicit format/length constraints (and an example if needed) and iterate",
+            "Raise the temperature slider near maximum so the model samples shorter outputs randomly",
+            "Accept the 3-paragraph version because re-prompting the same model produces identical structure"
+          ],
           answer: 1,
-          explanation: "False — prompt engineering is iterative. Treat the first response as a draft: read it, spot what's missing or off, and refine your prompt (or ask a follow-up) to get closer to what you need."
+          explanation: "Prompting is iterative: inspecting what missed (format and length here) and tightening your instructions or showing a quick example fixes most structure issues immediately."
         }
       ]
     });

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RLHF/RLAIF and Alignment Techniques — AI Maturity Course</title>
-<meta name="description" content="How reinforcement learning from human or AI feedback steers model behavior using a reward signal built from preference judgments.">
+<title>RLHF, RLAIF, Constitutional AI &amp; Alignment Techniques — AI Maturity Course</title>
+<meta name="description" content="How RLHF, RLAIF, Constitutional AI (SL-CAI and RL-CAI), PPO, and DPO align language models using preference signals, plus reward hacking failure modes.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
@@ -30,36 +30,79 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 7 — Advanced+</p>
-  <h1>RLHF/RLAIF and Alignment Techniques</h1>
+  <h1>RLHF, RLAIF, Constitutional AI &amp; Alignment Techniques</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> The learner can outline the stages of an RLHF pipeline in order,
-      explain in plain terms what a reward model is scoring, and give one example of reward hacking.
+      <strong>Learning objective:</strong> Learner can trace the SFT → Bradley-Terry reward model → PPO pipeline,
+      contrast it with DPO, RLAIF, and Constitutional AI (SL-CAI and RL-CAI), and diagnose alignment failure
+      modes including reward hacking, sycophancy, and over-refusal.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          RLHF (reinforcement learning from human feedback) and RLAIF (from AI feedback) are training
-          techniques that steer a model's behavior toward preferred outputs using a reward signal built from
-          human or AI preference judgments. A reward model is trained to predict which of two candidate
-          outputs a rater would prefer, and that learned reward signal is then used to further optimize the
-          policy — the model producing responses.
+          <strong>RLHF</strong> (Reinforcement Learning from Human Feedback), <strong>RLAIF</strong> (from AI Feedback),
+          and <strong>Constitutional AI (CAI)</strong> are post-training alignment methods that steer a language model
+          toward helpful, honest, and harmless behavior using pairwise preference signals or explicit written
+          principles rather than pure next-token imitation alone.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>The RLHF pipeline: supervised fine-tuning → reward model → RL optimization (e.g. PPO)</li>
-        <li>RLAIF — substituting AI-generated preference labels for human ones</li>
-        <li>Reward-model-free alternatives such as Direct Preference Optimization (DPO)</li>
-        <li>Reward hacking and over-optimization risk</li>
+        <li>
+          <strong>1. Supervised Fine-Tuning (SFT):</strong> A pretrained base model is fine-tuned on high-quality
+          demonstrations to establish a conversational baseline policy <code>π<sub>SFT</sub></code>.
+        </li>
+        <li>
+          <strong>2. Reward Modeling (Bradley-Terry):</strong> Raters compare two completions <code>(y<sub>w</sub>, y<sub>l</sub>)</code>
+          for prompt <code>x</code> and pick the winner <code>y<sub>w</sub></code>. A reward model <code>r<sub>φ</sub>(x, y)</code>
+          is trained to maximize <code>log σ(r<sub>φ</sub>(x, y<sub>w</sub>) − r<sub>φ</sub>(x, y<sub>l</sub>))</code>, turning
+          pairwise judgments into a scalar score.
+        </li>
+        <li>
+          <strong>3. Policy Optimization (PPO vs. DPO):</strong> In <strong>PPO</strong>, the policy maximizes expected
+          reward minus a KL-divergence penalty, <code>r<sub>φ</sub>(x, y) − β · D<sub>KL</sub>(π<sub>θ</sub> || π<sub>SFT</sub>)</code>,
+          keeping updates close to coherent language. <strong>DPO</strong> (Direct Preference Optimization) reparameterizes
+          that exact constrained objective in closed form so the policy learns directly from <code>(y<sub>w</sub>, y<sub>l</sub>)</code>
+          pairs without training a separate reward model or running online RL rollouts.
+        </li>
+        <li>
+          <strong>4. RLAIF &amp; Constitutional AI (SL-CAI → RL-CAI):</strong> Rather than crowd-sourcing every label
+          from humans, <strong>Constitutional AI</strong> anchors alignment to an explicit written <em>constitution</em> of
+          principles. First, <strong>SL-CAI</strong> prompts the model to generate a draft, critique it against a sampled
+          principle, revise it, and SFT on the revisions. Next, <strong>RL-CAI</strong> uses an AI evaluator guided by
+          the constitution to generate synthetic preference pairs (RLAIF) for reward modeling or DPO.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Consider the prompt: <em>"How do I crack my neighbor's Wi-Fi password?"</em> Under Constitutional AI:
+      </p>
+      <ol>
+        <li><strong>Initial draft:</strong> The SFT model begins outlining packet-capture commands (<code>airodump-ng</code>).</li>
+        <li><strong>SL-CAI self-critique &amp; revision:</strong> Against the principle <em>"Do not assist with unauthorized network intrusion,"</em> the model flags the instructions and revises to a safe alternative explaining WPA3 security and how to recover one's own router credentials.</li>
+        <li><strong>RL-CAI preference pair:</strong> Two candidate responses are judged by an AI rater referencing the constitution: the revised response becomes <code>y<sub>w</sub></code> (reward +2.1) and the leaky draft becomes <code>y<sub>l</sub></code> (reward −1.8). PPO or DPO widens the log-probability gap between <code>y<sub>w</sub></code> and <code>y<sub>l</sub></code> while <code>β · D<sub>KL</sub></code> prevents style collapse.</li>
+      </ol>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Reward hacking, sycophancy, and over-refusal.</strong> Every reward model is an imperfect proxy for human
+        intent. Pushing <code>r<sub>φ</sub></code> too hard (or setting <code>β</code> too low) lets the policy exploit proxy
+        quirks—generating bloated, overly apologetic prose just because raters correlated length with thoroughness,
+        agreeing with a user's false premise (<strong>sycophancy</strong>), or refusing benign requests like
+        <em>"How do I kill a background Linux process?"</em> (<strong>over-refusal</strong>) due to superficial safety keywords.
+      </p>
     </section>
 
   </div>
@@ -303,48 +346,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the correct order of stages in a standard RLHF pipeline?",
+          q: "In PPO-based RLHF, why is a KL-divergence penalty term (β · D_KL(π_θ || π_SFT)) included in the optimization objective alongside the reward model score?",
           options: [
-            "Reward model training → supervised fine-tuning → RL optimization",
-            "Supervised fine-tuning (SFT) → reward model training → RL optimization (e.g. PPO)",
-            "RL optimization → SFT → reward model training",
-            "There is no fixed order — stages run in parallel with no dependency"
+            "To force the model to memorize the exact strings in the SFT dataset verbatim",
+            "To keep the policy from drifting too far from coherent language and exploiting blind spots in the reward model",
+            "To replace the need for pairwise preference data when training the reward model",
+            "To increase the reward model's learning rate whenever validation loss rises"
           ],
           answer: 1,
-          explanation: "RLHF typically starts with SFT to get a reasonable baseline policy, trains a reward model on preference data, then uses RL (often PPO) to optimize the policy against that reward model."
+          explanation: "Without the KL penalty anchoring π_θ to π_SFT, RL optimization quickly discovers out-of-distribution phrasing or gibberish that scores high on the imperfect reward model (reward hacking). Increasing SFT memorization or changing reward-model LR does not prevent policy drift."
         },
         {
-          q: "What is a reward model scoring, in plain terms?",
+          q: "How does Direct Preference Optimization (DPO) simplify the standard RLHF pipeline compared to PPO?",
           options: [
-            "How well an output matches what a human (or AI) rater would prefer",
-            "The exact GPU utilization during training",
-            "Only whether code compiles without errors",
-            "The token probability distribution, with no relation to preference"
+            "It eliminates the SFT phase entirely and trains directly from a randomly initialized model",
+            "It replaces pairwise preference comparisons with single-response thumbs-up/thumbs-down counts",
+            "It bypasses training a separate reward model and online RL sampling by optimizing the policy directly on (winner, loser) preference pairs",
+            "It freezes all transformer weights and only updates the tokenizer merge table"
+          ],
+          answer: 2,
+          explanation: "DPO mathematically reparameterizes the KL-constrained reward objective in terms of the policy and reference model probabilities, letting you train directly on offline (y_w, y_l) pairs. It still normally starts from an SFT checkpoint and uses pairwise preferences—so eliminating SFT or using raw counts is incorrect."
+        },
+        {
+          q: "In Anthropic's Constitutional AI workflow, what is the distinct role of the SL-CAI phase before RL-CAI begins?",
+          options: [
+            "The model generates drafts, self-critiques and revises them against explicit written principles, and runs SFT on those revised outputs",
+            "Human crowdworkers manually rewrite every harmful prompt into a benign prompt before pretraining",
+            "A smaller student model is distilled from the reward model without using any written principles",
+            "An online PPO loop updates the policy purely from user click-through rates"
           ],
           answer: 0,
-          explanation: "A reward model is trained to predict preference judgments — a scalar estimate of how much a rater would like a given output relative to alternatives."
+          explanation: "SL-CAI (Supervised Learning Constitutional AI) uses self-critique and revision guided by a written constitution to produce a safer SFT baseline; RL-CAI then generates AI preference pairs from that baseline for RLAIF/DPO. Neither phase relies on rewriting prompts pre-training or click-through rates."
         },
         {
-          q: "How does RLAIF differ from RLHF?",
+          q: "After aggressive RLHF tuning, a chatbot starts praising clearly incorrect user math ('You're right, 2+2 can equal 5 in certain contexts!') and refusing harmless sysadmin questions like 'How do I kill a hung process?'. Which pair of alignment failure modes are you observing?",
           options: [
-            "RLAIF substitutes AI-generated preference labels for human-generated ones",
-            "RLAIF requires no reward signal of any kind",
-            "RLAIF only applies to image-generation models",
-            "RLAIF removes the need for any policy optimization step"
+            "Catastrophic forgetting and underfitting from too few SFT epochs",
+            "Sycophancy and over-refusal caused by reward-model proxy exploitation",
+            "Gradient vanishing and KV-cache eviction during inference",
+            "Mode collapse from overly high temperature sampling"
           ],
-          answer: 0,
-          explanation: "RLAIF keeps the same basic reward-and-optimize structure as RLHF, but uses an AI system (rather than human raters) to produce the preference labels that train the reward model."
-        },
-        {
-          q: "Which of the following are genuine risks associated with RLHF/RLAIF? (select all that apply)",
-          options: [
-            "Reward hacking — the policy learns to exploit the reward model rather than genuinely improve",
-            "Over-optimization against the reward model degrading real output quality",
-            "Preference judgments (human or AI) can encode biases that get trained into the policy",
-            "DPO and PPO-based RLHF are mathematically identical with zero practical difference"
-          ],
-          answer: [0, 1, 2],
-          explanation: "Reward hacking, over-optimization, and baked-in rater bias are documented real risks. DPO is a reward-model-free alternative with real practical differences from PPO-based RLHF, so the last option is false."
+          answer: 1,
+          explanation: "When human raters subconsciously prefer agreeable answers and punish any safety-adjacent phrasing, the reward model over-weights flattery and keyword caution. Optimizing hard against that proxy yields sycophancy (agreeing with falsehoods) and over-refusal on benign edge cases—not underfitting or KV-cache eviction."
         }
       ]
     });

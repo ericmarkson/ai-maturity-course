@@ -28,35 +28,64 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> You should be able to compute the output of a tiny
-      perceptron by hand given inputs, weights, and a bias, and explain why a single perceptron
-      can't separate a simple non-linear pattern like XOR but a multi-layer network can.
+      <strong>Learning objective:</strong> Compute a perceptron's weighted sum and threshold decision by hand,
+      interpret how weights and bias orient and shift a linear decision boundary, and explain why solving XOR
+      requires stacking multiple layers with non-linearities.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>perceptron</strong> is the simplest artificial neuron — it takes weighted inputs,
-          sums them up, adds a bias, and fires a decision based on whether that sum crosses a
-          threshold. Stacking many perceptrons in layers, where one layer's outputs feed the next
-          layer's inputs, is the basic architecture of a neural network.
+          A <strong>perceptron</strong> is the foundational artificial neuron: it computes a weighted sum of its
+          inputs plus a bias, <code>z = w₁x₁ + w₂x₂ + … + b</code>, and outputs a decision when <code>z</code>
+          crosses zero. Connecting layers of neurons where one layer's outputs feed the next forms a
+          <strong>multi-layer perceptron (MLP)</strong> capable of carving out curved, non-linear boundaries.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Geometry of Weights &amp; Bias:</strong> Setting <code>w₁x + w₂y + b = 0</code> defines a single
+        straight separating line in 2D (or flat hyperplane in higher dimensions). Weights <code>(w₁, w₂)</code> control
+        the tilt/angle of that line and which side fires positive, while bias <code>b</code> slides the boundary away
+        from the origin <code>(0, 0)</code>.
+      </p>
+      <p>
+        <strong>2. The Linear Separability Wall (XOR):</strong> Because a single perceptron only cuts space with one
+        straight line, any pattern whose same-class examples occupy diagonally opposite corners—such as
+        <strong>XOR</strong>—is mathematically impossible for a single layer to separate cleanly.
+      </p>
+      <p>
+        <strong>3. How Hidden Layers Solve XOR:</strong> A hidden layer deploys multiple neurons simultaneously—each
+        drawing its own straight cut (e.g., Neuron A checks <code>x + y &gt; 0</code>, Neuron B checks
+        <code>x + y &lt; 2</code>). An output neuron then combines those hidden signals (AND-ing or weighting them with
+        non-linear activations) to isolate diagonal stripes or curved regions.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Computing a Perceptron Decision by Hand</h3>
+      <p>
+        Let weights be <code>w₁ = 1.5</code>, <code>w₂ = −1.0</code>, and bias <code>b = −1.0</code>, firing
+        <code>1</code> whenever <code>z ≥ 0</code>:
+      </p>
       <ul>
-        <li><strong>Inputs, weights, bias, and the weighted sum</strong> — each input is multiplied by
-          a weight, summed together, and shifted by a bias term.</li>
-        <li><strong>The activation/threshold step</strong> — the weighted sum is turned into a final
-          decision (a simplified version of what full activation functions do, covered in Level 4).</li>
-        <li><strong>Single-layer perceptron limits</strong> — a single perceptron can only draw a
-          straight decision line, so it can't solve non-linearly-separable problems like XOR.</li>
-        <li><strong>Why stacking layers overcomes that limit</strong> — a multi-layer perceptron can
-          combine several straight lines to carve out much more complex shapes.</li>
+        <li>Input <code>(x = 2, y = 1)</code>: <code>z = 1.5(2) + (−1.0)(1) + (−1.0) = 3.0 − 1.0 − 1.0 = +1.0</code> &ge; <code>0</code> &rarr; predicts <strong>1</strong>.</li>
+        <li>Input <code>(x = 1, y = 2)</code>: <code>z = 1.5(1) + (−1.0)(2) + (−1.0) = 1.5 − 2.0 − 1.0 = −1.5</code> &lt; <code>0</code> &rarr; predicts <strong>0</strong>.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Omitting Bias or Using Hard Step Thresholds in Deep Nets</h3>
+      <p>
+        Dropping the bias term (<code>b = 0</code>) forces every separating line through <code>(0, 0)</code>, failing
+        whenever positive and negative clusters both lie on one side of the origin. Also, a hard 0/1 step function has
+        zero slope everywhere except at zero—so multi-layer networks replace hard steps with smooth, differentiable
+        activations (like sigmoid or ReLU, covered in Level 4) so gradient descent can train hidden layers.
+      </p>
     </section>
   </div>
 
@@ -261,43 +290,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A perceptron has inputs x=2, y=1, weights w1=1.5, w2=-1, and bias b=-1. What is the weighted sum before thresholding?",
-          options: ["1.0", "3.0 - 1 - 1 = 1.0", "1.5*2 + (-1)*1 + (-1) = 3 - 1 - 1 = 1", "It cannot be computed without an activation function"],
-          answer: 2,
-          explanation: "w1*x + w2*y + b = 1.5*2 + (-1)*1 + (-1) = 3 - 1 - 1 = 1. The threshold step then turns that 1 into a final fire/no-fire decision."
-        },
-        {
-          q: "In the exercise, no matter how you set the three sliders, why can't the boundary perfectly separate the XOR dataset?",
+          q: "A perceptron takes inputs x = 2, y = 1 with weights w₁ = 1.5, w₂ = −1.0, and bias b = −1.0. What is the weighted sum z before thresholding?",
           options: [
-            "Because the canvas is too small to draw the line",
-            "Because XOR's two classes are arranged so that no single straight line can put all of one class on one side and all of the other class on the other side",
-            "Because the sliders are broken in XOR mode",
-            "Because XOR always has more points of one class than the other"
+            "−1.0",
+            "1.0",
+            "2.0",
+            "3.0"
           ],
           answer: 1,
-          explanation: "XOR is the classic example of a non-linearly-separable pattern — the two classes occupy diagonally opposite corners, which no single straight line can cleanly divide."
+          explanation: "Compute z = w₁x + w₂y + b = (1.5)(2) + (−1.0)(1) + (−1.0) = 3.0 − 1.0 − 1.0 = 1.0. Because 1.0 ≥ 0, the unit fires 1."
         },
         {
-          q: "What does stacking perceptrons into multiple layers (a multi-layer perceptron) gain you that a single perceptron doesn't have?",
+          q: "In the exercise, why is it impossible to reach 100% accuracy on the XOR dataset regardless of how you adjust w₁, w₂, and b?",
           options: [
-            "Nothing — a stack of perceptrons is mathematically identical to one perceptron",
-            "The ability to combine multiple straight-line boundaries into more complex, non-linear decision shapes",
-            "The ability to store more training data in memory",
-            "Guaranteed 100% accuracy on any dataset"
+            "Because the perceptron threshold is anchored at 0 rather than 0.5",
+            "Because w₁x + w₂y + b = 0 can only draw one straight line, whereas XOR's same-class points occupy diagonally opposite quadrants",
+            "Because XOR contains negative feature coordinates that cancel out positive weights",
+            "Because changing the bias term rotates the line without translating its intercept"
           ],
           answer: 1,
-          explanation: "Each layer can bend or combine the boundaries formed by the previous layer, letting a multi-layer network represent much more complex, curved or disjoint decision regions."
+          explanation: "Any single straight cut leaves at least one corner of XOR on the wrong side. Bias translates the line across space and weights rotate it, yet a single line still cannot separate diagonal pairs."
         },
         {
-          q: "What role does the bias term (b) play in a perceptron's decision boundary?",
+          q: "How does adding a hidden layer of neurons (a multi-layer perceptron) overcome the single-perceptron XOR limit?",
           options: [
-            "It has no effect on the boundary at all",
-            "It shifts the decision boundary away from passing exactly through the origin",
-            "It only affects how fast the model trains, not the boundary's position",
-            "It converts the model from classification to regression"
+            "Hidden layers bypass weighted sums and memorize every training coordinate in a lookup table",
+            "Hidden neurons learn multiple separate straight boundaries whose non-linear combination carves out diagonal or curved decision regions",
+            "Hidden layers double the dimensionality of the raw input features automatically",
+            "Hidden layers convert classification thresholds into continuous linear regression targets"
           ],
           answer: 1,
-          explanation: "Without a bias term, the boundary w1*x + w2*y = 0 is forced through the origin; the bias lets it shift so the line doesn't have to pass through (0,0)."
+          explanation: "Each hidden neuron cuts the space along a different hyperplane; when combined by the next layer through non-linear activations, those linear cuts compose into complex, non-linear regions."
+        },
+        {
+          q: "Geometrically, what restriction hits a 2-input perceptron if you remove its bias term (forcing b = 0)?",
+          options: [
+            "Its decision line becomes strictly vertical along x = 0",
+            "Its decision boundary is forced to pass directly through the origin (0, 0), preventing clean separation of clusters shifted away from zero",
+            "Its two weights w₁ and w₂ must remain positive during training",
+            "Its weighted sum can no longer cross zero when inputs are negative"
+          ],
+          answer: 1,
+          explanation: "When b = 0, plugging (x=0, y=0) into w₁x + w₂y = 0 always holds, pinning the boundary line to the origin regardless of how w₁ and w₂ rotate its slope."
         }
       ]
     });

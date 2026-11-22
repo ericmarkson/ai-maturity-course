@@ -54,14 +54,55 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Function/tool calling — structured schemas (name, description, parameters) the model can invoke</li>
-        <li>The ReAct pattern: reason → act → observe → repeat</li>
-        <li>Tool selection and argument construction from natural-language intent</li>
-        <li>Handling tool errors, unexpected outputs, and retries</li>
+        <li>
+          <strong>Function &amp; Tool Schemas as Contracts:</strong> Each tool exposes a JSON Schema containing a
+          <code>name</code>, a behavioral <code>description</code> explaining <em>when</em> to invoke it (and when not to),
+          and typed <code>parameters</code> (<code>enum</code>, <code>required</code>, <code>additionalProperties: false</code>).
+          The LLM never runs tools directly—it emits structured tool-call arguments that the host runtime validates and executes.
+        </li>
+        <li>
+          <strong>The ReAct Loop (Reason → Act → Observe → Repeat):</strong> Instead of guessing in one pass, the model
+          writes an intermediate reasoning step (<code>Thought</code>), emits a tool call (<code>Action</code>) and stops
+          generating, receives the runtime's execution output appended as a tool message (<code>Observation</code>),
+          and repeats until it has enough verified facts to emit the final answer.
+        </li>
+        <li>
+          <strong>Structured Error Recovery &amp; Retries:</strong> When an API times out, hits rate limits, or rejects
+          malformed arguments, good agent runtimes catch the exception and feed a concise error string back as the
+          <code>Observation</code> so the model can adjust arguments or choose an alternative tool—bounded by a strict
+          <code>max_steps</code> budget.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        For the task <em>"Tokyo's current weather and 4 hotel nights at ¥18,000/night in USD at ¥155/$1"</em>:
+      </p>
+      <pre class="code-block"><code>Thought 1: Current Tokyo weather changes constantly -> call weather_lookup.
+Action 1:  weather_lookup(location="Tokyo")
+Observe 1: "Tokyo: 26°C, light rain, humidity 78%."
+
+Thought 2: Convert 4 × ¥18,000 / 155 with arithmetic tool to avoid rounding slips.
+Action 2:  calculator(expression="18000*4/155")
+Observe 2: "= 464.516... ≈ $464.52"
+
+Thought 3: Both facts verified -> invoke finish_answer() with cited values.</code></pre>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Overlapping tool descriptions, missing step caps, and unguarded side effects.</strong> Exposing two
+        near-identical tools (e.g., <code>search_kb</code> and <code>query_docs</code>) with vague descriptions
+        causes tool thrashing; omitting a <code>max_steps</code> guard lets a model retry a failing call indefinitely,
+        burning tokens and triggering duplicate writes if non-idempotent tools (like sending emails or charges) lack
+        confirmation checks.
+      </p>
     </section>
 
   </div>
@@ -283,43 +324,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the ReAct pattern (reason → act → observe → repeat), what immediately follows an “act” step (a tool call)?",
-          options: ["Reason again from scratch", "Observe — read back the tool's result", "Immediately finish the task", "Retry the same tool automatically"],
-          answer: 1,
-          explanation: "After acting, the agent observes the tool's output before deciding what to reason about next."
-        },
-        {
-          q: "In the exercise, why did the agent choose the calculator tool for the hotel-cost question instead of the weather tool?",
+          q: "In a ReAct agent loop, who actually executes the tool call and supplies the 'Observation' message back into the context?",
           options: [
-            "Because the calculator tool is always tried first",
-            "Because converting ¥72,000 to dollars is arithmetic, which matches the calculator's purpose, not the weather tool's",
-            "Because the weather tool was already used and can't be called twice",
-            "Tool choice was random in this example"
+            "The LLM executes the HTTP request internally inside its transformer feed-forward layers",
+            "The host application/agent runtime parses the model's structured Action, executes the function, and appends the output as an Observation",
+            "A separate classifier predicts what the API would probably return without making a network call",
+            "The user manually copies and pastes every JSON argument into the system prompt"
           ],
           answer: 1,
-          explanation: "Tool selection should match the sub-task's nature — arithmetic calls for a calculator, not a weather API."
+          explanation: "LLMs only emit tokens. The host runtime intercepts the tool-call stop sequence, runs the function locally or via API, and appends the tool output message (Observation) before resuming generation."
         },
         {
-          q: "A minimal tool/function-calling schema for an LLM typically needs to specify which of the following?",
+          q: "Your coding agent repeatedly passes 'last Tuesday' to get_logs(start_date) even though the backend requires YYYY-MM-DD, causing silent empty responses. Which tool-schema improvement prevents this most directly?",
           options: [
-            "Only a human-readable name",
-            "A name, a description of what it does, and its parameters",
-            "The exact server IP address it runs on",
-            "The model's training data cutoff"
+            "Increasing model temperature from 0.0 to 0.8 so it tries varied date formats",
+            "Adding explicit ISO-8601 format/pattern constraints and an example in the parameter schema, plus returning a descriptive validation error Observation",
+            "Removing the description field from the tool definition so the model infers behavior from the parameter name",
+            "Wrapping the agent inside three nested ReAct loops"
           ],
           answer: 1,
-          explanation: "The model needs a name to reference the tool, a description to know when to use it, and a parameter schema to know what arguments to construct."
+          explanation: "Ambiguous parameter schemas cause malformed arguments. Specifying format/regex constraints in the schema and returning actionable validation error messages lets constrained decoding or self-correction fix the call on the next turn."
         },
         {
-          q: "Which of these are legitimate reasons an agent might need to handle a tool error or retry? (select all that apply)",
+          q: "In the exercise above, why is calling the calculator tool after weather_lookup better engineering than letting the LLM compute 18000 × 4 / 155 in-context?",
           options: [
-            "The tool call had malformed or missing arguments",
-            "The tool timed out or returned an empty result",
-            "The tool's output doesn't match the expected format",
-            "The agent should always trust tool output blindly with no error handling"
+            "Because autoregressive next-token prediction can hallucinate multi-digit floating-point division, whereas delegating to a deterministic tool guarantees exact arithmetic",
+            "Because weather_lookup disables numeric token generation for the rest of the conversation",
+            "Because calculator calls consume zero input tokens when appended to the trace",
+            "Because ReAct requires at least two different tools to be called before finish_answer is allowed"
+          ],
+          answer: 0,
+          explanation: "LLMs approximate arithmetic via subword statistics and often slip on division or multi-step math. Offloading deterministic calculation to a calculator/code tool guarantees exact numbers in the Observation."
+        },
+        {
+          q: "Which safeguards belong in a production tool-calling agent runtime? (Select all that apply.)",
+          options: [
+            "Enforcing a strict max_steps / token budget to stop infinite retry loops",
+            "Feeding structured error strings (timeouts, 4xx validation messages) back as Observations so the model can recover",
+            "Gating destructive or non-idempotent actions (refunds, deletes, emails) behind confirmation or idempotency keys",
+            "Letting the agent silently guess missing API results from training memory whenever a tool times out"
           ],
           answer: [0, 1, 2],
-          explanation: "Malformed arguments, timeouts/empty results, and unexpected formats are all real failure modes that well-built agents need to detect and recover from. Blind trust is the opposite of good practice."
+          explanation: "Step budgets, structured error Observations, and idempotency/approval gates prevent runaway loops and dangerous side effects. Guessing from memory when a tool fails fabricates unverified facts."
         }
       ]
     });

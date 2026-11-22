@@ -35,32 +35,48 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain the difference between chatting with an AI assistant
-      through its web app versus calling it through an API, and name two practical limitations to keep in
-      mind when using either.
+      <strong>Learning objective:</strong> Compare human chat UIs and developer APIs as two entry points to the same
+      underlying AI model, explain how context windows and system messages shape requests, and anticipate real-world
+      limits like hallucinations and knowledge cutoffs.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Modern AI assistants like ChatGPT and Claude are pretrained models made accessible two main ways:
-          a <strong>chat interface</strong> for humans to type messages and read replies, and a
-          <strong>programmatic API</strong> that lets software send requests and get structured responses
-          back. Both routes talk to the same underlying model — the interface is just the door you walk
-          through.
+          Modern AI tools like ChatGPT or Claude are accessed in two main ways: a <strong>chat interface</strong> built
+          for people typing in a browser, and a <strong>programmatic API</strong> built for software sending JSON
+          requests (often paying per input/output token). Both doors talk to the same underlying model—only the
+          packaging and automation controls differ.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (The Restaurant Front Desk vs. Ordering App)</h2>
       <ul>
-        <li>Chat interface usage vs. API usage — same underlying model, different access method</li>
-        <li>Context window: what it is and why conversations have a length limit</li>
-        <li>System prompts/instructions vs. user messages (conceptual introduction)</li>
-        <li>Practical limitations: hallucination risk, knowledge cutoffs, no guaranteed factual accuracy</li>
+        <li><strong>Same kitchen, two ordering channels:</strong> Typing into the chat window is like talking to the front counter; calling the API is like sending a structured digital ticket straight from your app's code into the exact same kitchen.</li>
+        <li><strong>System instructions vs. User messages:</strong> API payloads separate background rules (<code>role: "system"</code>, like <em>"Always reply in 2-bullet JSON"</em>) from the user's current request (<code>role: "user"</code>).</li>
+        <li><strong>The Context Window = Desk Size:</strong> The model can only inspect a bounded amount of text at once (its <em>context window</em>). Every API call is stateless—chat apps appear to "remember" earlier turns because they re-send the whole conversation history inside that desk limit each time!</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why API Calls Include Past Messages</h3>
+      <p>
+        Notice in the exercise's JSON panel that your request sends <code>messages: [{role: "system", ...}, {role: "user", ...}]</code>.
+        On turn 5 of a conversation, a chat app sends turns 1, 2, 3, 4, and 5 together in that array. Once a thread
+        grows past the context window, the oldest messages get trimmed or summarized to fit.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Treating Chatbots Like Verified Search Engines</h3>
+      <p>
+        Out of the box, a standalone model predicts likely text from weights frozen at its <strong>training knowledge
+        cutoff</strong>—it cannot verify private company records or today's breaking news unless connected to web search
+        or file tools, and it can still <strong>hallucinate</strong> polished, confident-sounding falsehoods.
+      </p>
     </section>
   </div>
 
@@ -191,48 +207,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What's the key difference between using ChatGPT's chat interface and calling its API?",
+          q: "What changes when your software calls an AI model's API instead of a human typing into its chat web interface?",
           options: [
-            "They use completely different underlying models",
-            "The access method differs (human chat UI vs. programmatic requests), but both can hit the same underlying model",
-            "The API is always less accurate",
-            "The chat interface doesn't use AI at all"
+            "The API runs a smaller rule-based model while the chat UI runs the neural network",
+            "Your code sends structured JSON requests (system/user messages) directly to the same underlying model so replies can be automated",
+            "API calls bypass the model's context window limit so prompts can be infinitely long",
+            "API calls guarantee factual accuracy by running a live web verification pass automatically"
           ],
           answer: 1,
-          explanation: "Chat and API are just two different doors into the same underlying model — one built for humans, one for software."
+          explanation: "Both the web chat UI and the programmatic API call the same underlying model; the API exposes structured parameters (messages, max_tokens, system prompt) for software integration."
         },
         {
-          q: "What is a \"context window\"?",
+          q: "What happens when a conversation grows longer than a model's 'context window'?",
           options: [
-            "The browser window the chat runs in",
-            "The limited amount of conversation/text the model can consider at once",
-            "A setting that controls response speed",
-            "The model's training dataset size"
+            "The model doubles its response speed by skipping earlier paragraphs",
+            "Only a capped window of recent/selected tokens fits into the prompt at once, so older details drop out of view unless re-supplied or summarized",
+            "The model expands its weight parameters temporarily to store the conversation permanently",
+            "The API switches automatically from neural generation to keyword lookup"
           ],
           answer: 1,
-          explanation: "The context window is the cap on how much text (recent messages, instructions, etc.) the model can take into account for a single response."
+          explanation: "The context window is the hard token ceiling the model can attend to in one pass—anything pushed outside that window is effectively unseen on that call."
         },
         {
-          q: "Which of these is a real practical limitation of AI assistants to keep in mind?",
+          q: "You ask a standalone model without external tools for yesterday's stock close or your private internal sales figure. What is the real risk?",
           options: [
-            "They can hallucinate — state incorrect things confidently",
-            "They are always 100% factually accurate",
-            "They have unlimited knowledge of events after their training cutoff",
-            "They never make mistakes in code"
-          ],
-          answer: 0,
-          explanation: "Hallucination — confidently stated but incorrect output — is a well-known limitation, along with fixed knowledge cutoffs."
-        },
-        {
-          q: "In an API request, what is the role of a \"system\" message?",
-          options: [
-            "It's the user's question",
-            "It sets background instructions/behavior for the assistant, separate from the user's own messages",
-            "It's an error message",
-            "It has no effect on the response"
+            "The model will update its training weights automatically by querying your browser cache",
+            "Because of its training cutoff and lack of live private access, it may hallucinate a polished, plausible-looking number anyway",
+            "The API refuses to return text whenever numbers appear in the prompt",
+            "System messages automatically block questions about dates or budgets"
           ],
           answer: 1,
-          explanation: "System prompts/instructions steer the assistant's behavior and are distinct from the user-authored messages in the conversation."
+          explanation: "Models generate statistically fluent continuations; without connected search/file tools, they lack post-cutoff or private facts and can state confident fabrications (hallucinations)."
+        },
+        {
+          q: "In an API `messages` payload, what is the purpose of placing instructions in a `system` message separate from `user` messages?",
+          options: [
+            "To specify the HTTP endpoint URL and billing account ID",
+            "To define persistent role, tone, and formatting rules for the assistant independently of each user query",
+            "To encrypt user messages before tokenization",
+            "To tell the server which GPU cluster should train the model"
+          ],
+          answer: 1,
+          explanation: "The system message sets high-level behavioral guardrails, persona, and formatting rules that guide how the model responds to subsequent user inputs."
         }
       ]
     });

@@ -22,38 +22,69 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can explain why tuning on the validation set (not
-      the test set) matters, and can describe the difference between grid search and random search in
-      terms of cost vs. coverage.
+      <strong>Learning objective:</strong> Distinguish hyperparameters from learned weights, explain why random search
+      often outperforms grid search on equal budgets, and protect evaluation integrity by tuning on validation
+      splits rather than the test set.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Hyperparameters</strong> are the settings you choose <em>before</em> training —
-          like learning rate or batch size — rather than values the model learns on its own from data
-          (those are ordinary parameters/weights). <strong>Tuning</strong> means systematically
-          searching for the combination of hyperparameters that produces the best model, usually
-          judged by performance on a held-out validation set.
+          <strong>Hyperparameters</strong> are configuration choices set <em>around</em> training—such as learning rate,
+          batch size, epoch count, regularization strength, and layer width—rather than weights updated by gradient
+          descent inside the model. <strong>Hyperparameter tuning</strong> searches systematically for the combination
+          that minimizes loss or maximizes accuracy on a held-out validation set.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Sensitivity Is Uneven:</strong> Not all hyperparameters matter equally. Learning rate typically dominates
+        whether training converges smoothly, creeps slowly, or explodes, whereas batch size or minor width tweaks often
+        have smaller effects once inside a reasonable range.
+      </p>
+      <p>
+        <strong>2. Grid vs. Random vs. Bayesian Search:</strong> <strong>Grid search</strong> evaluates every point on a
+        fixed Cartesian grid; cost explodes exponentially (<code>k^d</code>) with <code>d</code> hyperparameters.
+        <strong>Random search</strong> samples configurations independently across ranges, testing far more unique
+        values along whichever dimension actually drives performance. <strong>Bayesian optimization</strong> goes
+        further by fitting a surrogate model over completed trials to focus subsequent trials near promising valleys.
+      </p>
+      <p>
+        <strong>3. Schedules &amp; Early Stopping:</strong> Instead of holding one static learning rate, schedules (like
+        warmup + cosine decay) take large exploratory steps early and small settling steps near a minimum.
+        <strong>Early stopping</strong> checkpoints weights whenever validation loss improves and halts training if it
+        plateaus or starts climbing from overfitting.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why 9 Random Trials Beat a 3×3 Grid</h3>
+      <p>
+        Suppose validation loss depends heavily on learning rate <code>η</code> and only weakly on batch size <code>B</code>,
+        and your compute budget allows <strong>9 training runs</strong>:
+      </p>
       <ul>
-        <li><strong>Common hyperparameters</strong> — learning rate, batch size, number of epochs,
-          network depth/width.</li>
-        <li><strong>Grid search vs. random search vs. Bayesian/automated search</strong> — grid search
-          tries every combination on a fixed grid (expensive, exhaustive); random search samples
-          combinations at random (often finds good regions faster with the same budget); Bayesian/automated
-          search uses past results to intelligently pick the next combination to try.</li>
-        <li><strong>Validation-set-driven tuning</strong> — and the risk of overfitting to the
-          validation/tuning set itself if you search it too aggressively.</li>
-        <li><strong>Learning rate schedules and early stopping</strong> — adjusting the learning rate
-          over time and stopping training once validation performance stops improving.</li>
+        <li><strong>3×3 Grid Search:</strong> Tests <code>η ∈ {0.001, 0.01, 0.1}</code> crossed with
+          <code>B ∈ {16, 32, 64}</code>. You only explore <strong>3 distinct learning rates</strong>—each repeated
+          three times—missing a narrower optimum around <code>η = 0.025</code>.</li>
+        <li><strong>Random Search (9 trials):</strong> Draws 9 independent <code>(η, B)</code> pairs, probing
+          <strong>9 distinct learning rates</strong> across the log scale—tripling coverage on the decisive axis for
+          the exact same compute budget.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Tuning on the Test Set (and Validation Overfitting)</h3>
+      <p>
+        Using test-set scores to pick learning rates or stopping epochs leaks test knowledge into model selection,
+        inflating reported accuracy beyond what unseen production data will achieve. Even on a dedicated validation
+        split, running hundreds of aggressive sweeps against a small validation set can overfit to validation quirks—use
+        cross-validation or a separate untouched final test set to keep estimates honest.
+      </p>
     </section>
   </div>
 
@@ -379,43 +410,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which of these is a hyperparameter rather than a learned parameter?",
-          options: ["A weight in a hidden layer", "The learning rate", "A learned bias term", "A trained word embedding vector"],
-          answer: 1,
-          explanation: "The learning rate is chosen by the practitioner before/during training; it is not learned from data the way weights and biases are."
-        },
-        {
-          q: "Why should you tune hyperparameters using the validation set rather than the test set?",
+          q: "Which quantity is a hyperparameter chosen by the engineer rather than a parameter updated directly by backpropagation?",
           options: [
-            "The test set is always smaller",
-            "Tuning on the test set would let information from your final evaluation set leak into your model choices, making the test score an unreliable estimate of real-world performance",
-            "Validation sets are required by law",
-            "It doesn't matter which one you use"
+            "The query projection matrix W_Q in an attention layer",
+            "The initial learning rate and cosine decay schedule",
+            "The learned bias terms inside a hidden dense layer",
+            "A word embedding row in the input lookup table"
           ],
           answer: 1,
-          explanation: "The test set is meant to be a final, untouched check. If you tune choices based on test performance, you're effectively fitting to the test set, and its score stops being a trustworthy estimate of generalization."
+          explanation: "Weights, biases, and embedding vectors are model parameters learned from data via gradients. The learning rate and its schedule govern the optimizer itself and are set as hyperparameters."
         },
         {
-          q: "What is the key practical difference between grid search and random search?",
+          q: "Why should hyperparameter selection rely on a validation split (or cross-validation) rather than the test split?",
           options: [
-            "Grid search tries every combination on a fixed grid; random search samples combinations at random and often finds good regions with fewer total trials",
-            "Random search only works for learning rate, never batch size",
-            "Grid search is always faster",
-            "They are two names for the same algorithm"
+            "Because test sets only contain unlabeled examples and cannot compute loss",
+            "Because choosing configurations based on test performance leaks test-set signal into model design, making final generalization estimates overly optimistic",
+            "Because gradient descent updates weights using validation loss rather than training loss",
+            "Because grid search uses too much memory when evaluated on larger test datasets"
+          ],
+          answer: 1,
+          explanation: "Every tuning decision guided by a dataset implicitly fits that dataset. Keeping the test set strictly untouched until all hyperparameters are finalized preserves an unbiased estimate of real-world performance."
+        },
+        {
+          q: "With a fixed budget of 16 runs across 2 hyperparameters where one (learning rate) strongly dominates loss, why does random search typically beat a 4×4 grid search?",
+          options: [
+            "Random search evaluates 16 unique learning rates instead of repeating only 4 values across the less sensitive dimension",
+            "Random search automatically shrinks the batch size whenever validation loss spikes",
+            "Grid search cannot search learning rates on a logarithmic scale",
+            "Random search uses past trials to compute exact analytical derivatives of the validation loss"
           ],
           answer: 0,
-          explanation: "Grid search is exhaustive over its grid (cost grows fast with more hyperparameters), while random sampling often covers the important dimensions more efficiently for the same trial budget."
+          explanation: "A 4×4 grid tests only 4 distinct points along each axis, wasting runs repeating the same learning rate with minor batch changes. Random search tests 16 distinct learning rates for the same budget (using past trials describes Bayesian search, not random search)."
         },
         {
-          q: "In the exercise, what happened when the learning rate was pushed very high in the loss-curve chart?",
+          q: "In the loss-curve exercise, what happens when the learning rate is pushed too high (e.g., near 1.0)?",
           options: [
-            "Loss decreased smoothly to zero",
-            "Loss stayed perfectly flat",
-            "Loss increased/diverged over epochs instead of converging",
-            "The batch size automatically corrected it"
+            "Validation loss converges smoothly to zero in fewer epochs",
+            "Step updates overshoot the valley floor, causing loss to climb or diverge across epochs",
+            "Batch size automatically compensates by halving the effective gradient norm",
+            "Early stopping resets the weights to random initialization after each epoch"
           ],
-          answer: 2,
-          explanation: "A learning rate that's too high can cause training to overshoot and diverge, with loss growing instead of shrinking over epochs — one reason careful tuning matters."
+          answer: 1,
+          explanation: "Excessively large learning rates make gradient steps overshoot across steep valley walls, increasing loss rather than reducing it—which is why tuning learning rate on a log scale is usually step one."
         }
       ]
     });

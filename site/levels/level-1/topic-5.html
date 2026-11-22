@@ -23,41 +23,52 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can describe, in plain language and without
-      equations, how a neural network takes an input (e.g., a photo) and produces an output (e.g.,
-      "cat") by passing signals through layers.
+      <strong>Learning objective:</strong> Explain, using a relay-committee analogy and zero equations, how a
+      neural network turns raw inputs into a decision by blending weighted signals across layers.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A neural network is a system of simple, interconnected "neurons" arranged in layers that
-          loosely mimics how brain cells pass signals to each other, allowing the system to learn
-          complex patterns from examples. Each neuron takes in signals from the layer before it,
-          combines them, and passes a new signal forward — layer by layer — until the final layer
-          produces an answer.
+          A <strong>neural network</strong> is a system of simple signal-combining units ("artificial neurons")
+          wired together in layers: an <strong>input layer</strong> that reads clues, one or more <strong>hidden
+          layers</strong> that mix those clues into intermediate patterns, and an <strong>output layer</strong>
+          that delivers the final answer. Learning happens by adjusting the strength (<strong>weight</strong>) of
+          every connection until guesses match real examples.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li>Neurons, layers (input / hidden / output), and the connections between them — conceptual only, no math</li>
-        <li>The brain-inspired metaphor, and its limits: artificial neurons are simplified math functions inspired by, not identical to, biological neurons</li>
-        <li>Why more layers/neurons generally let a network capture more complex patterns</li>
-        <li>A simple mental model: pattern recognition through adjustable connection strengths</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works (The Relay Committee Analogy)</h2>
       <p>
-        Picture a tiny network built to tell "cat" from "dog." The input layer receives some raw
-        signal about the image — is the ear pointy, is the sound high-pitched, how fast is the
-        tail wagging. Each connection between neurons has a strength (a weight), so some signals
-        matter more than others when they reach the next layer. The hidden layer combines those
-        weighted signals into intermediate patterns, and the output layer turns those patterns
-        into a final decision. Training is simply the process of adjusting all those connection
-        strengths, based on many labeled examples, until the network's outputs line up with
-        reality.
+        Imagine a three-stage team judging whether an audio-photo clue is a <strong>cat</strong> or a
+        <strong>dog</strong>:
+      </p>
+      <ul>
+        <li><strong>Input layer (Spotters):</strong> Spotter 1 measures ear pointiness; Spotter 2 measures vocal pitch; Spotter 3 measures tail wag speed.</li>
+        <li><strong>Hidden layer (Pattern Judges):</strong> Each judge listens to all three spotters—giving big trust (<em>high positive weight</em>) to clues they care about, ignoring irrelevant ones (<em>near-zero weight</em>), or counting clues against an idea (<em>negative weight</em>)—and sends a combined hunch forward.</li>
+        <li><strong>Output layer (Final Vote):</strong> Two final captains weigh the judges' hunches and light up whichever score is higher: <strong>CAT</strong> or <strong>DOG</strong>.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Tracing One Animal Through the Network</h3>
+      <p>
+        In the interactive diagram below, set <code>Ear pointiness = 85</code>, <code>Vocal pitch = 90</code>, and
+        <code>Tail wag speed = 15</code>. High ear and pitch signals travel across thick strongly weighted lines to
+        fire the cat-oriented hidden judges, while the low wag signal keeps the dog-oriented judge quiet—causing the
+        green <strong>CAT</strong> output circle to glow far brighter than <strong>DOG</strong>.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Taking "Brain-Inspired" Too Literally</h3>
+      <p>
+        Artificial neurons are loosely inspired by how biological brain cells send impulses across synapses, yet they
+        are vastly simpler—just weighted arithmetic sums stored on silicon, with no feelings, consciousness, or living
+        chemistry. Think of them as layered dimmer switches, not miniature human brains.
       </p>
     </section>
 
@@ -372,28 +383,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In a neural network, what does the hidden layer do?",
-          options: ["Stores the raw training dataset", "Combines weighted signals from the previous layer and passes a new signal forward", "Displays the final answer to the user", "Deletes signals it doesn't need"],
+          q: "In a neural network, what is the role of the hidden layer(s) between input and output?",
+          options: [
+            "They archive raw copies of the training images for exact template matching",
+            "They combine weighted signals from earlier neurons into intermediate patterns and pass them onward",
+            "They hide confidential user inputs from the output layer for privacy",
+            "They convert final predictions back into human-readable text strings"
+          ],
           answer: 1,
-          explanation: "Hidden-layer neurons take in weighted signals from the layer before them, combine them, and pass a transformed signal onward."
+          explanation: "Hidden layers sit between raw inputs and final answers, blending weighted clues into higher-level intermediate features step by step."
         },
         {
-          q: "Why is the “inspired by the brain” description of neural networks only a loose metaphor?",
-          options: ["Because neural networks don't use layers at all", "Because artificial neurons are simplified mathematical functions, not literal biological cells", "Because neural networks can't process images", "Because the term “neuron” was invented for computers first"],
+          q: "Why do AI engineers say artificial neural networks are only 'loosely inspired' by the human brain?",
+          options: [
+            "Because real biological brains process inputs sequentially without layered structure",
+            "Because artificial neurons are simplified mathematical weighted-sum switches, not living biological cells with complex chemistry",
+            "Because neural networks only work on visual photos and cannot process language",
+            "Because artificial networks never adjust connection strengths after being built"
+          ],
           answer: 1,
-          explanation: "Artificial neurons borrow the general idea of connected signal-passing units, but they're simplified math, not actual biology."
+          explanation: "Artificial neurons borrow the high-level concept of layered signal-passing nodes with adjustable strengths, yet mathematically they are tidy numeric functions—not biological tissue."
         },
         {
-          q: "What generally happens when you add more layers or neurons to a network?",
-          options: ["It becomes provably worse at every task", "It can capture more complex patterns (with real tradeoffs, not a free lunch)", "It stops being able to learn from data", "Nothing changes"],
+          q: "What generally changes when you build a network with more layers and neurons (assuming enough training data)?",
+          options: [
+            "It loses the ability to recognize simple straight-line clues",
+            "It gains capacity to capture subtler, more complex patterns—at the cost of needing more data and compute (and risking overfitting)",
+            "It stops needing weighted connections between layers",
+            "It automatically guarantees zero mistakes on unseen test data"
+          ],
           answer: 1,
-          explanation: "More capacity generally lets a network represent more complex patterns, though it isn't automatically better — it comes with real tradeoffs."
+          explanation: "Extra depth and width expand what patterns the network can represent, though bigger networks require more data/compute and careful tuning to avoid memorizing noise."
         },
         {
-          q: "In the exercise's toy network, what determines how strongly one neuron's signal influences the next neuron?",
-          options: ["The neuron's color", "The connection's weight (strength)", "How many total neurons exist in the network", "The order the sliders were moved in"],
+          q: "In the cat-vs.-dog network exercise, what determines how strongly 'Ear pointiness' influences a hidden neuron?",
+          options: [
+            "The position of that neuron inside the diagram box",
+            "The learned connection strength (weight) linking that input neuron to the hidden neuron",
+            "How quickly the user moves the slider left or right",
+            "The total number of output categories on the right side"
+          ],
           answer: 1,
-          explanation: "Each connection has a weight that scales how much of that signal gets passed forward — the core idea behind “adjustable connection strengths.”"
+          explanation: "Connection weights (visualized by line thickness) act like trust dials—determining whether an input strongly boosts, mildly nudges, or suppresses the next neuron."
         }
       ]
     });

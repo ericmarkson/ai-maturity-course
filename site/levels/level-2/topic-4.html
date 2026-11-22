@@ -36,30 +36,50 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a new prediction task description, correctly label it as
-      classification or regression and identify what the output would look like.
+      <strong>Learning objective:</strong> Distinguish classification (predicting a discrete category) from regression
+      (predicting a continuous number), separate binary from multi-class classification, and see why output type
+      determines which model family (such as linear vs. logistic regression next) applies.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Classification</strong> predicts which category something belongs to — spam or not spam,
-          cat or dog. <strong>Regression</strong> predicts a continuous numeric value — tomorrow's
-          temperature, a house's sale price. The type of output you need is what determines which one
-          applies to a given problem.
+          Supervised ML problems split into two broad families based on the answer you want back.
+          <strong>Classification</strong> predicts a discrete category label from a fixed menu of choices (spam vs.
+          not spam; dog vs. cat vs. bird). <strong>Regression</strong> predicts a continuous number along a number
+          line ($315,000 sale price, 72.4°F, 4.2 delivery days).
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Buckets vs. Measuring Tape)</h2>
       <ul>
-        <li>Discrete categories vs. continuous numbers as the output type</li>
-        <li>Binary classification (two classes) vs. multi-class classification</li>
-        <li>Examples spanning both: image labeling (classification), sales forecasting (regression)</li>
-        <li>Why the output type determines which techniques and metrics apply later</li>
+        <li><strong>Classification = Sorting into labeled buckets:</strong> With two buckets (fraud vs. valid, pass vs. fail), it's <strong>binary classification</strong>. With three or more buckets (language detected, tumor grade, email folder), it's <strong>multi-class classification</strong>.</li>
+        <li><strong>Regression = Reading a measuring tape:</strong> Instead of picking a bucket, the model outputs any numeric quantity along a smooth range (and missing by 1 unit hurts less than missing by 100 units).</li>
+        <li><strong>Why this comes first:</strong> Before choosing an algorithm or scoring rule, you must know whether you need a category or a number—in the next topic, you'll see how <em>linear regression</em> fits numbers while <em>logistic regression</em> turns lines into category probabilities.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Same Data, Framed Either Way</h3>
+      <p>
+        Suppose a real-estate website has square footage, bedrooms, and neighborhood data for past home sales:
+      </p>
+      <ul>
+        <li><strong>Regression framing:</strong> <em>"How much will this house sell for?"</em> &rarr; output is a number like <code>$428,500</code>.</li>
+        <li><strong>Classification framing:</strong> <em>"Will this house sell within 30 days (Yes/No)?"</em> or <em>"Which price tier does it belong to: Budget, Mid-Range, or Luxury?"</em> &rarr; output is a category label.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Treating Arbitrary Category Codes as Regression Numbers</h3>
+      <p>
+        Never ask a regression model to predict unordered category IDs like <code>1 = Apple, 2 = Banana, 3 = Cherry</code>.
+        A regression model might predict <code>2.0</code> (Banana) as the "average" between Apple and Cherry, which makes
+        no sense! Keep unordered buckets as classification.
+      </p>
     </section>
   </div>
 
@@ -196,38 +216,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A model outputs one of three labels: \"low risk,\" \"medium risk,\" or \"high risk.\" What kind of task is this?",
-          options: ["Regression", "Multi-class classification", "Binary classification", "Clustering"],
-          answer: 1,
-          explanation: "Three discrete category labels means this is classification — specifically multi-class since there are more than two options."
-        },
-        {
-          q: "A model predicts a delivery will arrive in 3.4 days. What kind of task is this?",
-          options: ["Classification", "Regression", "Binary classification", "Reinforcement learning"],
-          answer: 1,
-          explanation: "A continuous numeric output (3.4 days) is a regression task."
-        },
-        {
-          q: "What distinguishes binary classification from multi-class classification?",
+          q: "A bank model assigns every loan application one of three tags: 'Low Risk', 'Medium Risk', or 'High Risk'. Which task type is this?",
           options: [
-            "Binary classification outputs numbers, multi-class outputs categories",
-            "Binary classification has exactly two possible classes, multi-class has more than two",
-            "They are the same thing",
-            "Multi-class classification always uses regression internally"
+            "Regression, because risk levels have a natural low-to-high progression",
+            "Multi-class classification, because it chooses from 3 discrete category buckets",
+            "Binary classification, because any application is ultimately approved or denied",
+            "Unsupervised clustering, because three buckets are discovered automatically"
           ],
           answer: 1,
-          explanation: "Binary classification chooses between two classes (e.g. spam/not spam); multi-class chooses among three or more."
+          explanation: "Predicting among three discrete category labels is multi-class classification. Binary classification only has two labels, and regression predicts continuous numbers rather than fixed buckets."
         },
         {
-          q: "Why does it matter whether a task is classification or regression?",
+          q: "An app forecasts that your package will arrive in 3.4 days. Which task type is this?",
           options: [
-            "It doesn't matter, all models work the same way",
-            "The output type determines which modeling techniques and evaluation metrics are appropriate",
-            "It only matters for deep learning, not classic ML",
-            "Regression tasks never use real-world data"
+            "Binary classification",
+            "Multi-class classification",
+            "Regression",
+            "Reinforcement learning"
+          ],
+          answer: 2,
+          explanation: "Forecasting a continuous numerical value (3.4 days along a number line) is a regression problem."
+        },
+        {
+          q: "What separates binary classification from multi-class classification?",
+          options: [
+            "Binary classification predicts continuous numbers between 0 and 1, whereas multi-class outputs whole integers",
+            "Binary classification picks between exactly 2 classes, whereas multi-class picks from 3 or more discrete classes",
+            "Binary classification uses supervised labels while multi-class uses unsupervised clustering",
+            "Multi-class classification runs multiple independent regression lines and averages their numeric totals"
           ],
           answer: 1,
-          explanation: "The nature of the desired output (category vs. number) shapes which algorithms and success metrics make sense."
+          explanation: "Binary means 2 discrete choices (e.g., spam vs. not spam); multi-class means 3+ mutually exclusive categories (e.g., classifying 5 languages)."
+        },
+        {
+          q: "Why is identifying classification vs. regression the very first step before picking an algorithm or evaluation metric?",
+          options: [
+            "Because regression only works on text inputs while classification only works on tabular numbers",
+            "Because output type determines how errors are scored (how many dollars off vs. wrong bucket) and which model families fit the output",
+            "Because classification models never need validation splits, whereas regression models always do",
+            "Because regression models do not require historical training data with known outputs"
+          ],
+          answer: 1,
+          explanation: "You measure regression error by numeric distance (e.g., $10k off), whereas classification counts category hits/misses and probabilities—which drives both algorithm and metric choice."
         }
       ]
     });

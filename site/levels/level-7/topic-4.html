@@ -57,14 +57,51 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Chunking strategies (fixed-size, semantic, overlapping) and their tradeoffs</li>
-        <li>Hybrid search — combining keyword/BM25 search with vector/embedding search</li>
-        <li>Reranking retrieved candidates before they're passed to the model</li>
-        <li>Evaluating retrieval quality separately from final generation quality</li>
+        <li>
+          <strong>Chunking &amp; Parent-Child Granularity:</strong> Fixed-character splitting is cheap but breaks
+          clauses arbitrarily. Structure-aware or semantic chunking splits at paragraph/heading boundaries, while
+          <strong>small-to-big (parent-child)</strong> retrieval indexes fine-grained child chunks (~150 tokens) for
+          sharp vector matching and returns the wider parent section (~500 tokens) to preserve surrounding qualifiers.
+        </li>
+        <li>
+          <strong>Hybrid Search (BM25 + Vector via RRF):</strong> Sparse lexical <strong>BM25</strong> captures exact
+          product SKUs, error codes (<code>ERR_4092</code>), and rare proper nouns; dense <strong>bi-encoder vectors</strong>
+          match paraphrases (<em>"airfare policy" ↔ "economy class flights"</em>). Because raw BM25 scores
+          (unbounded) and cosine similarities (<code>[−1, 1]</code>) have incompatible scales, <strong>Reciprocal Rank
+          Fusion (RRF)</strong> merges rankings via <code>score(d) = Σ 1 / (k + rank<sub>i</sub>(d))</code>.
+        </li>
+        <li>
+          <strong>Cross-Encoder Reranking:</strong> Bi-encoders embed query and chunk independently for millisecond
+          top-50 recall, sacrificing token-level cross-attention. A <strong>cross-encoder reranker</strong> reads each
+          <code>(query, chunk)</code> pair jointly through full self-attention and re-sorts the top-50 candidates
+          so only the highest-precision top-5 enter the LLM prompt.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Trace the travel-policy query <em>"What is the reimbursement limit for flights?"</em> against the candidates below:
+      </p>
+      <ul>
+        <li><strong>BM25 keyword search alone:</strong> Ranks the 30-day submission deadline passage (<code>kw = 0.60</code>) <em>#1</em> above the flight-class passage (<code>kw = 0.55</code>) due to literal repetition of <code>"reimbursement"</code>.</li>
+        <li><strong>Vector + Reranker pipeline:</strong> Dense embeddings score the flight passage higher (<code>vec = 0.82</code> vs. <code>0.35</code>), and the cross-encoder reranker scores it <code>0.95</code>, cleanly promoting the true flight rule to Rank #1 before generation.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Summing unnormalized scores or shrinking chunks until qualifiers disappear.</strong> Adding raw BM25
+        scores directly to cosine similarity lets lexical scores drown out semantic matches unless fused with RRF or
+        calibrated weights. Likewise, splitting text into tiny 50-character fragments strips crucial exception clauses
+        (<em>"...unless the trip exceeds six hours"</em>), causing confident wrong answers even when Rank #1 retrieves
+        the right sentence fragment.
+      </p>
     </section>
 
   </div>
@@ -300,48 +337,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the exercise, why can keyword-only (BM25) search rank the reimbursement-deadline passage above the flight-cost passage for the query \"What is the reimbursement limit for flights?\"",
+          q: "Why do two-stage RAG pipelines retrieve top-50 candidates with bi-encoders/BM25 first and then apply a cross-encoder reranker only to those 50, rather than running the cross-encoder across all 1 million chunks?",
           options: [
-            "Because keyword search ignores the query entirely",
-            "Because the deadline passage shares literal words like “reimbursement” even though it isn't the semantically best answer",
-            "Because keyword search always returns results in alphabetical order",
-            "Because vector search was actually running instead"
+            "Cross-encoders cannot output numeric relevance scores on documents longer than 100 tokens",
+            "Cross-encoders jointly attend across (query, chunk) pairs for far higher accuracy, which is too slow (O(N) forward passes) over an entire corpus unless pre-filtered",
+            "Bi-encoders already compute cross-attention between query and document tokens before indexing",
+            "Rerankers only work when keyword scores equal zero"
           ],
           answer: 1,
-          explanation: "Keyword/BM25 search matches on literal term overlap, so a passage that repeats query words can outrank a more semantically relevant passage that uses different wording."
+          explanation: "Bi-encoders pre-compute chunk vectors offline so ANN search takes milliseconds over millions of docs. Cross-encoders compute full joint attention per (query, doc) pair—far more accurate at distinguishing subtle intent, so running them on top-50 candidates gives the best speed/precision tradeoff."
         },
         {
-          q: "What does reranking do in an advanced RAG pipeline?",
+          q: "When combining BM25 keyword results and dense vector results in hybrid search, why is Reciprocal Rank Fusion (RRF: Σ 1 / (k + rank)) preferred over adding raw BM25 and cosine similarity scores together?",
           options: [
-            "It re-splits the source document into new chunks",
-            "It re-scores and reorders an already-retrieved set of candidates using a (typically more expensive/accurate) model, refining the final order before generation",
-            "It trains a brand-new embedding model from scratch",
-            "It deletes all but one retrieved passage at random"
+            "BM25 scores are unbounded positive floats while cosine similarities sit in [−1, 1], so raw addition lets BM25 dominate unpredictably; RRF relies cleanly on rank order",
+            "RRF eliminates the need to tokenize queries during keyword search",
+            "Adding raw scores drops recall on exact identifiers like error codes",
+            "RRF converts dense embeddings into sparse 1-hot vectors automatically"
           ],
-          answer: 1,
-          explanation: "Reranking is a refinement stage: it takes the candidates hybrid/keyword/vector search already retrieved and reorders them using a model tuned for accurate relevance judgments."
+          answer: 0,
+          explanation: "BM25 scores vary widely with document length and term frequency, whereas cosine similarity is bounded. RRF depends only on each retriever's rank position, blending exact-match and semantic signals smoothly without fragile score calibration."
         },
         {
-          q: "How does increasing chunk size in the exercise's chunking demo affect the document?",
+          q: "In the exercise above, a user asks 'What is the reimbursement limit for flights?' and keyword-only search puts the 30-day deadline passage ahead of the flight-class passage. What retrieval tradeoff does this expose, and how do you preserve qualifiers like 'unless the trip exceeds six hours'?",
           options: [
-            "It has no effect at all on the number of chunks",
-            "It produces fewer, larger chunks covering more text each",
-            "It produces more, smaller chunks",
-            "It deletes part of the document"
+            "Lexical overlap misses semantic intent; pairing hybrid search + reranking with larger chunks or parent-child retrieval keeps qualifying clauses attached to the matched span",
+            "Shrinking chunk size to 40 characters ensures every qualifier sits in its own isolated top-1 result",
+            "Removing BM25 entirely fixes exact SKU lookups and deadline queries at the same time",
+            "Setting chunk overlap to 0% prevents duplicate terms from inflating BM25 scores"
           ],
-          answer: 1,
-          explanation: "A larger chunk-size setting means each chunk spans more characters, so fewer chunks are needed to cover the same document."
+          answer: 0,
+          explanation: "BM25 favors literal word frequency ('reimbursement') over semantic fit; hybrid + reranking fixes ranking, while parent-child or appropriately sized overlapping chunks prevent splitting away conditional clauses."
         },
         {
-          q: "Which of the following are legitimate reasons advanced RAG combines multiple techniques (hybrid search, reranking, tuned chunking) rather than relying on plain vector search alone? (select all that apply)",
+          q: "Which scenarios specifically justify adding BM25 keyword search alongside dense vector search? (Select all that apply.)",
           options: [
-            "Keyword search catches exact-term matches (like IDs or rare jargon) that embeddings can miss",
-            "Reranking can correct ordering mistakes made by the initial retrieval stage",
-            "Chunk size/overlap choices materially affect whether the right passage is even retrievable",
-            "Combining techniques guarantees the LLM will never hallucinate"
+            "Users frequently query exact error codes (ERR_4092), part numbers, or internal acronyms absent from general pretraining",
+            "BM25 guarantees that no out-of-date chunk can ever appear in top-k results",
+            "Queries contain rare proper nouns or exact legal section numbers where dense embeddings smooth over differences",
+            "Evaluating retrieval Recall@k separately from generation shows misses on exact-string queries despite good paraphrases"
           ],
-          answer: [0, 1, 2],
-          explanation: "Keyword matching, reranking, and good chunking each address real weaknesses of plain vector search. None of these techniques eliminates hallucination risk entirely, so the last option is false."
+          answer: [0, 2, 3],
+          explanation: "Dense bi-encoders struggle with arbitrary IDs, SKUs, and exact codes that BM25 matches effortlessly. Neither BM25 nor vector search automatically detects document staleness without metadata filtering."
         }
       ]
     });

@@ -45,15 +45,53 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>The core scaling variables: parameters, data (tokens), and compute (FLOPs)</li>
-        <li>Compute-optimal training (e.g. the Chinchilla finding that many early models were undertrained
-          relative to their size)</li>
-        <li>Diminishing returns and the log-linear shape of scaling curves</li>
-        <li>How scaling laws inform tradeoff decisions: bigger model vs. more data vs. more training steps</li>
+        <li>
+          <strong>The Power-Law Loss Relation:</strong> Pretraining cross-entropy loss follows an empirical power law
+          <code>L(N, D) = E + A / N<sup>α</sup> + B / D<sup>β</sup></code>, where <code>N</code> is parameter count,
+          <code>D</code> is training tokens, <code>E</code> is the irreducible entropy of natural text (~<code>1.69</code>),
+          and dense transformer training compute scales as roughly <code>C ≈ 6 · N · D</code> FLOPs (2 FLOPs per parameter
+          forward, 4 backward).
+        </li>
+        <li>
+          <strong>Chinchilla Compute-Optimal IsoFLOP Frontier:</strong> Sweeping <code>(N, D)</code> pairs along
+          fixed-compute curves (isoFLOPs), Hoffmann et al. (2022) showed that <code>α ≈ 0.34</code> and
+          <code>β ≈ 0.28</code> are nearly balanced—so for minimum training loss at fixed compute <code>C</code>,
+          <code>N</code> and <code>D</code> should scale roughly proportionally (~<strong>20 tokens per parameter</strong>).
+          Many earlier large models (like 280B Gopher on 300B tokens) were heavily parameter-bloated and undertrained.
+        </li>
+        <li>
+          <strong>Training-Optimal vs. Inference-Optimal Scaling:</strong> Chinchilla minimizes <em>training</em> FLOPs
+          only. Because serving cost scales with <code>N</code> across billions of queries, production teams routinely
+          <strong>over-train</strong> smaller models far past 20:1 (e.g., training an 8B model on 15T tokens) to win
+          massive inference latency and serving savings.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Compare two runs spending the exact same pretraining budget <code>C ≈ 5.88 × 10<sup>23</sup></code> FLOPs
+        (<code>6 · N · D</code>):
+      </p>
+      <ul>
+        <li><strong>Run A (Chinchilla-style, <code>70B × 1.4T tokens</code>):</strong> <code>20</code> tokens/param—sits directly on the compute-optimal frontier with lower loss <em>and</em> 4× cheaper serving.</li>
+        <li><strong>Run B (Undertrained giant, <code>280B × 350B tokens</code>):</strong> Only <code>1.25</code> tokens/param—the <code>B / D<sup>β</sup></code> data term stays elevated, leaving Run B with higher loss despite identical training FLOPs and 4× heavier deployment VRAM.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Treating 20:1 as a hard law for serving or assuming clean scaling continues on stale data.</strong>
+        First, if your model will handle heavy inference traffic, training a smaller model on far more tokens beats
+        the Chinchilla training-optimal split on total lifecycle cost. Second, repeating low-quality or duplicated
+        synthetic tokens degrades the effective <code>D<sup>−β</sup></code> slope, flattening returns faster than
+        power-law curves predict on fresh, diverse data.
+      </p>
     </section>
 
   </div>
@@ -311,48 +349,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "According to the Chinchilla scaling-law finding, what mistake had many earlier large language models made?",
+          q: "Under the Chinchilla scaling finding (L(N, D) = E + A/N^α + B/D^β with C ≈ 6·N·D), why did 70B Chinchilla (1.4T tokens) outperform 280B Gopher (300B tokens) at roughly the same training compute budget?",
           options: [
-            "They were undertrained relative to their size — too many parameters for too little training data",
-            "They were trained on far too much data relative to their size",
-            "They used too few parameters to be useful at all",
-            "There was no mistake — they were already compute-optimal"
+            "Because Gopher used 4× too few tokens per parameter, leaving its B/D^β data-loss term unnecessarily high for that compute budget",
+            "Because Chinchilla eliminated the irreducible entropy floor E by using a larger tokenizer",
+            "Because training compute C scales quadratically with N^2 regardless of training token count D",
+            "Because models above 100B parameters experience negative returns on any amount of data"
           ],
           answer: 0,
-          explanation: "Chinchilla showed that for a fixed compute budget, many earlier models were larger than optimal given how little data they saw — a smaller model trained on more tokens often beat them at the same compute cost."
+          explanation: "Chinchilla's isoFLOP analysis showed N and D should scale roughly proportionally (~20 tokens/param) for training-compute optimality. Gopher spent too much of its FLOP budget on parameters and starved training tokens, keeping B/D^β elevated."
         },
         {
-          q: "In the exercise's scaling formula, what happens to loss as you increase parameters (N) while holding data (D) fixed?",
+          q: "If Chinchilla says ~20 tokens per parameter is compute-optimal for pretraining, why do many modern open-weights labs deliberately train 7B–8B models on 10T–15T tokens (~1,500+ tokens/param)?",
           options: [
-            "Loss keeps falling by the same amount forever, with no diminishing returns",
-            "Loss decreases, but with diminishing returns as N grows very large",
-            "Loss increases as N grows",
-            "Loss becomes undefined"
+            "Because training loss drops linearly to zero once D exceeds 10T tokens",
+            "Because Chinchilla optimizes training FLOPs only—when serving billions of inference requests, over-training a smaller N yields a fast, cheap-to-serve model with strong capability",
+            "Because 6·N·D stops applying once parameter counts drop below 10 billion",
+            "Because hardware GPUs cannot run FP16 backward passes on models larger than 8B"
           ],
           answer: 1,
-          explanation: "The A/N^alpha term shrinks toward zero as N grows, so each additional order of magnitude of parameters buys a smaller and smaller loss improvement — classic diminishing returns."
+          explanation: "Once a model is deployed at massive inference volume, serving FLOPs and VRAM dominate total lifecycle cost. Investing extra pretraining compute to over-train a smaller N trades higher one-time training FLOPs for dramatically lower ongoing inference cost."
         },
         {
-          q: "Why might you choose a different parameters-vs-data split for the same fixed compute budget?",
+          q: "Looking at L(N, D) = E + A/N^α + B/D^β, what happens if you keep D fixed at 200B tokens and multiply N from 7B → 70B → 700B?",
           options: [
-            "Because scaling laws show there's a compute-optimal split between model size and data size that minimizes loss for a given compute budget",
-            "Because parameters and data always contribute identically regardless of the split",
-            "Because the compute budget has no bearing on the ideal split",
-            "Because adding more training data always hurts performance"
+            "Loss decreases steadily, with diminishing returns as A/N^α shrinks while the fixed B/D^β data term and E bottleneck further improvement",
+            "Loss drops by an identical constant amount for every 10× jump in N with zero bottleneck",
+            "Loss immediately rises because larger models cannot memorize 200B tokens",
+            "Compute C remains constant because D did not change"
           ],
           answer: 0,
-          explanation: "For any fixed compute budget there's a split (per the reference frontier in the exercise) that minimizes loss — spending all your compute on either extreme (huge model, tiny dataset, or vice versa) is generally sub-optimal."
+          explanation: "In the additive power law, scaling N alone drives A/N^α toward zero—giving smaller and smaller gains while B/D^β and irreducible text entropy E remain untouched. Compute C ≈ 6·N·D also scales 10× with each jump in N."
         },
         {
-          q: "Which of these are the core scaling variables this topic is about? (select all that apply)",
+          q: "When interpreting an isoFLOP curve (projected loss vs. N at fixed total FLOPs C), which insights hold true? (Select all that apply.)",
           options: [
-            "Model parameters (N)",
-            "Training data / tokens (D)",
-            "Compute (FLOPs)",
-            "The color scheme of the training dashboard"
+            "At fixed C, increasing N forces training tokens D = C / (6N) to shrink proportionally",
+            "The U-shaped isoFLOP minimum identifies the training-compute-optimal balance between N and D for that FLOP budget",
+            "Repeating the exact same 100B tokens 20 times matches the scaling benefit of 2T unique tokens indefinitely",
+            "Small-scale isoFLOP sweeps allow labs to predict large-run loss before committing millions of dollars of GPU time"
           ],
-          answer: [0, 1, 2],
-          explanation: "Scaling laws relate loss to parameters, data, and compute jointly — dashboard styling has no bearing on model performance."
+          answer: [0, 1, 3],
+          explanation: "Along a fixed-C isoFLOP curve, N and D trade off directly, tracing a clear loss minimum that lets researchers extrapolate large-run loss cleanly. Heavily repeating tokens causes diminishing returns compared to unique, diverse tokens."
         }
       ]
     });

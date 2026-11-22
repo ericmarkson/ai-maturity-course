@@ -29,31 +29,73 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Describe the forward-pass/backward-pass cycle in a multi-layer
-      network in your own words, and explain why a network made only of linear operations (no activation
-      functions) would collapse into an equivalent single-layer model.
+      <strong>Learning objective:</strong> Trace the forward and backward passes through a multi-layer network using
+      the chain rule, explain why removing non-linear activations collapses deep networks into one linear layer, and
+      diagnose vanishing gradients across sigmoid, tanh, and ReLU.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Backpropagation</strong> is the algorithm that figures out how much each weight in a
-          network contributed to the final error, so gradient descent knows exactly how to adjust it.
-          <strong>Activation functions</strong> are the non-linear "decision" step applied inside each
-          neuron that let networks learn complex, curved patterns instead of only straight lines.
+          <strong>Backpropagation</strong> is the reverse-mode automatic differentiation algorithm that computes how much
+          each weight contributed to the final loss (<code>∂L/∂w</code>) by propagating error signals backward from
+          output to input via the chain rule. <strong>Activation functions</strong> introduce non-linearity after each
+          weighted sum so stacked layers can bend decision boundaries around complex patterns.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Forward Pass vs. Backward Pass:</strong> Left-to-right, each layer computes a pre-activation
+        <code>z = W a + b</code> and applies an activation <code>a = φ(z)</code>, ending in a scalar loss
+        <code>L</code>. Right-to-left, backpropagation multiplies incoming error gradients by the local activation
+        slope <code>φ'(z)</code> and upstream weights, delivering exact weight gradients <code>∂L/∂W</code> for
+        gradient descent in a single backward sweep.
+      </p>
+      <p>
+        <strong>2. Why Linear Layers Collapse Without Activations:</strong> If <code>φ(z) = z</code> everywhere, then
+        two layers compute <code>W_2(W_1 x) = (W_2 W_1) x</code>—mathematically identical to a single matrix
+        <code>W_eff x</code>. No matter how many layers you add, a purely linear network can only model straight lines
+        or flat hyperplanes.
+      </p>
+      <p>
+        <strong>3. Activation Choice &amp; Vanishing Gradients:</strong> Classic <strong>sigmoid</strong>
+        (<code>(0, 1)</code>, max derivative <code>0.25</code>) and <strong>tanh</strong> (<code>(−1, 1)</code>) flatten
+        at extreme inputs; multiplying derivatives below <code>0.25</code> through many layers shrinks early-layer
+        gradients toward zero (<em>vanishing gradients</em>). <strong>ReLU</strong> (<code>max(0, z)</code>) keeps
+        gradient <code>1</code> across all positive values, letting deep nets train cleanly.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Chain Rule Through Two Weights</h3>
+      <p>
+        Suppose input <code>x = 2.0</code> feeds weight <code>w_1 = 0.5</code> (<code>z_1 = 1.0</code>), ReLU outputs
+        <code>a_1 = 1.0</code> (local slope <code>φ'(1.0) = 1</code>), and <code>w_2 = 0.8</code> predicts
+        <code>ŷ = 0.8</code> against target <code>y = 1.0</code> with loss <code>L = ½(ŷ − y)² = 0.02</code>:
+      </p>
       <ul>
-        <li>The chain rule, intuitively: blame flows backward from the output error through each layer</li>
-        <li>Forward pass (compute a prediction) vs. backward pass (compute blame/gradients)</li>
-        <li>Common activation functions (sigmoid, ReLU, tanh) and why non-linearity matters</li>
-        <li>Vanishing gradients as a motivating problem for activation function choice</li>
+        <li>Output error slope: <code>∂L/∂ŷ = ŷ − y = 0.8 − 1.0 = −0.2</code></li>
+        <li>Second-layer gradient: <code>∂L/∂w_2 = (∂L/∂ŷ) · a_1 = −0.2 × 1.0 = −0.2</code></li>
+        <li>First-layer gradient (chain rule): <code>∂L/∂w_1 = (∂L/∂ŷ) · w_2 · φ'(z_1) · x = (−0.2)(0.8)(1)(2.0) = −0.32</code></li>
       </ul>
+      <p>
+        Both gradients are negative, telling gradient descent (<code>w ← w − η ∇L</code>) to nudge both
+        <code>w_1</code> and <code>w_2</code> upward to raise <code>ŷ</code> closer to <code>1.0</code>.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Saturated Sigmoids &amp; Dying ReLUs</h3>
+      <p>
+        Large initial weights push sigmoid or tanh neurons into their flat tails where derivatives approach zero, stalling
+        training from step one. Conversely, if a giant learning rate drives a ReLU neuron's pre-activation negative for
+        every training example, its derivative stays <code>0</code> permanently—a "dead ReLU" that stops updating
+        (variants like Leaky ReLU or GELU prevent hard zero cutoffs).
+      </p>
     </section>
   </div>
 
@@ -390,43 +432,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What does backpropagation actually compute for each weight in the network?",
+          q: "During backpropagation, what exact quantity is computed for each weight w in the network?",
           options: [
-            "The weight's final trained value",
-            "How much that weight contributed to the output error (its gradient)",
-            "The number of neurons in the next layer",
-            "The learning rate"
+            "The optimal new weight value directly, replacing the learning rate",
+            "The partial derivative ∂L/∂w measuring how sensitively the loss changes when w changes",
+            "The weight's correlation with the raw input features across the dataset",
+            "The cumulative magnitude of activations passed through w during inference"
           ],
           answer: 1,
-          explanation: "Backpropagation uses the chain rule to compute, for every weight, the gradient of the loss with respect to that weight — i.e. how much it's “to blame” for the error."
+          explanation: "Backpropagation applies the chain rule to compute ∂L/∂w (the gradient) for every weight. Gradient descent then multiplies that gradient by the learning rate to take an update step."
         },
         {
-          q: "Why would a network built only from linear operations (no activation functions) collapse into an equivalent single-layer model, no matter how many layers it has?",
+          q: "Why does stacking 10 hidden layers without non-linear activation functions collapse into the expressive power of a single-layer linear model?",
           options: [
-            "Because linear layers train too slowly",
-            "Because the composition of linear functions is itself just another linear function",
-            "Because linear layers can't be backpropagated through",
-            "Because linear layers require more memory"
+            "Because backpropagation cannot differentiate linear matrix multiplications across multiple layers",
+            "Because multiplying linear transformations together always yields one equivalent linear matrix W_eff = W_10 · … · W_1",
+            "Because linear hidden units force all weights to converge to identical values during gradient descent",
+            "Because linear layers require exponentially more training data per added layer"
           ],
           answer: 1,
-          explanation: "Stacking linear transformations only ever produces another linear transformation — non-linear activation functions are what let depth add real representational power."
+          explanation: "Composing linear maps f(g(x)) = W_2(W_1 x) = (W_2 W_1)x produces another linear map, regardless of depth. Non-linear activations are required to bend decision boundaries."
         },
         {
-          q: "In the exercise, which direction does the backward pass compute values, relative to the forward pass?",
-          options: ["The same direction, left to right", "Right to left, from output back toward input", "Top to bottom", "It computes both directions simultaneously with no order"],
-          answer: 1,
-          explanation: "The backward pass starts from the output error and propagates gradients back through each layer toward the input, the reverse order of the forward pass."
-        },
-        {
-          q: "Vanishing gradients are primarily a motivating problem for which design choice?",
+          q: "In the exercise, why must the forward pass finish before the backward pass can compute hidden-layer gradients?",
           options: [
-            "How many training examples to collect",
-            "The choice of activation function (e.g. preferring ReLU over sigmoid in deep networks)",
-            "The file format used to save the model",
-            "The size of the test set"
+            "Because weight matrices are only allocated in memory during the forward pass",
+            "Because backward-pass chain-rule derivatives depend on the cached pre-activations and activations (e.g., σ(z)(1−σ(z))) computed during the forward pass",
+            "Because gradient descent updates output weights before hidden activations are evaluated",
+            "Because ReLU activations reverse their sign during the backward pass"
           ],
           answer: 1,
-          explanation: "Some activation functions (like sigmoid) squash gradients toward zero across many layers, which motivated alternatives like ReLU that suffer from this less."
+          explanation: "The chain rule evaluates each layer's local derivative φ'(z) at the exact inputs seen during the forward pass, which is why training frameworks cache forward activations until backpropagation finishes."
+        },
+        {
+          q: "Why does ReLU generally mitigate vanishing gradients in deep networks compared to standard sigmoid?",
+          options: [
+            "ReLU clips negative activations to −1, doubling the gradient signal at every layer",
+            "ReLU has a constant derivative of 1 for all positive inputs, whereas sigmoid's derivative is at most 0.25 and shrinks toward 0 at large magnitudes",
+            "ReLU normalizes weights automatically so gradients never need scaling",
+            "ReLU removes the need to apply the chain rule across hidden layers"
+          ],
+          answer: 1,
+          explanation: "Multiplying sigmoid derivatives (≤ 0.25) across 10 layers shrinks gradients by over 0.25^10 (< 10^-6). ReLU's unit derivative (= 1) preserves gradient magnitude along active paths, though negative inputs zero it out."
         }
       ]
     });

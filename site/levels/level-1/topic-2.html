@@ -23,41 +23,55 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can explain, in one or two sentences, why a
-      system like a chess engine or a chatbot is narrow AI even if it seems very capable in its
-      domain.
+      <strong>Learning objective:</strong> Distinguish narrow AI (every AI tool we use today) from
+      hypothetical general AI (AGI), and explain why a fluent chatbot still counts as narrow AI even
+      when it discusses dozens of topics.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Narrow AI</strong> (also called Artificial Narrow Intelligence, or ANI) is built
-          to do one specific task, or a bounded family of tasks, well. Every AI system that exists
-          today — no matter how impressive — is narrow in this sense. <strong>General AI</strong>
-          (Artificial General Intelligence, AGI) is a still-hypothetical system that would match
-          human-level reasoning and adaptability across essentially any task, including tasks it
-          was never specifically built or trained for. Nobody has built one yet.
+          <strong>Narrow AI (ANI)</strong> is built to perform one specific job—or a bounded family of
+          jobs—well. Every real AI system on Earth today is narrow AI. <strong>General AI (AGI)</strong>
+          is a still-hypothetical future system with human-level adaptability across essentially <em>any</em>
+          new domain, including physical, social, and unfamiliar tasks it was never trained for.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li>Artificial Narrow Intelligence (ANI) — task-specific systems like voice assistants, recommendation engines, and image classifiers</li>
-        <li>Artificial General Intelligence (AGI) — theoretical, human-level breadth and transfer across domains</li>
-        <li>Why today's large language models are still considered narrow despite feeling general in conversation</li>
-        <li>A brief mention of "artificial superintelligence" (ASI) — a further hypothetical stage beyond AGI, without dwelling on speculation</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works (The Specialist vs. All-Rounder Analogy)</h2>
       <p>
-        The trap to avoid is confusing "very good at a broad-feeling task" with "general." A
-        modern chatbot can write code, draft an email, and discuss history in the same
-        conversation, which feels general — but it's still operating within the boundaries of
-        patterns it learned from training data and text-based interaction. It can't autonomously
-        go learn to physically repair a car engine, run a business, or set its own goals the way
-        a human easily adapts across wildly different domains. That gap between "broad within a
-        lane" and "adaptable across any lane" is exactly what separates narrow from general.
+        Think of narrow AI like a master espresso machine or a Formula 1 race car: astonishing at its
+        specific job—far faster and stronger than any person—yet utterly helpless outside its track. A
+        human barista, by contrast, can brew coffee, troubleshoot a leaky sink, read a customer's mood,
+        and learn pottery next weekend without being rebuilt from scratch.
+      </p>
+      <ul>
+        <li><strong>Narrow AI (ANI):</strong> Chess engines, Netflix recommendations, medical scan classifiers, self-driving stacks, and modern chatbots.</li>
+        <li><strong>General AI (AGI):</strong> Hypothetical human-level flexibility across arbitrary unfamiliar tasks.</li>
+        <li><strong>Superintelligence (ASI):</strong> A further theoretical stage surpassing human intelligence broadly across fields.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why ChatGPT Feels General—Yet Is Still Narrow</h3>
+      <p>
+        In one chat thread, an LLM can draft a birthday poem, debug Python, and summarize tax law. That
+        feels broad! Yet behind the scenes, every reply operates inside one fixed lane: predicting text/code
+        continuations from training patterns. It cannot autonomously walk into a workshop, learn carpentry
+        by trial and error, invent its own life goals, and transfer that experience back without engineers
+        retraining or wiring tools around it.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Confusing "Many Topics" With "General Intelligence"</h3>
+      <p>
+        Don't judge generality by how many subjects an AI can chat about, or by superhuman performance on
+        one score. A chess engine beats every grandmaster on Earth while having zero idea what a pawn looks
+        like on a kitchen table—breadth inside one trained medium isn't AGI.
       </p>
     </section>
 
@@ -263,28 +277,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which of these best describes Artificial General Intelligence (AGI)?",
-          options: ["A chatbot that can discuss many different topics", "A system with human-level reasoning and adaptability across essentially any task", "Any AI system trained on a very large dataset", "A system that beats humans at one specific benchmark"],
+          q: "What defines Artificial General Intelligence (AGI) compared to today's AI tools?",
+          options: [
+            "An assistant capable of answering trivia questions across hundreds of different Wikipedia topics",
+            "A system matching human-level reasoning, goal setting, and adaptability across essentially any unfamiliar task or domain",
+            "Any deep neural network containing more than 100 billion parameters",
+            "An AI model that outperforms top human specialists on a single benchmark"
+          ],
           answer: 1,
-          explanation: "AGI specifically means human-level breadth and transfer across domains, not just breadth of topics within one interface."
+          explanation: "AGI requires general cross-domain adaptability at human level—not just wide subject trivia within text chat or superhuman skill at one benchmark."
         },
         {
-          q: "Why are today's most advanced LLM chatbots still considered “narrow AI” despite feeling very general in conversation?",
-          options: ["They can only process plain text and nothing else", "They lack true autonomous transfer of skill and reasoning to arbitrary novel real-world domains at human level", "They are too slow to be useful", "They were not trained on enough data"],
+          q: "Why do experts still classify modern conversational AI chatbots as 'narrow AI' even though they write essays, translate languages, and generate code?",
+          options: [
+            "Because chatbots rely on hard-coded if/then rules rather than neural networks",
+            "Because chatbots operate inside a bounded pattern-prediction lane and cannot autonomously transfer reasoning to arbitrary physical or novel real-world tasks like a human",
+            "Because chatbots can only answer one user message at a time without memory",
+            "Because their training datasets only cover a few thousand documents"
+          ],
           answer: 1,
-          explanation: "Feeling broad within a text-based lane isn't the same as AGI's defining trait: adaptable, human-level reasoning across essentially any task."
+          explanation: "Breadth across text topics is still operating inside one trained lane—it differs from true cross-domain autonomous learning and physical/real-world transfer."
         },
         {
-          q: "True or false: a chess engine that can beat any human grandmaster counts as general intelligence because it is “smarter than a human” at chess.",
-          options: ["True", "False"],
-          answer: 1,
-          explanation: "False — being superhuman at one narrow task is the definition of narrow AI, not general intelligence."
+          q: "A chess engine beats every human grandmaster on Earth 100% of the time, yet fails completely if asked to play checkers or write a grocery list. Which category is it?",
+          options: [
+            "General AI (AGI), because surpassing human experts proves general reasoning",
+            "Artificial Superintelligence (ASI), because no human can defeat it",
+            "Narrow AI (ANI), because superhuman skill inside one single fixed game does not transfer outside that domain",
+            "Fixed non-AI software, because chess has a finite set of board squares"
+          ],
+          answer: 2,
+          explanation: "Surpassing every human inside one specific game is the classic example of Narrow AI—strength in a narrow lane is not general intelligence."
         },
         {
-          q: "What does the term “artificial superintelligence” (ASI) generally refer to?",
-          options: ["Any AI system that's faster than a human at arithmetic", "A hypothetical stage beyond AGI that would broadly exceed human intelligence", "The current generation of large language models", "A narrow AI system with very high accuracy"],
+          q: "How does 'Artificial Superintelligence' (ASI) differ from AGI in AI terminology?",
+          options: [
+            "ASI refers to current frontier language models that outperform average humans on standardized exams",
+            "ASI refers to a further hypothetical stage beyond AGI that would vastly exceed top human capability across virtually all domains",
+            "ASI refers to combining three separate narrow AI models behind one API",
+            "ASI describes narrow AI tools that run faster than real-time human speed"
+          ],
           answer: 1,
-          explanation: "ASI is a further hypothetical stage past AGI — broadly surpassing, not just matching, human-level intelligence."
+          explanation: "In the standard framing, ANI is narrow task capability (today), AGI is human-equivalent general adaptability (hypothetical), and ASI goes far beyond human capability across domains."
         }
       ]
     });

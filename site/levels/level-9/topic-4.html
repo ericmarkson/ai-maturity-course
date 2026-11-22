@@ -22,36 +22,43 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a hypothetical cluster size and model size, reason about which
-      parallelism strategy (or combination) is appropriate and why communication topology, not just device count,
-      determines effective training throughput.
+      <strong>Learning objective:</strong> Partition frontier-scale training across 3D/4D parallelism (ZeRO/FSDP, Tensor, Pipeline, and Context Parallelism) matched to NVLink vs. InfiniBand bandwidth, while bounding pipeline bubbles and cluster fault-recovery losses.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Distributed training systems engineering is the discipline of coordinating tens of thousands of
-          accelerators (GPUs/TPUs) to train a single model without communication overhead dominating compute
-          time. Adding more devices only helps if the network fabric between them can keep them fed with
-          synchronized gradients and activations fast enough — past a certain point, more devices with a weak
-          interconnect can train <em>slower</em>, not faster.
+          Frontier distributed training coordinates tens of thousands of accelerators using multi-dimensional sharding and collective communication (<code>AllReduce</code>, <code>AllGather</code>, <code>ReduceScatter</code>) so that massive parameter/optimizer states fit in HBM while network latency never starves tensor cores.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Mixed-precision Adam training demands ~12–16 bytes per parameter (BF16 weights + FP32 master weights/moments + gradients), forcing frontier clusters to combine four complementary sharding axes:
+      </p>
       <ul>
-        <li>Parallelism strategies: data, tensor, pipeline, and expert parallelism, and why frontier runs combine
-          several simultaneously (3D/4D parallelism)</li>
-        <li>Interconnect and topology: why network bandwidth/latency (InfiniBand/RoCE, all-reduce patterns) becomes
-          the bottleneck, not raw FLOPs, at frontier scale</li>
-        <li>Fault tolerance at scale: checkpointing cadence and straggler/failure handling when a training run spans
-          10,000+ devices for weeks</li>
-        <li>The 2026 reality: compute-crunch dynamics (multi-month GPU lead times), and clusters scaling toward
-          hundreds of thousands of accelerators across sites</li>
+        <li><strong>Data Parallelism &amp; ZeRO-1/2/3 (FSDP):</strong> Pure DP replicates weights and runs <code>AllReduce</code> on gradients. <em>ZeRO-1</em> shards optimizer states, <em>ZeRO-2</em> adds gradient sharding, and <em>ZeRO-3 / FSDP</em> shards parameters too—materializing weights on demand via <code>AllGather</code> before forward/backward and synchronizing gradients via <code>ReduceScatter</code> (overlapped asynchronously with compute).</li>
+        <li><strong>Tensor Parallelism (TP):</strong> Splits individual linear layers column-wise then row-wise across GPUs, requiring two blocking <code>AllReduce</code> collectives per transformer layer. Because this sits directly on the critical path, TP is kept inside a single high-bandwidth NVLink node (typically <code>TP ≤ 8</code>).</li>
+        <li><strong>Pipeline Parallelism (PP):</strong> Assigns contiguous layer blocks across nodes with point-to-point activation sends. Using a <em>1F1B</em> (one-forward-one-backward) microbatch schedule bounds activation memory, with pipeline bubble fraction <code>(PP − 1) / (PP − 1 + M)</code> across <code>M</code> microbatches.</li>
+        <li><strong>Context / Expert Parallelism &amp; Fault Tolerance:</strong> Long contexts add <em>Context Parallelism</em> (Ring Attention), MoEs add <em>Expert Parallelism</em> (<code>AllToAll</code> routing), and 16k+ GPU runs use async in-memory checkpointing to absorb daily hardware failures without restarting.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Partitioning a 70B Run Across 80 GB H100s</h3>
+      <p>
+        At ~12–16 bytes/param, a 70B model requires <code>840–1,120 GB</code> just for weights, gradients, and Adam states (plus activations). Setting <code>TP = 8</code> (intra-node NVLink) × <code>PP = 4</code> (inter-node InfiniBand) shards model state across 32 GPUs down to <code>26–35 GB/GPU</code>, leaving ample HBM for activations and microbatches. Replicating that 32-GPU unit across <code>DP = 64</code> (2,048 total GPUs) scales throughput with ZeRO-1 optimizer sharding overlapping communication behind backward passes.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Stretching Tensor Parallelism across slow inter-node links (e.g., TP = 32 over InfiniBand/RoCE):</strong> Because TP executes blocking <code>AllReduce</code>s inside every single attention and MLP block, crossing slower inter-node fabrics crushes Model FLOPs Utilization (MFU) below 20%. Always confine TP to intra-node NVLink and scale inter-node via PP + DP/FSDP.
+      </p>
     </section>
   </div>
 
@@ -302,48 +309,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why does communication topology (not just device count) determine effective training throughput at frontier scale?",
+          q: "Why do distributed training engineers restrict Tensor Parallelism (TP) to intra-node NVLink domains (e.g., TP ≤ 8) while pushing Pipeline Parallelism (PP) and Data Parallelism (DP/FSDP) across InfiniBand nodes?",
           options: [
-            "Because more devices always trains proportionally faster regardless of the network",
-            "Because GPUs cannot communicate with each other at all",
-            "Because network bandwidth/latency between accelerators becomes the bottleneck that limits how fast gradients and activations can be synchronized, not raw FLOPs",
-            "Because only single-device training is used at frontier scale"
+            "TP requires two blocking AllReduce collectives inside every transformer layer on the critical forward/backward path, so crossing slower inter-node fabrics stalls tensor cores immediately",
+            "InfiniBand switches cannot transmit BF16 tensors and only support FP32 optimizer checkpoints",
+            "Pipeline parallelism executes zero inter-node communication regardless of the number of stages",
+            "Tensor parallelism increases total optimizer-state memory per GPU by replicating weights across every node"
           ],
-          answer: 2,
-          explanation: "At 10,000+ device scale, all-reduce and pipeline communication overhead dominates; naive scaling stalls unless the parallelism strategy matches the cluster's interconnect topology."
+          answer: 0,
+          explanation: "TP sits directly inside every layer's matrix multiplications (blocking AllReduce per attention and MLP block), demanding ultra-high-bandwidth, ultra-low-latency NVLink; PP uses lighter point-to-point activation transfers and DP overlaps gradient communication asynchronously."
         },
         {
-          q: "What causes 'pipeline bubble' overhead in pipeline parallelism?",
+          q: "How does ZeRO-3 / Fully Sharded Data Parallelism (FSDP) eliminate weight and optimizer duplication across DP ranks without forcing blocking per-layer Tensor Parallelism?",
           options: [
-            "GPUs overheating",
-            "Idle time on later pipeline stages while waiting for the first microbatch to fill the whole pipeline",
-            "Tensor-parallel all-reduce traffic",
-            "Data-parallel gradient averaging"
+            "It keeps full FP32 weights on CPU RAM and swaps layers over PCIe once per epoch",
+            "It shards weights, gradients, and optimizer states across DP ranks, issuing asynchronous AllGather right before a layer computes and ReduceScatter right after backward to shard gradients",
+            "It eliminates gradient synchronization completely by training independent expert sub-models per GPU",
+            "It compresses gradients using lossy Top-1% sparsification so AllReduce becomes optional"
           ],
           answer: 1,
-          explanation: "Pipeline stages sit idle until microbatches fill the pipe; more stages relative to microbatch count means a bigger bubble fraction, as the simulator's bubble-overhead readout shows."
+          explanation: "FSDP/ZeRO-3 keeps only 1/DP of parameters, gradients, and optimizer states resident per GPU, prefetches full layer weights via AllGather overlapped with earlier compute, and scatters gradients via ReduceScatter."
         },
         {
-          q: "Why do frontier training runs typically combine multiple parallelism strategies simultaneously (3D/4D parallelism) rather than relying on just one?",
+          q: "In the 3D-parallelism planner above (with 8 microbatches), raising PP from 2 to 8 drops memory per device sharply, yet effective utilization drops because pipeline bubble overhead jumps. What change recovers utilization while keeping PP = 8?",
           options: [
-            "Because using only one strategy is not technically possible",
-            "Because it makes checkpointing unnecessary",
-            "Because a single GPU can hold the entire model regardless of size",
-            "Because no single strategy alone can both fit an enormous model in memory and communicate efficiently across tens of thousands of devices"
+            "Increase microbatch count M (via gradient accumulation) so (PP − 1) / (PP − 1 + M) shrinks, assuming global batch size allows it",
+            "Increase TP from 2 to 8 simultaneously, because TP eliminates pipeline bubbles between microbatches",
+            "Disable mixed-precision Adam states so pipeline stages skip backward passes",
+            "Decrease DP to 1, because data-parallel replicas cause pipeline-stage stalls"
           ],
-          answer: 3,
-          explanation: "Data, tensor, pipeline, and expert parallelism each trade off memory sharding against communication cost differently; combining them balances both constraints against real cluster topology."
+          answer: 0,
+          explanation: "The pipeline bubble fraction scales as (PP - 1)/(PP - 1 + M). Increasing the number of microbatches M per optimizer step keeps pipeline stages busy longer relative to ramp-up/cool-down bubbles (though raising M increases global batch size unless microbatch size shrinks)."
         },
         {
-          q: "In a frontier run spanning 10,000+ devices over weeks, what is a critical fault-tolerance concern?",
+          q: "On a 16,384-GPU frontier run spanning multiple weeks, hardware mean-time-between-failures (MTBF) drops to hours. Which system design keeps effective goodput high?",
           options: [
-            "Making sure all devices use different model architectures",
-            "Avoiding any use of GPUs",
-            "Checkpointing cadence and handling stragglers/failures without restarting the entire run from scratch",
-            "Increasing the learning rate to compensate for hardware failures"
+            "Synchronous blocking checkpoints to shared object storage every 5 training steps",
+            "Asynchronous non-blocking in-memory/NVMe checkpointing paired with spare hot-standby nodes and elastic straggler isolation",
+            "Disabling ECC memory error detection so silent bit-flips never halt collective AllReduce calls",
+            "Running pure single-device gradient accumulation until cluster-wide network contention disappears"
           ],
-          answer: 2,
-          explanation: "At that scale, hardware failures are a near-certainty during any given run; efficient checkpoint/restart and straggler handling are what keep the run practically completable."
+          answer: 1,
+          explanation: "Blocking disk checkpoints waste massive cluster time, and disabling ECC invites silent gradient corruption. Async local/RAM-tiered checkpointing + hot spares allow rapid recovery within minutes without stalling compute."
         }
       ]
     });

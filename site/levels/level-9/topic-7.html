@@ -22,36 +22,43 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Distinguish "advertised context length" from "effective context
-      length" and explain two distinct techniques (one algorithmic, one systems-level) used to make long context
-      usable in practice.
+      <strong>Learning objective:</strong> Explain the mechanics of RoPE NTK/YaRN frequency scaling, sliding-window/sparse patterns, FlashAttention tiling, and Ring Attention—and diagnose why effective context length diverges from advertised window size.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Long-context architectures are techniques that let models effectively use very large context windows
-          — hundreds of thousands to millions of tokens — without cost or accuracy collapsing. A model can
-          advertise a huge maximum context length while its <strong>effective</strong> context length (how much
-          it can actually use accurately) is much smaller, especially for information buried in the middle of a
-          long input.
+          Long-context architectures combine positional extrapolation (RoPE scaling), memory-hierarchy kernels (FlashAttention), distributed sequence sharding (Ring Attention), and sparse/GQA KV-cache reduction so models process 100k–1M+ tokens without HBM exhaustion or "lost-in-the-middle" retrieval collapse.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Scaling context past pretraining lengths hits three distinct bottlenecks—compute/IO, KV-cache capacity, and positional generalization:
+      </p>
       <ul>
-        <li>Why naive attention doesn't scale: quadratic KV-cache growth, and the gap between "advertised" and
-          "effective" context length</li>
-        <li>Efficient-attention techniques: sparse/compressed attention patterns, FlashAttention-style IO-aware
-          kernels, and Ring Attention for distributed sequence parallelism</li>
-        <li>Memory and caching strategies: KV-cache compression and prompt caching as complements to raw
-          architectural changes</li>
-        <li>The 2026 shift: context windows plateauing as focus moves to inference-time scaling and smarter
-          context management rather than ever-larger windows</li>
+        <li><strong>KV-cache &amp; GQA scaling:</strong> Per-token KV cache grows linearly with context: <code>2 · L · n<sub>kv</sub> · d<sub>head</sub> · n<sub>seq</sub> · bytes</code>. Grouped-Query Attention (GQA) shares K/V heads across query groups (cutting KV memory 4–8×), while <em>Sliding-Window Attention (SWA)</em> caps KV retention to the last <code>W</code> tokens (<code>O(n·W)</code> cost, trading long-range verbatim recall).</li>
+        <li><strong>RoPE NTK-aware &amp; YaRN scaling:</strong> Naive linear position interpolation squeezes adjacent tokens together, hurting local resolution. <em>NTK-aware</em> scaling increases the rotary base <code>θ<sub>base</sub></code> so low-frequency dimensions stretch to longer contexts while high-frequency dimensions preserve fine local token offsets; <em>YaRN</em> pairs frequency-band interpolation with attention temperature scaling and short mid-training annealing.</li>
+        <li><strong>FlashAttention vs. Ring Attention:</strong> FlashAttention tiles Q/K/V blocks inside fast GPU SRAM using online softmax rescaling—avoiding materializing the <code>O(n<sup>2</sup>)</code> attention matrix in HBM (exact math, huge speedup, still <code>O(n<sup>2</sup>)</code> FLOPs). <em>Ring Attention</em> shards sequence chunks across <code>P</code> GPUs arranged in a ring, overlapping async KV block transfers with FlashAttention compute for 1M+ token training.</li>
+        <li><strong>Needle-in-a-Haystack &amp; "Lost in the Middle":</strong> Even with full attention, softmax entropy dilution and positional decay often produce a U-shaped accuracy curve—strong at prompt start/end, weak in the middle—meaning <em>effective</em> context lags <em>advertised</em> context.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Sizing a 70B KV-Cache at 128k Context</h3>
+      <p>
+        With <code>L = 80</code> layers, <code>d<sub>head</sub> = 128</code>, and <code>n<sub>seq</sub> = 131,072</code> in BF16 (2 B): standard Multi-Head Attention (<code>n<sub>kv</sub> = 64</code>) needs <code>2 · 80 · 64 · 128 · 131,072 · 2 B ≈ 344 GB</code> for a <strong>single user's KV-cache</strong>! Switching to <code>GQA-8</code> (<code>n<sub>kv</sub> = 8</code>) + <code>FP8</code> KV quantization (1 B) drops that cache 16× to <code>21.5 GB</code>—making single-node serving feasible.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Confusing FlashAttention with linear-time attention, or applying YaRN zero-shot without mid-training:</strong> FlashAttention still performs <code>O(n<sup>2</sup>)</code> FLOPs—it speeds up memory bandwidth, not asymptotic compute. Likewise, cranking RoPE base up without even 1–2B tokens of long-context mid-training leaves middle-context retrieval brittle.
+      </p>
     </section>
   </div>
 
@@ -373,48 +380,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the difference between 'advertised' and 'effective' context length?",
+          q: "Why does YaRN / NTK-aware RoPE scaling preserve local token accuracy better than naive uniform linear position interpolation when extending a 4k model to 128k?",
           options: [
-            "Advertised is the maximum context length a model claims to support, while effective is how much of that context the model can actually use accurately, which is often much smaller",
-            "They are always exactly the same number",
-            "Effective context length is always larger than advertised",
-            "Advertised context length refers only to output tokens, not input"
+            "Uniform interpolation compresses high-frequency rotary dimensions, blurring relative positions of adjacent tokens, whereas NTK/YaRN stretches low-frequency dimensions more while leaving local high-frequency resolution mostly intact",
+            "NTK-aware scaling replaces sinusoidal positional angles with absolute learned embedding lookup tables up to position 128k",
+            "YaRN eliminates KV-cache memory growth during inference by zeroing out query vectors past token 4,096",
+            "Linear interpolation fails solely because FlashAttention kernels cannot tile fractional position indices"
           ],
           answer: 0,
-          explanation: "A model can accept a million-token prompt (advertised) while still failing to reliably retrieve facts placed in the middle of it (effective) — the simulator's retrieval-probability readout shows exactly this gap."
+          explanation: "RoPE uses high frequencies for short-range relative order and low frequencies for long-range distance. Naive uniform stretching crowds nearby positions together; NTK/YaRN scales frequency bands selectively (plus temperature scaling in YaRN)."
         },
         {
-          q: "Why doesn't naive full self-attention scale well to very long contexts?",
+          q: "Which statement accurately describes how FlashAttention optimizes long-context Transformer training and prefill?",
           options: [
-            "Its KV-cache and compute grow quadratically (O(n²)) with sequence length, making both memory and compute cost explode as context grows",
-            "It scales perfectly linearly with no tradeoffs",
-            "It only works for sequences under 100 tokens",
-            "It requires no additional memory at all"
+            "It reduces asymptotic attention compute complexity from O(n²) to O(n log n) via approximate block sparsity",
+            "It computes exact softmax attention by tiling Q, K, V blocks inside on-chip SRAM with online softmax rescaling, avoiding O(n²) HBM read/write materialization while keeping O(n²) FLOPs",
+            "It shards sequence dimensions across multiple nodes over InfiniBand using a ring topology",
+            "It quantizes all Key and Value caches to 2-bit integers automatically during the forward pass"
           ],
-          answer: 0,
-          explanation: "Every query attending to every key means cost grows with n², which is exactly why sliding-window and sparse patterns exist as cheaper alternatives."
+          answer: 1,
+          explanation: "FlashAttention is an IO-aware exact kernel optimization: it keeps FLOPs at O(n²) while eliminating the massive slow HBM memory traffic of writing and reading the full n×n attention matrix."
         },
         {
-          q: "In the simulator, what does the middle-of-context accuracy dip for full attention typically represent?",
+          q: "In the Attention-pattern simulator above, why does Sliding-Window attention retain near-zero compute cost at 1M tokens yet collapse to <20% retrieval accuracy when the needle sits at 25% into the context?",
           options: [
-            "The 'lost in the middle' phenomenon, where models tend to attend well to information near the start/end of context but less reliably to information buried in the middle",
-            "A hardware bug unrelated to the model",
-            "Proof that longer context always improves accuracy everywhere",
-            "Evidence that sliding-window attention outperforms full attention at every length"
+            "Sliding-window attention disables causal masking for the final query row",
+            "Each query attends strictly within a fixed local radius W (e.g., 4,096 tokens), so once the needle sits further back than W tokens (and outside global anchor blocks), the final query has zero direct attention path to it",
+            "Sliding-window attention suffers from NTK rotary frequency aliasing past 32k tokens",
+            "The final query row averages all hidden states globally, diluting needle keys below threshold"
           ],
-          answer: 0,
-          explanation: "Even with full attention available, real long-context evals show a dip in retrieval accuracy for facts placed in the middle of very long inputs — the simulator approximates this pattern."
+          answer: 1,
+          explanation: "Sliding-window attention caps attention span per layer to W tokens. While information can trickle across multiple layers slowly, exact verbatim retrieval of a distant needle outside the window drops sharply unless global tokens or full-attention layers are interleaved."
         },
         {
-          q: "According to the '2026 shift' described in the material, where has focus moved as advertised context windows have plateaued?",
+          q: "How does Ring Attention enable training on 1M+ token sequences that exceed the HBM capacity of a single GPU?",
           options: [
-            "Toward inference-time scaling and smarter context management rather than ever-larger raw context windows",
-            "Toward making context windows infinitely large regardless of cost",
-            "Away from attention mechanisms entirely",
-            "Toward eliminating KV-caches completely"
+            "It compresses the entire 1M sequence into a 64-byte state-space vector on GPU 0 before broadcasting",
+            "It partitions the sequence across P devices in a ring, overlapping asynchronous Key/Value block transfers between neighbors with local FlashAttention block computation",
+            "It trains only on the first and last 4,096 tokens and skips gradient updates for middle tokens",
+            "It offloads the full KV-cache to CPU host DRAM over PCIe during every attention head"
           ],
-          answer: 0,
-          explanation: "Rather than continuing to chase bigger advertised windows, the field has shifted toward getting more effective use out of the context a model already has, plus inference-time compute techniques."
+          answer: 1,
+          explanation: "Ring Attention distributes sequence chunks (Context Parallelism) across P accelerators: each GPU holds Q_i locally and passes K_j/V_j blocks around the ring while computing local blockwise attention overlapped with communication."
         }
       ]
     });

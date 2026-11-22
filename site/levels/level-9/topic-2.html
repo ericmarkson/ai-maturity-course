@@ -22,34 +22,45 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a simple pattern a toy model exhibits, design a causal-intervention
-      experiment (what activation would you patch, and what output change would confirm your hypothesis) that could
-      confirm or falsify a proposed mechanism for it.
+      <strong>Learning objective:</strong> Explain superposition and sparse autoencoder (SAE) dictionary learning, and design a causal activation-patching experiment to isolate load-bearing circuits from correlational artifacts.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Mechanistic interpretability is the practice of reverse-engineering a trained model's internal computation
-          into human-understandable algorithms — "circuits" — rather than only observing its input/output behavior.
-          Instead of asking "what did the model output," it asks "which internal components, wired together in
-          which way, caused that output."
+          Mechanistic interpretability reverse-engineers neural network weights and activations into human-auditable algorithms ("circuits") and monosemantic internal concepts—using causal interventions rather than purely observational probing to verify which components actually drive a prediction.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Two complementary paradigms anchor modern mechanistic interpretability:
+      </p>
       <ul>
-        <li>Sparse autoencoders (SAEs) for decomposing polysemantic activations into monosemantic features, and the
-          superposition hypothesis they're built to address</li>
-        <li>Circuit discovery (induction heads, indirect-object-identification circuits, greater-than circuits) as
-          worked examples of "solved" mini-circuits</li>
-        <li>Causal tracing / activation patching as the core experimental method for testing a circuit hypothesis</li>
-        <li>Open problems in 2026: feature consistency/stability across SAE training runs, and extending
-          interpretability beyond text to code, audio, and vision-language models</li>
+        <li><strong>Superposition &amp; polysemantic neurons:</strong> A residual stream of width <code>d</code> (e.g., 4,096) represents <code>m ≫ d</code> real-world concepts by packing sparse features as nearly orthogonal directions (at ~<code>O(exp(d))</code> capacity via Johnson–Lindenstrauss geometry). Because individual neurons sit on linear combinations of these directions, single neurons fire on unrelated concepts (<em>polysemanticity</em>).</li>
+        <li><strong>Sparse Autoencoders (SAEs) &amp; dictionary learning:</strong> An overcomplete SAE expands activation <code>x ∈ ℝ<sup>d</sup></code> into a wide sparse latent <code>z ∈ ℝ<sup>m</sup></code> (<code>m = 16k–1M</code>) and reconstructs it via unit-norm feature directions <code>W<sub>dec</sub></code>:
+          <pre class="code-block">z = TopK / ReLU(W_enc · (x - b_dec) + b_enc),   x_hat = W_dec · z + b_dec
+L = ||x - x_hat||² + λ ||z||₁</pre>
+          Because each input uses only ~20–100 active latents, individual SAE features isolate monosemantic concepts (e.g., "Python syntax error", "Golden Gate Bridge", "sycophantic agreement").</li>
+        <li><strong>Causal activation patching:</strong> To test whether head <code>L2H1</code> causally mediates Indirect Object Identification (IOI) or induction, run a <em>clean</em> prompt ("John gave Mary a book because ___" → "she") and a <em>corrupted</em> prompt ("John gave John..." or swapped names), then overwrite <code>L2H1</code>'s activation during the corrupted run with the clean run's activation and measure logit recovery.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Tracing an Induction Circuit via Patching</h3>
+      <p>
+        In <code>[A][B] ... [A] → [B]</code> completion, a 2-layer induction circuit pairs an early <strong>previous-token head</strong> (L1: copies token <code>A</code>'s identity into <code>B</code>'s residual stream) with a later <strong>induction head</strong> (L2: queries for <code>A</code>, attends to <code>B</code> whose key carries "preceded by A", and copies <code>B</code> to logits). Patching just those two heads restores &gt;85% of clean logit difference, whereas patching unrelated heads leaves predictions unchanged.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Mistaking linear-probe correlation or zero ablation for causal circuits:</strong> A linear probe can decode a concept from downstream layers even if the model ignores it, while zeroing out activations pushes the network off-distribution. Always patch with counterfactual/mean activations and verify both sufficiency and necessity—and note that SAE dictionaries remain non-unique across training seeds.
+      </p>
     </section>
   </div>
 
@@ -317,48 +328,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is activation patching used for?",
+          q: "Under the superposition hypothesis, why can a transformer with d = 4,096 residual dimensions represent tens of thousands of distinct features despite having only 4,096 orthogonal basis axes?",
           options: [
-            "Speeding up inference by pruning weights",
-            "Testing a causal hypothesis about a circuit by replacing one activation and observing whether the output changes as predicted",
-            "Compressing a model for deployment",
-            "Automatically labeling training data"
+            "Because features occur sparsely across natural inputs, allowing the network to pack m ≫ d features as nearly orthogonal (low-interference) directions in d-dimensional space",
+            "Because LayerNorm dynamically increases the residual stream width d during inference when complex concepts appear",
+            "Because each individual MLP neuron stores a dedicated lookup table indexed by token vocabulary ID",
+            "Because softmax attention eliminates interference between collinear vectors across layers"
           ],
-          answer: 1,
-          explanation: "Activation patching swaps in a different activation value and checks whether the output changes the way your hypothesis predicts — establishing causation, not just correlation."
+          answer: 0,
+          explanation: "Because most features are inactive on any given token (sparsity), models exploit high-dimensional geometry to store many more nearly orthogonal feature vectors than basis dimensions, trading small interference noise for vast capacity—producing polysemantic neurons."
         },
         {
-          q: "In the exercise, what does it mean when patching a head does NOT change the predicted token?",
+          q: "Why does training an overcomplete Sparse Autoencoder (SAE) with an L1 or Top-K sparsity penalty unpack polysemantic activations better than standard Principal Component Analysis (PCA)?",
           options: [
-            "The model is broken",
-            "That head likely isn't part of the circuit responsible for this specific prediction",
-            "The heatmap is wrong",
-            "The sentence has no correct answer"
+            "PCA is limited to ≤ d orthogonal components and forces dense linear projections, whereas an overcomplete SAE learns an m ≫ d non-orthogonal dictionary where each token activates only a sparse handful of monosemantic directions",
+            "PCA requires labeled supervision from human annotators, whereas SAEs backpropagate directly through cross-entropy token loss",
+            "SAEs prune away 90% of the transformer weights before computing residual stream features",
+            "PCA cannot be applied to floating-point activations unless they are first converted into discrete token IDs"
           ],
-          answer: 1,
-          explanation: "If ablating a component leaves the output unchanged, that component probably isn't causally load-bearing for this behavior — a null result that narrows the search."
+          answer: 0,
+          explanation: "Superposition packs m ≫ d non-orthogonal features; an orthogonal basis of size d (PCA) mixes them together. An overcomplete dictionary with a sparsity constraint recovers the underlying sparse generative directions."
         },
         {
-          q: "What problem do sparse autoencoders (SAEs) try to address in interpretability research?",
+          q: "In causal activation patching, why is replacing an attention head's activation from a counterfactual 'corrupted' prompt (or resample ablation) preferred over simply zeroing the activation?",
           options: [
-            "Slow training speed",
-            "Superposition — individual neurons representing multiple unrelated concepts (polysemanticity) — by decomposing activations into more monosemantic features",
-            "Overfitting on small datasets",
-            "GPU memory limits during inference"
+            "Zeroing an activation requires twice as many backward passes through the transformer stack",
+            "Zero is an arbitrary off-distribution vector that can break LayerNorm scales and trigger unrelated downstream errors, whereas counterfactual patching isolates the exact semantic shift between two minimal-pair inputs",
+            "Zero ablation only modifies MLP layers and has no mathematical effect on query-key attention scores",
+            "Counterfactual patching guarantees that SAE feature dictionaries remain 100% identical across random seeds"
           ],
           answer: 1,
-          explanation: "SAEs try to unpack a layer's activations into a larger set of sparse, more individually-interpretable features, addressing the superposition hypothesis."
+          explanation: "Zeroing activations pushes intermediate tensors out of distribution (the zero vector may itself encode meaning or break LayerNorm norms). Counterfactual patching swaps clean vs. corrupted activations on a minimal pair to test causal mediation cleanly."
         },
         {
-          q: "What is an open problem in mechanistic interpretability as of 2026, per the curriculum?",
+          q: "In the Circuit Detective widget above, when patching L1H1 leaves the next-token prediction unchanged while patching L2H1 flips 'mat' to 'the', what valid inference can you draw?",
           options: [
-            "There are no remaining open problems",
-            "Feature consistency/stability across different SAE training runs, and extending interpretability beyond text",
-            "Attention mechanisms have been fully deprecated",
-            "Models no longer have internal representations worth studying"
+            "L1H1 never participates in any language modeling task and can be permanently pruned without affecting perplexity",
+            "L2H1 is causally load-bearing for this specific circuit prediction, whereas L1H1 is not causally necessary for this prompt under the tested ablation",
+            "A linear probe trained on L1H1 will achieve 0% accuracy at decoding the previous token",
+            "L2H1 and L3H2 must share identical attention heatmaps across every sentence in the dataset"
           ],
           answer: 1,
-          explanation: "SAE feature stability across runs, and extending circuit-level analysis to code, audio, and vision-language models, remain active open problems."
+          explanation: "Patching establishes causal necessity/sufficiency for the tested behavior; a null effect on one prompt rules out L1H1 for that circuit without claiming it is unused across all other tasks."
         }
       ]
     });

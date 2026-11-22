@@ -22,35 +22,44 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain, in your own words, why an SSM layer is asymptotically cheaper
-      than self-attention, and identify which class of tasks (e.g. "find token 12,000 in the context") exposes an
-      SSM's weakness relative to a Transformer.
+      <strong>Learning objective:</strong> Derive why selective state-space models (Mamba/SSD) achieve <code>O(n)</code> compute and <code>O(1)</code> per-step decoding memory via <code>A, B, C</code> state transitions, and diagnose when fixed-state compression loses exact in-context recall compared to Transformer attention.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          State-space models (SSMs) are architectures that try to beat or complement the Transformer by processing
-          sequences with <strong>linear-time recurrence</strong> instead of quadratic-cost attention. Instead of
-          every token attending to every other token, an SSM compresses the sequence so far into a fixed-size
-          hidden state that updates as each new token arrives — the compute per token stays constant no matter how
-          long the sequence gets.
+          Selective state-space models (SSMs) replace quadratic all-to-all self-attention with a recurrent, input-gated latent state update that runs in <strong>linear time <code>O(n)</code></strong> over sequence length and requires constant <code>O(1)</code> memory per generated token at inference, at the cost of compressing past history into a finite hidden state.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Whereas classical LTI state-space models (S4) used static dynamics, Mamba makes the discretization step <code>Δ(x<sub>t</sub>)</code>, input projection <code>B(x<sub>t</sub>)</code>, and output projection <code>C(x<sub>t</sub>)</code> functions of the current token:
+      </p>
+      <pre class="code-block">h_t = A_bar(Δ_t) · h_{t-1} + B_bar(Δ_t, x_t) · x_t
+y_t = C(x_t) · h_t</pre>
       <ul>
-        <li>Selective state-space models (Mamba/Mamba-2) and the structured state-space duality (SSD) that connects
-          them mathematically to linear attention</li>
-        <li>Mamba-3 and complex-valued state transitions for better state-tracking (a 2026 development)</li>
-        <li>Hybrid architectures (Jamba, Zamba-style) that interleave SSM layers with a few attention layers to keep
-          long-range retrieval strong</li>
-        <li>The core tradeoff: linear-cost compute and cheap long-context inference vs. weaker exact in-context
-          retrieval than full attention</li>
+        <li><strong>Selectivity as content-aware gating:</strong> Large <code>Δ<sub>t</sub></code> lets the model reset/overwrite state slots with salient tokens (like a key fact), while small <code>Δ<sub>t</sub></code> preserves existing state across filler tokens—impossible in time-invariant convolutions.</li>
+        <li><strong>Structured State-Space Duality (SSD / Mamba-2):</strong> By restricting <code>A</code> to scalar-times-identity blocks, the linear recurrence can be algebraically rewritten as chunked semi-separable matrix multiplications—unlocking GPU Tensor Cores during parallel prefill while keeping <code>O(1)</code> step cost during autoregressive generation.</li>
+        <li><strong>Hybrid SSM–Attention architectures (Jamba, Zamba):</strong> Interleaving ~6–8 SSM layers per 1 full-attention layer preserves most linear throughput while adding attention's lossless exact lookup (associative recall) across arbitrary context positions.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Decoding 128k Context — KV-Cache vs. SSM State</h3>
+      <p>
+        On a 7B model at <code>n = 128,000</code> tokens (32 layers, <code>d = 4096</code>, GQA-8), full attention stores ~<code>2 · 32 · 1024 · 128,000 · 2 B ≈ 16.8 GB</code> of KV-cache per sequence and reads all 16.8 GB from HBM on every generated token. A pure Mamba layer with state expansion <code>N = 64</code> holds a fixed <code>32 · 4096 · 64 · 2 B ≈ 16.8 MB</code> state—<strong>1,000× smaller</strong> regardless of sequence length—yet begins dropping verbatim copy accuracy once concurrent key-value pairs exceed the effective bit capacity of that 16.8 MB state.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Conflating parallel training speed with unbounded in-context memory:</strong> Mamba-2/SSD trains rapidly via chunked matmuls, which can disguise its recurrent bottleneck during standard perplexity evals. Always test pure SSMs on multi-query associative recall and needle-in-a-haystack copying before replacing attention on RAG or code-synthesis workloads.
+      </p>
     </section>
   </div>
 
@@ -265,43 +274,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why is a selective state-space model asymptotically cheaper than full self-attention?",
+          q: "What makes Mamba's selective state-space layer (Δ, B, C conditioned on x_t) fundamentally more expressive than linear time-invariant SSMs like S4?",
           options: [
-            "It uses a fixed-size hidden state updated per token, so cost grows linearly (O(n)) instead of every token attending to every other token (O(n²))",
-            "It uses larger batch sizes",
-            "It skips half the layers at inference time",
-            "It only works on short sequences so cost never grows"
+            "Input-dependent Δ_t, B(x_t), and C(x_t) let the recurrence selectively retain salient tokens and decay irrelevant filler tokens dynamically, rather than applying a fixed global convolution kernel",
+            "Conditioning A, B, and C on x_t converts the recurrence into full O(n²) softmax attention over every token pair",
+            "Selectivity allows the model to expand its hidden-state memory linearly with sequence length during decoding",
+            "Input-dependent gating eliminates the need for matrix multiplication during prefill training"
           ],
           answer: 0,
-          explanation: "SSMs compress history into a constant-size state, giving O(n) scaling versus attention's O(n²) pairwise comparisons."
+          explanation: "LTI models like S4 apply the exact same static filter across all positions, making content-based filtering impossible. Making Δ, B, and C functions of each token allows selective state updates and resets."
         },
         {
-          q: "In the simulator, which architecture's retrieval accuracy degrades fastest once sequence length passes its effective memory capacity?",
-          options: ["Transformer", "Hybrid", "Pure SSM", "None of them degrade"],
-          answer: 2,
-          explanation: "A pure SSM's fixed-size hidden state saturates, so exact recall of a specific early token falls off sharply beyond its capacity."
-        },
-        {
-          q: "What is the main architectural idea behind hybrid models like Jamba?",
+          q: "In the simulator above, why does a pure SSM's needle-in-a-haystack retrieval drop sharply past ~4k–16k tokens while its relative compute cost shrinks toward zero compared to a Transformer?",
           options: [
-            "Replace all attention with convolutions",
-            "Interleave a few full-attention layers among mostly SSM layers to keep long-range retrieval strong while keeping most of the compute savings",
-            "Run two separate models and average their outputs",
-            "Use attention only during training, never at inference"
+            "The pure SSM skips updating its weights during long-context inference",
+            "Every SSM token updates a constant-size state vector (O(n) total compute, O(1) memory per step), which eventually saturates and overwrites older exact facts as context exceeds state capacity",
+            "Transformers allocate zero KV-cache memory when sequence length exceeds 32,768 tokens",
+            "Pure SSMs use non-causal bidirectional attention that blurs early token positions"
           ],
           answer: 1,
-          explanation: "Hybrids mix cheap SSM layers with a sparser set of attention layers, trading a little compute for much better retrieval than a pure SSM."
+          explanation: "Constant-size state gives O(n) compute scaling and tiny memory, but finite state dimensions act as a lossy bottleneck—exact verbatim recall degrades once concurrent facts saturate that fixed state."
         },
         {
-          q: "Which task would most clearly expose a pure SSM's weakness relative to a Transformer?",
+          q: "How does Structured State-Space Duality (SSD) in Mamba-2 achieve high GPU Tensor Core utilization during training while retaining O(1) recurrent decoding?",
           options: [
-            "Summarizing a short paragraph",
-            "Exactly recalling one specific token planted at a fixed position deep inside a very long context",
-            "Classifying sentiment of a single sentence",
-            "Generating the next word after a 5-word prompt"
+            "It replaces all recurrent transitions with FlashAttention-2 during training and swaps weights at deployment",
+            "By structuring A as scalar-times-identity blocks, chunked sequence blocks compute via dense matrix multiplications (like linear attention) while inter-chunk states pass recurrently",
+            "It quantizes the hidden state h_t to 1-bit integers so recurrent scans fit inside L1 register files",
+            "It processes only the last 512 tokens during pretraining and extrapolates at inference"
           ],
           answer: 1,
-          explanation: "Exact, precise long-range recall is the classic case where SSMs' compressed state loses information that full attention preserves."
+          explanation: "SSD bridges SSMs and masked linear attention: intra-chunk computation executes as parallel Tensor-Core matmuls, while state carries cleanly between chunks in linear time."
+        },
+        {
+          q: "Why do production frontier hybrids (e.g., Jamba/Zamba) interleave a sparse ratio of full self-attention layers among mostly SSM layers instead of using pure SSMs?",
+          options: [
+            "Full attention layers are strictly cheaper in HBM bandwidth per token than SSM layers at 256k context",
+            "Even a few full-attention layers provide lossless random-access associative recall across the context, rescuing multi-needle copying while keeping most layers O(n)",
+            "Pure SSMs cannot backpropagate gradients through sequences shorter than 4,096 tokens",
+            "Attention layers prevent the model from needing positional embeddings or tokenizers"
+          ],
+          answer: 1,
+          explanation: "Hybrids capture the best of both worlds: mostly linear-time SSM layers for throughput and cheap memory, anchored by periodic full-attention layers for exact in-context retrieval and induction."
         }
       ]
     });

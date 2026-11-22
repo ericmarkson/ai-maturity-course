@@ -55,14 +55,49 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>The context window as working/short-term memory</li>
-        <li>Long-term memory stores (vector databases, structured logs, rolling summaries)</li>
-        <li>Memory write policies — what gets saved, summarized, or discarded</li>
-        <li>Memory retrieval and re-injection into future prompts</li>
+        <li>
+          <strong>Short-Term (Working) Memory:</strong> Lives directly inside the active context window (system prompt,
+          recent dialogue turns, and active tool results). Every token enters self-attention at every generation step,
+          so cost, latency, and "lost-in-the-middle" recall decay all grow with context length.
+        </li>
+        <li>
+          <strong>Long-Term Memory Stores:</strong> Persist beyond a single session using complementary structures:
+          <strong>episodic memory</strong> (vector-indexed summaries of past sessions), <strong>semantic memory</strong>
+          (structured user profiles, preferences, or knowledge graphs), and <strong>procedural memory</strong> (refined
+          instructions or learned workflow habits).
+        </li>
+        <li>
+          <strong>Write, Eviction &amp; Retrieval Policies:</strong> Once short-term tokens approach the window budget,
+          the runtime triggers an eviction policy—either dropping oldest turns (sliding window) or compressing them via
+          <strong>rolling summarization</strong> into long-term storage, then selectively retrieving relevant memories
+          back into future prompts.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Track a Lisbon trip-planning session under an <code>80</code>-token short-term budget:
+      </p>
+      <ul>
+        <li><strong>Turns 1–4:</strong> Total <code>77</code> tokens—all four turns fit inside working memory.</li>
+        <li><strong>Turn 5 (<code>+12</code> tokens → <code>89 &gt; 80</code>):</strong> Budget overflows, so oldest turns 1–2 (<code>32</code> tokens) are evicted, condensed into a compact summary (<em>"Lisbon in October, 4 days, food markets &amp; history"</em>), and written to long-term memory—freeing headroom for new turns while preserving key constraints.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Lossy recursive summarization and unverified memory poisoning.</strong> Re-summarizing old summaries
+        over dozens of turns gradually erases crisp numeric constraints (like <code>"€900 budget"</code> or
+        <code>"peanut allergy"</code>). Conversely, blindly persisting transient assistant assumptions or outdated facts
+        into long-term vector storage causes the agent to treat stale guesses as ground truth weeks later—requiring
+        explicit structured profile slots, timestamps, and memory update/conflict rules.
+      </p>
     </section>
 
   </div>
@@ -304,48 +339,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Which of these best describes short-term agent memory?",
+          q: "Even with modern 1M-token context windows, why do production agents still separate short-term working context from long-term memory stores?",
           options: [
-            "Information written permanently to a vector database",
-            "The context window's contents for the current conversation",
-            "A log file reviewed by engineers weeks later",
-            "A fine-tuned model checkpoint"
+            "Because transformer attention cannot attend past the first 4,096 tokens once tools are enabled",
+            "Because cramming every historical turn and tool log into the prompt inflates latency and token cost, degrades middle-context recall, and still vanishes across sessions",
+            "Because vector databases run inside GPU SRAM with zero network latency",
+            "Because long-term memory stores automatically fine-tune model weights after every conversation"
           ],
           answer: 1,
-          explanation: "Short-term memory is the model's working context — it exists only for the current conversation/context window."
+          explanation: "Working context is ephemeral (session-scoped) and expensive per turn: sending hundreds of thousands of stale tokens raises latency, cost, and 'lost-in-the-middle' distraction. External long-term memory persists across sessions and retrieves only relevant facts on demand."
         },
         {
-          q: "In the exercise, what happens when adding a new turn pushes the running token total over the budget?",
+          q: "In an agent's memory architecture, how do episodic and semantic long-term memory differ?",
           options: [
-            "The newest turn is silently deleted",
-            "The oldest turns are summarized and promoted into long-term memory to free up room",
-            "The whole conversation resets to empty",
-            "Nothing — the budget is only a suggestion with no effect"
+            "Episodic memory holds the current system prompt; semantic memory holds temporary KV-cache tensors",
+            "Episodic memory stores timestamped summaries/logs of past interactions, while semantic memory stores distilled structured facts and user preferences (e.g., dietary restrictions, preferred currency)",
+            "Episodic memory is discarded on overflow, while semantic memory always fits inside the prompt permanently",
+            "There is no functional difference—both refer exclusively to raw SQL audit logs"
           ],
           answer: 1,
-          explanation: "The widget pops the oldest turns off short-term memory, compresses them into a summary, and stores that summary in the long-term panel — a common real-world memory write policy."
+          explanation: "Episodic memory records what happened in past episodes/sessions (often vector-searched by context), whereas semantic memory captures durable structured facts and preferences (e.g., profile JSON or knowledge graph triples)."
         },
         {
-          q: "Which of the following is a plausible long-term memory store for an agent?",
+          q: "Over a 60-turn coaching session, engineers notice the agent forgets exact budget numbers ('€900') stated in Turn 7 despite using rolling summarization. What caused this failure and how do you fix it?",
           options: [
-            "A vector database of embedded past conversation summaries",
-            "The GPU's L2 cache",
-            "The browser's mouse cursor position",
-            "The model's random seed"
+            "The vector database inverted cosine similarity signs once 50 turns passed",
+            "Iterative 'summary-of-a-summary' compression washed out exact numbers; fixing it requires pinning critical constraints into structured semantic memory slots alongside rolling summaries",
+            "Lowering the token budget slider further will prevent older turns from summarizing",
+            "Increasing temperature during summarization restores dropped numeric literals"
           ],
-          answer: 0,
-          explanation: "Vector databases, structured logs, and rolling summaries are the standard long-term stores used to persist information across sessions."
+          answer: 1,
+          explanation: "Repeatedly summarizing earlier summaries is lossy and blurs numeric specifics. Extracting hard constraints (budgets, allergies, IDs) into explicit structured memory fields prevents compression drift."
         },
         {
-          q: "Why can't an agent simply keep every past turn in short-term memory forever?",
+          q: "Which write-policy practices protect long-term agent memory from becoming noisy or misleading? (Select all that apply.)",
           options: [
-            "Context windows have a finite token limit, and cost/latency both grow with more tokens",
-            "Because agents are legally required to forget things",
-            "Because short-term memory has unlimited capacity so this is never actually a problem",
-            "Because summarization is impossible to implement"
+            "Attaching timestamps and confidence/source metadata so newer user corrections supersede outdated facts",
+            "Filtering out transient tool debug noise and unverified model speculation before writing to durable storage",
+            "Summarizing overflowed short-term turns when approaching token limits rather than silently dropping early context",
+            "Writing every unedited assistant draft and failed tool traceback directly into long-term vector search"
           ],
-          answer: 0,
-          explanation: "Context windows are bounded, and every extra token costs more compute, latency, and money — so a write/summarize/discard policy is necessary once a conversation grows long."
+          answer: [0, 1, 2],
+          explanation: "Timestamps, conflict resolution, noise filtering, and threshold-triggered summarization keep long-term memory clean and accurate. Saving raw failed drafts and stack traces pollutes future retrieval."
         }
       ]
     });

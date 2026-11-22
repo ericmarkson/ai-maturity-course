@@ -56,14 +56,50 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>The retrieve-then-generate pipeline (query -&gt; embed -&gt; search -&gt; retrieve -&gt; augment prompt -&gt; generate)</li>
-        <li>Why RAG reduces hallucination and enables up-to-date/private knowledge</li>
-        <li>Chunking documents for retrieval</li>
-        <li>Basic evaluation of retrieval quality (are the right documents coming back?)</li>
+        <li>
+          <strong>1. Ingestion &amp; Chunking:</strong> Source documents are split into bounded chunks (often 256–512
+          tokens with 10–20% overlap) so facts straddling a boundary aren't severed. Each chunk is passed through an
+          embedding model to produce a dense vector <code>e(c) ∈ R<sup>d</sup></code> and stored in a vector index
+          alongside source metadata.
+        </li>
+        <li>
+          <strong>2. Query Embedding &amp; Top-k Search:</strong> At runtime, the user's question <code>q</code> is
+          encoded by the <em>exact same</em> embedding model into <code>e(q)</code>. Approximate Nearest Neighbor
+          (ANN) search ranks chunks by cosine similarity <code>(e(q) · e(c)) / (||e(q)|| ||e(c)||)</code> and returns
+          the top-<code>k</code> candidates.
+        </li>
+        <li>
+          <strong>3. Prompt Augmentation &amp; Grounded Generation:</strong> The retrieved snippets are inserted into
+          the system/user prompt with explicit grounding rules (e.g., cite snippet IDs and abstain if no chunk answers
+          the question). Because knowledge lives in the external index rather than model weights, updating a policy or
+          adding private docs only requires re-indexing—not retraining.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a user asks: <em>"How long are deleted files recoverable?"</em>
+      </p>
+      <ol>
+        <li><strong>Embed &amp; score:</strong> The retriever compares query tokens/embeddings against the 10-doc Nimbus knowledge base. Doc <code>d7 (Deletion Policy)</code> scores highest (exact overlap on <code>deleted</code>, <code>files</code>, <code>recoverable</code>; vector cosine <code>~0.89</code>), while <code>d1 (Pricing)</code> scores near zero.</li>
+        <li><strong>Augment &amp; generate:</strong> Top-<code>k</code> chunks enter the prompt, yielding a grounded citation: <em>"Deleted files remain recoverable in the Nimbus trash for 30 days [Deletion Policy]."</em> If a query has zero relevant overlap (e.g., <em>"What is Nimbus's CEO's dog's name?"</em>), the system abstains rather than fabricating an answer.</li>
+      </ol>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Blaming the LLM when retrieval failed ("Garbage In, Confident Hallucination Out").</strong> If chunking
+        severs an exception clause (<em>"Enterprise only"</em>) from the main policy, or if stale/off-topic documents
+        rank into the top-<code>k</code> slots, the generator will faithfully produce a fluent but wrong answer. Always
+        evaluate retrieval quality (<code>Recall@k</code>: did the true source chunk appear in top-<code>k</code>?)
+        separately from generation faithfulness.
+      </p>
     </section>
 
   </div>
@@ -231,48 +267,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the correct order of stages in a basic RAG pipeline?",
+          q: "During RAG ingestion, why do teams typically configure 10–20% token overlap between adjacent document chunks?",
           options: [
-            "Generate -> retrieve -> embed -> query",
-            "Query -> embed -> search -> retrieve -> augment prompt -> generate",
-            "Chunk -> generate -> query -> retrieve",
-            "Embed -> generate -> query -> chunk"
+            "To guarantee every user query matches at least two identical vectors and doubles cosine similarity",
+            "To preserve clauses, subjects, and qualifiers that would otherwise be split across a hard boundary",
+            "Because embedding models reject documents unless adjacent chunks share identical headers",
+            "To prevent the LLM from exceeding its output token limit during generation"
           ],
           answer: 1,
-          explanation: "A user query is embedded, used to search a knowledge base, the top matches are retrieved, added into the prompt as context, and only then does the model generate its answer."
+          explanation: "Fixed boundaries often slice a condition away from its rule (e.g., splitting '30 days' from 'Enterprise tier only'). Overlap keeps boundary context intact inside at least one chunk. Overlap does not double cosine similarity or restrict output length."
         },
         {
-          q: "Why does RAG typically reduce hallucination compared to relying purely on a model's memorized training data?",
+          q: "An engineering team upgrades its RAG ingestion pipeline to a newer, higher-dimensional embedding model, but forgets to update the query-time encoder. What happens at search time?",
           options: [
-            "It makes the model larger",
-            "It grounds the answer in retrieved source text the model can quote or paraphrase, instead of only recalling (possibly wrong or outdated) memorized facts",
-            "It disables the model's ability to generate text",
-            "It removes the need for a prompt entirely"
+            "Search still works accurately as long as both models use cosine similarity",
+            "Retrieval collapses because query vectors and document vectors live in incompatible coordinate spaces",
+            "The LLM automatically translates the older embedding space inside self-attention",
+            "Retrieval slows down slightly, but Recall@k stays unchanged"
           ],
           answer: 1,
-          explanation: "By feeding relevant, verifiable snippets into the prompt, the model has concrete material to ground its answer in rather than relying solely on fuzzy memorized knowledge."
+          explanation: "Embeddings from different models (or even different versions) do not share aligned geometry—comparing them via cosine similarity produces meaningless rankings. Query and index encoders must match."
         },
         {
-          q: "In the RAG simulator above, what determines which documents are retrieved for a given question?",
+          q: "Users report that a RAG support bot confidently quotes an outdated 14-day refund policy instead of the new 30-day policy published last week. Inspecting the trace shows the 14-day PDF chunk was in the top-3 retrieved context. What is the root cause?",
           options: [
-            "A random selection of 3 documents",
-            "A real keyword/word-overlap score computed between the question and each document's text",
-            "Alphabetical order of document titles",
-            "The order the documents were added to the page"
+            "The LLM's temperature parameter is too high during final answer decoding",
+            "A retrieval/indexing issue (stale document still in the vector index), not an ungrounded LLM hallucination",
+            "The chunk size was too large for the embedding model to compute a norm",
+            "The LLM lacks sufficient parameter count to read dates accurately"
           ],
           answer: 1,
-          explanation: "The widget tokenizes the query and each document, counts overlapping meaningful words, and ranks documents by that score — a simplified stand-in for embedding-based similarity search."
+          explanation: "The model followed its grounding instructions accurately—it cited the context provided. Because the stale 14-day chunk ranked into top-3, fixing this requires updating/deduplicating the knowledge index and checking Recall@k, not tweaking temperature."
         },
         {
-          q: "What is one concrete failure mode of RAG, and its effect on the final answer?",
+          q: "In the Mini RAG simulator above, what distinguishes a well-behaved RAG pipeline when all documents score 0 overlap for an out-of-scope question?",
           options: [
-            "The model becomes too fast",
-            "An irrelevant or low-quality chunk gets retrieved (e.g. due to keyword overlap without real topical relevance), leading the model to produce an answer grounded in the wrong context",
-            "The vector database becomes too accurate",
-            "The prompt becomes too short to process"
+            "It lowers the similarity threshold until three random chunks are injected into the prompt",
+            "It switches to unconstrained generation from parametric training weights without telling the user",
+            "It recognizes insufficient retrieval support and abstains ('does not know') rather than guessing",
+            "It re-chunks the query into single characters and averages their scores"
           ],
-          answer: 1,
-          explanation: "If retrieval surfaces an irrelevant chunk, the generation step may confidently build an answer around it anyway — a mismatch between retrieval quality and generation quality is a classic RAG failure mode."
+          answer: 2,
+          explanation: "Forcing top-k chunks through when similarity is near zero feeds irrelevant noise into the prompt and encourages hallucination. Good RAG pipelines enforce a relevance floor and abstain when evidence is absent."
         }
       ]
     });

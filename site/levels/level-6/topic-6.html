@@ -40,14 +40,58 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>The black-box problem: why complex models are hard to explain by default</li>
-        <li>LIME: approximating a model locally with a simpler, interpretable model around one prediction</li>
-        <li>SHAP: using game-theoretic "Shapley values" to fairly attribute a prediction to each feature</li>
-        <li>Global interpretability (overall feature importance) vs. local interpretability (why this one prediction)</li>
+        <li>
+          <strong>Local vs. Global Interpretability:</strong> Global methods summarize average feature influence
+          across an entire dataset (e.g., permutation importance). Local methods explain <em>one specific prediction</em>
+          <code>f(x)</code>, showing which inputs pushed that decision above or below the dataset baseline.
+        </li>
+        <li>
+          <strong>LIME (Local Surrogate Approximation):</strong> Perturbs features around input <code>x</code>,
+          queries the black-box model <code>f</code> on those perturbed points, weights them by proximity
+          <code>π<sub>x</sub></code>, and fits a simple sparse linear surrogate <code>g</code>. LIME is fast and
+          model-agnostic, though results depend on the perturbation neighborhood and kernel width.
+        </li>
+        <li>
+          <strong>SHAP (Game-Theoretic Shapley Attribution):</strong> Models each feature as a player in a cooperative
+          game, averaging its marginal contribution across feature subsets so attributions satisfy
+          <strong>local accuracy</strong>: <code>f(x) = φ<sub>0</sub> + Σ φ<sub>i</sub></code>, where
+          <code>φ<sub>0</sub> = E[f(X)]</code> is the expected baseline. <strong>TreeSHAP</strong> computes exact
+          Shapley values rapidly for tree ensembles; <strong>KernelSHAP</strong> approximates them for arbitrary models.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a loan model starts from baseline approval score <code>φ<sub>0</sub> = 50.0</code> (cutoff <code>≥ 50</code>
+        for approval). For a specific applicant:
+      </p>
+      <ul>
+        <li><code>Credit Score = 760</code> → <code>+13.5 pts</code> (strong upward push)</li>
+        <li><code>Annual Income = $110,000</code> → <code>+9.2 pts</code> (upward push)</li>
+        <li><code>Debt-to-Income = 45%</code> → <code>−6.7 pts</code> (downward drag)</li>
+        <li><code>Years Employed = 2</code> → <code>−3.0 pts</code> (mild downward drag)</li>
+      </ul>
+      <p>
+        Summing the additive contributions gives <code>50.0 + 13.5 + 9.2 − 6.7 − 3.0 = 63.0</code> (<code>APPROVED</code>),
+        clearly showing Credit Score mattered twice as much as DTI for this applicant.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Treating attribution as causal advice or a guarantee of fairness.</strong> SHAP and LIME describe how
+        the <em>model</em> reacted to correlated inputs, not real-world cause and effect. If a model drops protected
+        attributes (like race) but leans heavily on ZIP code or commute time as a proxy, SHAP faithfully reports
+        <code>+10 pts</code> for ZIP code without flagging indirect discrimination. Moreover, naive feature perturbation
+        creates unrealistic off-manifold records (e.g., <code>income = $250k, years_employed = 0</code>) that distort
+        surrogate fits.
+      </p>
     </section>
   </div>
 
@@ -256,48 +300,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In a SHAP-style feature-contribution chart, a bar extending to the right of the center line typically means:",
+          q: "What mathematical property distinguishes SHAP's additive explanation f(x) = φ_0 + Σ φ_i from a standard LIME local linear surrogate?",
           options: [
-            "That feature pushed the prediction up (e.g., toward approval)",
-            "That feature caused a training error",
-            "That feature was removed from the model entirely",
-            "That feature has exactly zero effect"
+            "SHAP enforces local accuracy so feature attributions sum exactly from the baseline expectation φ_0 to the actual model prediction f(x)",
+            "SHAP computes global dataset importance without ever evaluating individual predictions",
+            "LIME requires white-box access to neural network gradients, whereas SHAP does not",
+            "SHAP eliminates correlated features automatically before training the underlying model"
           ],
           answer: 0,
-          explanation: "Bars to the right of center represent a positive contribution — that feature's value pushed the prediction higher than the baseline."
+          explanation: "Shapley values satisfy local accuracy (efficiency): adding all φ_i to the baseline φ_0 reconstructs f(x) exactly. LIME fits a proximity-weighted linear surrogate around x that can approximate f locally without guaranteeing exact additivity to E[f(X)]."
         },
         {
-          q: "What is the key difference between LIME and SHAP as described in this lesson?",
+          q: "You need exact, reproducible per-prediction feature attributions in under 10 ms for a production XGBoost credit-scoring pipeline. Which method fits best and why?",
           options: [
-            "LIME approximates a model locally around one prediction with a simpler interpretable model, while SHAP uses game-theoretic Shapley values to fairly attribute the prediction across features",
-            "LIME only works on image models while SHAP only works on text models",
-            "SHAP requires no computation at all, while LIME requires fully retraining the model",
-            "They are two different names for the exact same algorithm"
+            "LIME with random Gaussian perturbations, because linear surrogates run in constant time without inspecting trees",
+            "TreeSHAP, because it exploits the tree split structure to compute exact Shapley values in polynomial time",
+            "KernelSHAP with all 2^M coalitions enumerated per request, because it avoids model assumptions",
+            "Global permutation importance, because it updates dynamically for each single applicant"
+          ],
+          answer: 1,
+          explanation: "TreeSHAP leverages decision-tree paths to compute exact Shapley values deterministically and quickly. LIME introduces perturbation sampling variance, KernelSHAP is far slower at runtime, and permutation importance gives global—not per-applicant—explanations."
+        },
+        {
+          q: "An applicant with baseline score 50.0 receives SHAP contributions: Credit Score (+14.0), Annual Income (+8.0), Debt-to-Income (−18.0), Years Employed (+2.0), Loan Amount (−4.0). What is the model's predicted score and primary reason the score dropped near the 50-point approval threshold?",
+          options: [
+            "Predicted score 52.0; high Debt-to-Income (−18.0) acted as the largest downward drag",
+            "Predicted score 48.0; Loan Amount (−4.0) caused the applicant to be denied",
+            "Predicted score 62.0; Credit Score (+14.0) pushed the score downward",
+            "Predicted score 50.0; positive and negative features always cancel to the baseline"
           ],
           answer: 0,
-          explanation: "LIME builds a simple local surrogate model around one prediction; SHAP instead computes Shapley values, a game-theoretic way to split credit for the prediction fairly across features."
+          explanation: "Summing baseline + attributions: 50.0 + 14.0 + 8.0 − 18.0 + 2.0 − 4.0 = 52.0. Even though Credit Score helped (+14.0), the −18.0 contribution from Debt-to-Income was the largest negative driver pulling the score down."
         },
         {
-          q: "What is the difference between global and local interpretability?",
+          q: "Which caveats must engineers keep in mind when using SHAP or LIME in regulated workflows? (Select all that apply.)",
           options: [
-            "Global interpretability explains overall feature importance across many predictions; local interpretability explains why one specific prediction was made",
-            "Global interpretability only applies to models used internationally",
-            "Local interpretability requires an internet connection; global interpretability does not",
-            "There is no meaningful difference between the two"
-          ],
-          answer: 0,
-          explanation: "Global interpretability summarizes patterns across the whole model/dataset; local interpretability (what SHAP and LIME typically produce per-prediction) zooms into one specific decision."
-        },
-        {
-          q: "Which of these statements about tools like SHAP/LIME are true? (Select all that apply.)",
-          options: [
-            "They can turn a black-box model's decision into a human-readable breakdown",
-            "They guarantee that the underlying model is fair and unbiased",
-            "They estimate how much each input feature contributed to a specific prediction",
-            "They can help a reviewer sanity-check whether a model is relying on a feature it shouldn't"
+            "Feature attributions reflect model associations, not true causal effect if you intervene on a single feature in the real world",
+            "Achieving high local accuracy guarantees that the model's predictions are calibrated and unbiased",
+            "Removing a protected attribute does not make a model fair—SHAP will simply attribute weight to correlated proxy features like ZIP code",
+            "Sampling synthetic perturbations independently across correlated features can evaluate the model on unrealistic off-manifold inputs"
           ],
           answer: [0, 2, 3],
-          explanation: "SHAP/LIME explain contributions and support auditing, but explaining a decision is not the same as guaranteeing fairness — a model can be interpretable and still biased."
+          explanation: "SHAP/LIME measure model reliance rather than real-world causality, can be misled by correlated proxies and off-manifold perturbations, and never by themselves prove a model is unbiased or well-calibrated."
         }
       ]
     });

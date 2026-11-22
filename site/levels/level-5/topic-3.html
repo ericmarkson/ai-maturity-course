@@ -28,30 +28,69 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a scenario (budget, data volume, task specificity), recommend
-      prompting, few-shot prompting, or fine-tuning and justify the trade-off.
+      <strong>Learning objective:</strong> Evaluate labeled data volume, requirement volatility, latency budgets, and
+      forgetting risk to choose between zero-shot prompting, few-shot prompting, and fine-tuning.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Fine-tuning</strong> changes a model's internal weights to specialize it for a task, while
-          <strong>prompting</strong> just changes the instructions/examples fed to a frozen model at inference time.
-          Fine-tuning can produce a more reliable specialist but costs data, compute, and ongoing maintenance;
-          prompting is cheap and instant to change but leans on the model's existing general knowledge.
+          <strong>Prompting</strong> adapts a frozen pretrained model at inference time by placing instructions and optional
+          examples (<em>few-shot prompting</em>) directly inside the input context. <strong>Fine-tuning</strong> runs
+          additional gradient updates on curated labeled pairs to modify the model's internal weights—trading higher upfront
+          data, training, and versioning costs for lower per-call prompt overhead and stronger domain specialization.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Zero-Shot &amp; Few-Shot Prompting:</strong> When you include 3–8 input/output demonstrations in the
+        prompt, the model performs <em>in-context learning</em> via self-attention without modifying any weights. Updating
+        a policy takes seconds, and you need almost no training infrastructure—but every API call pays token cost and
+        prefill latency for those repeated example tokens.
+      </p>
+      <p>
+        <strong>2. Fine-Tuning for Specialization &amp; Latency:</strong> When you have hundreds to tens of thousands of
+        clean examples for a stable schema or domain style, fine-tuning bakes those patterns into the weights. Afterward,
+        inference prompts can drop long formatting rules and demonstrations, cutting token cost and latency while
+        improving consistency—especially on smaller, cheaper models.
+      </p>
+      <p>
+        <strong>3. Maintenance &amp; Catastrophic Forgetting:</strong> Fine-tuned checkpoints create MLOps overhead: every
+        product rule change demands fresh training data, re-evaluation, and model deployment. Worse, aggressive weight
+        updates on narrow datasets can trigger <strong>catastrophic forgetting</strong>, degrading general reasoning or
+        instruction-following outside the narrow training distribution.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Two Real Engineering Decisions</h3>
       <ul>
-        <li>When prompting is enough vs. when fine-tuning is worth the cost</li>
-        <li>Few-shot prompting as a lightweight alternative to fine-tuning</li>
-        <li>Cost, latency, and maintenance trade-offs (data needs, retraining, versioning)</li>
-        <li>Risk of overfitting or catastrophic forgetting when fine-tuning</li>
+        <li>
+          <strong>Weekly-evolving support triage (25 examples):</strong> A product team updates refund-eligibility rules
+          every Friday. <em>Few-shot prompting</em> is ideal: editing two lines in the prompt template updates behavior
+          immediately, whereas fine-tuning would require re-labeling hundreds of tickets and redeploying weekly.
+        </li>
+        <li>
+          <strong>High-volume telemetry parser (40,000 examples, strict 100ms budget):</strong> An endpoint converts
+          legacy log lines into fixed JSON 5 million times per day. <em>Fine-tuning</em> a compact model pays off: removing
+          a 1,200-token few-shot preamble cuts per-request prefill latency and inference cost dramatically while holding a
+          stable schema.
+        </li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Fine-Tuning Too Early</h3>
+      <p>
+        Teams often jump straight to fine-tuning before testing a strong prompt or collecting an evaluation benchmark. If
+        your prompt hasn't even clarified edge-case criteria—or if your labeled training set contains inconsistent human
+        annotations—fine-tuning simply bakes noisy behavior into weights that are slower and costlier to debug than a
+        prompt edit. Always treat prompting + evals as the baseline first.
+      </p>
     </section>
   </div>
 
@@ -257,43 +296,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What changes when you fine-tune a model, versus when you prompt it?",
+          q: "What is the fundamental difference between few-shot prompting and fine-tuning?",
           options: [
-            "Fine-tuning changes the model's internal weights; prompting only changes the input given to a frozen model",
-            "Prompting changes the model's weights; fine-tuning only changes the input text",
-            "Both change the model's weights identically",
-            "Neither changes anything about the model's behavior"
+            "Few-shot prompting updates the attention weights permanently after 5 examples, while fine-tuning updates only the embeddings",
+            "Fine-tuning runs gradient updates that alter internal weights, whereas prompting leaves weights frozen and adapts behavior via input context",
+            "Prompting requires a labeled validation split, whereas fine-tuning validates purely through system instructions",
+            "Few-shot prompting eliminates token-length latency penalties because examples are cached inside the model weights"
           ],
-          answer: 0,
-          explanation: "Fine-tuning updates internal parameters through additional training; prompting leaves the model frozen and only changes what's fed to it at inference time."
-        },
-        {
-          q: "A task's requirements change on a weekly basis. Which factor does this push you toward?",
-          options: ["Fine-tuning, since retraining weekly is cheap", "Prompting or few-shot prompting, since prompts are easy to edit without retraining", "It has no effect on the decision", "Always use the largest model regardless"],
           answer: 1,
-          explanation: "Frequent task changes favor prompting/few-shot approaches because editing a prompt is far cheaper and faster than repeatedly retraining a fine-tuned model."
+          explanation: "Prompting (including few-shot in-context learning) leaves model weights completely unchanged and guides outputs purely through input tokens. Fine-tuning updates weights via backpropagation, which persists across calls without repeating examples."
         },
         {
-          q: "What is 'catastrophic forgetting' a risk of?",
+          q: "Your team updates its invoice-classification categories every two weeks and has only 30 labeled examples per new rule. Which approach fits best?",
           options: [
-            "Fine-tuning, where adapting weights too aggressively to a new task can degrade the model's general prior knowledge",
-            "Prompting, where the model forgets the system prompt",
-            "Both prompting and fine-tuning equally",
-            "It only happens with the largest models"
+            "Full fine-tuning on every rule update so the model stays aligned",
+            "Few-shot prompting, because editing in-context examples takes minutes and avoids constant data collection and retraining",
+            "Fine-tuning on the 30 examples with a very high learning rate for rapid convergence",
+            "Zero-shot prompting without any examples or evaluation set, since 30 examples cannot affect attention"
           ],
-          answer: 0,
-          explanation: "Fine-tuning updates weights directly, so over-fitting to a narrow new task can overwrite/degrade broader capabilities the model had before — a risk prompting doesn't share since it never touches weights."
+          answer: 1,
+          explanation: "Frequent requirement shifts and tiny sample counts strongly favor prompting/few-shot prompting. Fine-tuning on 30 noisy examples risks severe overfitting and forces expensive retraining cycles every two weeks."
         },
         {
-          q: "In the exercise's decision logic, why does a large labeled dataset push the recommendation toward fine-tuning?",
+          q: "What is 'catastrophic forgetting' in the context of adapting language models?",
           options: [
-            "More labeled data makes fine-tuning both feasible and more likely to produce a reliable specialist model, justifying its higher upfront cost",
-            "More data always breaks prompting",
-            "Fine-tuning requires zero data, so more data is irrelevant",
-            "Latency budget is the only factor that matters"
+            "Exceeding the model's context window so early few-shot examples fall out of attention",
+            "Overwriting broad pretraining capabilities when gradient updates push weights too aggressively toward a narrow fine-tuning distribution",
+            "A quantization bug that resets bias parameters to zero during inference",
+            "The tendency of prompted models to ignore system instructions when user messages grow long"
           ],
-          answer: 0,
-          explanation: "Fine-tuning needs enough labeled examples to learn a good specialization; when that data is abundant, the investment tends to pay off compared to relying on a frozen general model."
+          answer: 1,
+          explanation: "Because fine-tuning modifies shared weights, training too long or with too high a learning rate on a narrow dataset can erase general reasoning and instruction skills learned during pretraining. Prompting never alters weights, so it cannot cause catastrophic forgetting."
+        },
+        {
+          q: "Why can fine-tuning reduce per-request inference latency and token cost compared to long few-shot prompting at massive scale?",
+          options: [
+            "Fine-tuned models skip self-attention layers on short inputs",
+            "Because behavior is encoded in the weights, inference calls no longer need hundreds or thousands of repeated instruction/example tokens in every prompt",
+            "Fine-tuning compresses the model's parameter count by half automatically",
+            "Fine-tuned endpoints bypass tokenization and read raw UTF-8 strings directly"
+          ],
+          answer: 1,
+          explanation: "Replacing a 1,500-token few-shot preamble with a concise prompt shrinks input sequence length on every call, reducing prefill compute, latency, and input-token billing—especially when paired with a smaller specialized model."
         }
       ]
     });

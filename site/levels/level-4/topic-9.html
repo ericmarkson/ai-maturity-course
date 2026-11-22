@@ -23,41 +23,64 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why a classifier trained on a heavily imbalanced
-      dataset (e.g. 90% one class, 10% the other) can look highly accurate while almost completely
-      failing to detect the rare class, and describe how oversampling, data augmentation, and class
-      weighting each address that problem differently.
+      <strong>Learning objective:</strong> Explain why severe class imbalance breaks raw accuracy and gradient updates,
+      compare oversampling, undersampling, data augmentation, and class weighting, and prevent augmentation-driven
+      data leakage across splits.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Real-world datasets are often <strong>imbalanced</strong> — one class (say, "not fraud" or
-          "healthy") vastly outnumbers another (say, "fraud" or "disease"). A model can reach very
-          high accuracy just by mostly predicting the common class, while being nearly useless at the
-          thing you actually cared about detecting. <strong>Data augmentation</strong> — creating
-          realistic modified copies of existing training examples — and other rebalancing techniques
-          exist to fix this without needing to collect an unrealistic amount of new labeled data for
-          the rare class.
+          In <strong>imbalanced datasets</strong> (such as 99% normal vs. 1% fraudulent transactions), majority examples
+          dominate training gradients, causing models to ignore the rare class while scoring deceptively high accuracy.
+          <strong>Class imbalance handling</strong> (resampling or class-weighted loss) and <strong>data
+          augmentation</strong> (creating realistic label-preserving variations of existing examples) teach the model
+          to detect rare cases reliably without inventing fake validation progress.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Resampling Trade-Offs:</strong> <strong>Oversampling</strong> increases minority representation in each
+        batch; however, naive exact duplication repeats identical vectors over and over, pushing the model to memorize
+        specific training quirks. <strong>Undersampling</strong> drops majority samples to balance classes—fast, yet
+        discards potentially informative normal boundary cases.
+      </p>
+      <p>
+        <strong>2. Label-Preserving Data Augmentation:</strong> Rather than copying an image or text verbatim,
+        augmentation applies realistic transforms—random crops, brightness/contrast jitter, horizontal flips, synonym
+        paraphrases, or audio pitch shifts—forcing the network to learn invariant features instead of pixel memorization.
+      </p>
+      <p>
+        <strong>3. Class Weighting in the Loss Function:</strong> Instead of altering dataset counts, class weighting
+        multiplies mistakes on minority examples by a higher factor (often <code>w_pos = N_neg / N_pos</code>) inside
+        cross-entropy loss—delivering stronger gradient corrections whenever a rare positive is missed.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Balancing a 9:1 Defect Dataset</h3>
+      <p>
+        With <strong>900 normal</strong> parts and <strong>100 defective</strong> parts:
+      </p>
       <ul>
-        <li>Why class imbalance breaks naive accuracy as a metric, and why recall on the minority
-          class is often what actually matters</li>
-        <li><strong>Data augmentation</strong>: generating new, realistic training variations from
-          existing examples — image flips/crops/rotations/color jitter, text paraphrasing or synonym
-          swaps, audio pitch/speed shifts — to increase effective data diversity without new labels</li>
-        <li><strong>Oversampling</strong> the minority class (duplicating it, or augmenting it into
-          new variations) vs. <strong>undersampling</strong> the majority class (throwing some of it
-          away) — and why naive duplication risks overfitting to the exact duplicated examples</li>
-        <li><strong>Class weighting</strong>: penalizing mistakes on the minority class more heavily
-          in the loss function, as an alternative that changes training instead of the dataset itself</li>
+        <li><strong>Baseline (no adjustment):</strong> Predicting "normal" everywhere gives <code>90%</code> accuracy but <code>0%</code> defect recall.</li>
+        <li><strong>Class weighting (<code>w_defect = 9.0</code>):</strong> Missing 1 defect now produces the same loss gradient as 9 false alarms on normal parts, raising defect recall cleanly without throwing away any of the 900 normal parts.</li>
+        <li><strong>Oversampling + augmentation:</strong> Expanding the 100 training defects toward 50/50 using rotated/lighting-shifted variants boosts defect recall while preserving generalization better than plain copy-paste duplication.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Augmenting Before Splitting &amp; Semantic-Breaking Transforms</h3>
+      <p>
+        Never oversample or augment a dataset <em>before</em> creating train/validation/test splits: if augmented
+        variations of the same original item land in both training and validation, validation metrics leak memorized
+        copies. Also match transforms to task semantics—horizontal flipping keeps a cat a cat, but flips handwritten
+        <code>"6"</code>/<code>"9"</code> or <code>"left turn"</code> road signs into wrong labels.
+      </p>
     </section>
 
   </div>
@@ -236,48 +259,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A dataset is 95% \"not fraud\" and 5% \"fraud.\" A model that always predicts \"not fraud\" reaches 95% accuracy. Why is that accuracy figure misleading?",
+          q: "On a dataset that is 96% legitimate transactions and 4% fraud, why does a naive classifier often hit 96% accuracy while catching almost zero fraud?",
           options: [
-            "It isn't misleading — 95% accuracy always means a good model",
-            "The model catches 0% of actual fraud cases despite the high accuracy number, because it never predicts the minority class at all",
-            "Accuracy can never be computed on imbalanced datasets",
-            "95% accuracy is mathematically impossible on imbalanced data"
+            "Because gradient descent clips minority-class gradients to zero whenever prevalence is under 5%",
+            "Because minimizing standard unweighted loss across the dataset rewards predicting the overwhelming majority class, leaving minority recall near 0%",
+            "Because cross-entropy loss can only optimize balanced 50/50 datasets",
+            "Because the validation set lacks any minority-class labels by construction"
           ],
           answer: 1,
-          explanation: "On an imbalanced dataset, a model can score very high accuracy purely by favoring the majority class, while its recall on the class you actually care about (often the rare one) is zero."
+          explanation: "With 24× more majority examples, always predicting 'not fraud' achieves 96% accuracy and low average loss unless class weights, resampling, or threshold tuning shift focus to the rare class."
         },
         {
-          q: "What is data augmentation?",
+          q: "Why does pairing minority oversampling with realistic data augmentation usually generalize better than plain duplicate oversampling?",
           options: [
-            "Manually re-labeling incorrect examples in the dataset",
-            "Creating new, realistic variations of existing training examples (e.g. flipped/cropped images, paraphrased text) to increase effective data diversity without collecting new labels",
-            "Deleting examples from the majority class",
-            "Increasing the learning rate during training"
+            "Plain duplication removes majority examples from memory, whereas augmentation keeps all majority rows",
+            "Plain duplication repeats identical vectors, inviting memorization of specific examples, whereas label-preserving transforms add genuine input variation",
+            "Augmentation automatically adjusts the evaluation split to match a 50/50 real-world prior",
+            "Augmentation eliminates the need to tune decision thresholds or evaluate F1 score"
           ],
           answer: 1,
-          explanation: "Augmentation manufactures plausible variations of data you already have, giving the model more diversity to learn from without the cost of labeling entirely new examples."
+          explanation: "Seeing exact duplicates 10 times teaches the model to memorize training quirks; realistic crops, jitter, or paraphrases force it to learn invariant signals that hold up on unseen validation data."
         },
         {
-          q: "What's a key risk of oversampling the minority class purely by duplicating existing examples, rather than using augmentation?",
+          q: "If you have 9,000 negative rows and 1,000 positive rows, how does class weighting in the loss function rebalance training without changing row counts?",
           options: [
-            "It automatically deletes majority-class data",
-            "It can lead the model to overfit to those exact duplicated examples, since no new information was actually added",
-            "It always improves accuracy with no tradeoffs",
-            "It makes the dataset smaller"
+            "It discards 8,000 negative rows randomly at the start of every epoch",
+            "It scales the loss penalty for misclassifying a positive example (e.g., 9× higher) so minority errors carry equal total gradient influence",
+            "It shifts all predicted probabilities upward by +0.40 after the softmax layer",
+            "It synthesizes interpolated minority vectors inside the hidden layers during backpropagation"
           ],
           answer: 1,
-          explanation: "Plain duplication repeats the same exact points, so the model can effectively 'memorize' them rather than learning a generalizable pattern for that class — augmentation instead introduces real variation."
+          explanation: "Class weighting keeps all training examples intact while increasing the per-example penalty on minority mistakes inside the loss function—avoiding both exact duplicate memorization and discarded majority data."
         },
         {
-          q: "Besides changing the dataset (oversampling, undersampling, augmentation), what's another common way to handle class imbalance?",
+          q: "Which pipeline bug can falsely inflate validation recall and accuracy when applying data augmentation and oversampling?",
           options: [
-            "Class weighting: penalize misclassifying the minority class more heavily in the loss function, without changing the dataset itself",
-            "Ignoring the minority class entirely",
-            "Always training for exactly one epoch",
-            "Converting the classification problem into a regression problem"
+            "Applying horizontal flips to wildlife photos before feeding them to a CNN",
+            "Oversampling or augmenting the entire dataset BEFORE splitting into train, validation, and test sets",
+            "Keeping the validation set at the original imbalanced real-world class ratio",
+            "Using inverse class frequencies as weights in the training cross-entropy loss"
           ],
-          answer: 0,
-          explanation: "Class weighting adjusts the loss function so that mistakes on the rare class cost more during training, pushing the model to pay attention to it even without resampling the data."
+          answer: 1,
+          explanation: "Oversampling/augmenting before splitting lets copies or near-copies of the same source item appear in both training and validation—causing data leakage! Always split first, then augment/oversample ONLY the training split, keeping val/test at the true distribution."
         }
       ]
     });

@@ -30,41 +30,66 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a predicted value and a true value, you should be
-      able to compute a simple squared-error loss by hand, and explain why classification tasks need
-      a different kind of loss function than regression tasks.
+      <strong>Learning objective:</strong> Compute MSE, MAE, and binary cross-entropy values from predictions,
+      contrast how MSE vs. MAE react to large outliers, and explain why classifiers optimize cross-entropy rather
+      than squared error.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>loss function</strong> is a single number that measures how wrong a model's
-          prediction is, which gradient descent then tries to minimize. Different tasks call for
-          different losses — the "right" way to score a mistake on a house-price prediction is not
-          the same as the right way to score a mistake on a spam/not-spam decision.
+          A <strong>loss function</strong> compresses a model's prediction error across a batch or dataset into a single
+          scalar score that gradient descent minimizes. Choosing the loss defines the exact shape of the loss landscape:
+          continuous regression tasks typically minimize <strong>MSE</strong> or <strong>MAE</strong>, whereas probability
+          classifiers minimize <strong>cross-entropy</strong>.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Regression Losses (MSE vs. MAE):</strong> <strong>Mean Squared Error</strong> averages
+        <code>(ŷ − y)²</code> across examples—squaring errors so big misses hurt quadratically more than small ones and
+        yielding smooth slopes down to <code>0</code>. <strong>Mean Absolute Error</strong> averages <code>|ŷ − y|</code>,
+        treating every extra unit of error linearly so a few wild outlier labels don't pull the whole model off-center.
+      </p>
+      <p>
+        <strong>2. Classification Loss (Cross-Entropy):</strong> When predicting a category probability
+        <code>p ∈ (0, 1)</code> for a true positive (<code>y = 1</code>), binary cross-entropy scores
+        <code>−log(p)</code> (and <code>−log(1 − p)</code> when <code>y = 0</code>). Confidently wrong predictions
+        (e.g., predicting <code>p = 0.01</code> when truth is <code>1</code>) blow up toward infinity, supplying strong
+        gradients to fix overconfident mistakes.
+      </p>
+      <p>
+        <strong>3. Single-Example Loss vs. Average Dataset Loss:</strong> Training computes each example's penalty and
+        minimizes the <em>mean</em> loss over a batch or dataset—so every gradient step moves the landscape height down
+        across examples together.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Comparing Error Penalties</h3>
+      <p>
+        Suppose true house price is <code>6</code> (hundred thousand):
+      </p>
       <ul>
-        <li><strong>Regression losses vs. classification losses</strong> — regression tasks
-          (predicting a number) commonly use something like mean squared error, while classification
-          tasks (predicting a category) commonly use cross-entropy — conceptually different ways of
-          scoring a mistake.</li>
-        <li><strong>Why the choice of loss shapes what "good" means</strong> — a loss that squares the
-          error punishes big misses much harder than small ones, while a loss that takes the absolute
-          value treats every unit of error the same; picking a loss is picking what kind of mistake
-          you care most about avoiding.</li>
-        <li><strong>Loss on one example vs. average loss over a dataset</strong> — you can compute
-          loss for a single prediction, but training actually minimizes the average loss across every
-          example in the training set.</li>
-        <li><strong>Connecting loss to the "downhill" surface</strong> — the loss function is exactly
-          what defines the height of the loss landscape from the gradient descent lesson; gradient
-          descent is just walking downhill on the surface this function draws.</li>
+        <li><strong>Prediction <code>4</code> (error = 2):</strong> <code>MAE = 2</code>, <code>MSE = 2² = 4</code>.</li>
+        <li><strong>Prediction <code>2</code> (error = 4, twice as bad):</strong> <code>MAE = 4</code> (2× penalty), while <code>MSE = 4² = 16</code> (<strong>4× penalty</strong>).</li>
+        <li><strong>Classification (<code>y = 1</code>):</strong> Predicting <code>p = 0.90</code> incurs <code>−log(0.90) ≈ 0.105</code>; predicting <code>p = 0.05</code> incurs <code>−log(0.05) ≈ 2.996</code> (~28× harsher!).</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Using MSE on Sigmoid Classifiers or Uncleaned Outliers</h3>
+      <p>
+        Pairing MSE with a sigmoid classifier flattens gradients whenever a neuron is confidently wrong (because
+        <code>σ'(z) ≈ 0</code> at extreme predictions), slowing learning—cross-entropy cancels that saturation cleanly.
+        Meanwhile, using MSE on noisy regression labels with occasional data-entry typos (e.g., <code>$50M</code> instead
+        of <code>$500k</code>) skews predictions heavily toward the typo unless outliers are cleaned or MAE/Huber loss is
+        used.
+      </p>
     </section>
   </div>
 
@@ -361,43 +386,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "The true value is 10 and a model predicts 7. What is the squared-error loss?",
-          options: ["3", "9", "-9", "49"],
-          answer: 1,
-          explanation: "Error = predicted − true = 7 − 10 = −3. Squared error = (−3)² = 9."
-        },
-        {
-          q: "In the exercise, when the prediction is far from the true value, how does MSE's curve compare to MAE's curve?",
+          q: "A regression model predicts 7 when the true target is 10. What are the single-example squared error and absolute error?",
           options: [
-            "MSE grows much faster than MAE because the error is squared",
-            "MSE and MAE are always identical",
-            "MAE grows faster than MSE for large errors",
-            "Neither one changes as the prediction moves"
-          ],
-          answer: 0,
-          explanation: "Squaring the error means a miss twice as large contributes four times the loss, so MSE's curve rises much more steeply than MAE's straight-line growth as the prediction gets far from the true value."
-        },
-        {
-          q: "Why do classification tasks typically use a loss like cross-entropy instead of mean squared error?",
-          options: [
-            "Cross-entropy is easier to compute by hand",
-            "Classification outputs are probabilities of categories, and cross-entropy is built to score how well predicted probabilities match a true category label",
-            "There is no real difference — any loss works equally well for any task",
-            "Cross-entropy can only be used when there is exactly one training example"
+            "Squared error = 3, absolute error = 9",
+            "Squared error = 9, absolute error = 3",
+            "Squared error = −9, absolute error = 3",
+            "Squared error = 49, absolute error = 7"
           ],
           answer: 1,
-          explanation: "Cross-entropy specifically penalizes confident-but-wrong probability predictions, which fits the yes/no or multi-category structure of classification better than a loss designed for continuous numeric outputs."
+          explanation: "The residual is 7 − 10 = −3. Absolute error is |−3| = 3, and squared error is (−3)² = 9."
         },
         {
-          q: "In the classification demo, what happens to the cross-entropy loss as the predicted probability for the true class approaches 0 (i.e., the model is confidently wrong)?",
+          q: "If your regression training set contains a handful of corrupted outlier labels (10× off), why does MAE often yield a steadier baseline trend than MSE?",
           options: [
-            "The loss shrinks toward zero",
-            "The loss grows very large",
-            "The loss becomes negative",
-            "The loss stays exactly the same no matter what"
+            "MAE ignores any training point whose residual exceeds 1.0",
+            "MAE penalizes residuals linearly rather than squaring them, so extreme outliers exert far less quadratic pull on the gradient",
+            "MAE converts continuous numbers into binary categories automatically",
+            "MSE produces a steeper slope near zero error, causing oscillation at convergence"
           ],
           answer: 1,
-          explanation: "Cross-entropy uses −log(p), and −log(p) shoots up toward a very large value as p approaches 0 — the loss punishes confident wrong predictions much more harshly than uncertain ones."
+          explanation: "Squaring a 10× outlier creates a 100× penalty in MSE, yanking the fitted curve toward the outlier. MAE grows linearly and applies a constant-magnitude slope regardless of outlier distance."
+        },
+        {
+          q: "Why do neural network classifiers generally train faster and more reliably with cross-entropy loss than with mean squared error on predicted probabilities?",
+          options: [
+            "Cross-entropy is non-differentiable at zero, forcing larger discrete step jumps",
+            "Cross-entropy heavily penalizes confident-but-wrong probabilities (−log p → ∞ as p → 0) and prevents sigmoid gradient flattening when wrong",
+            "Mean squared error cannot accept inputs between 0 and 1",
+            "Cross-entropy averages losses across examples while MSE evaluates only the worst single example"
+          ],
+          answer: 1,
+          explanation: "When a classifier is confidently wrong (say p = 0.01 for a true positive), MSE on sigmoid probabilities has a tiny slope due to sigmoid saturation, whereas cross-entropy delivers a steep corrective gradient."
+        },
+        {
+          q: "In the classification mode of the exercise, what happens when the true label is NEGATIVE (0) and the slider moves p toward 0.99?",
+          options: [
+            "Cross-entropy approaches 0 because p is close to 1.0",
+            "Cross-entropy shoots upward because −log(1 − p) explodes as (1 − p) approaches 0",
+            "Cross-entropy drops negative because the true label is 0",
+            "Cross-entropy matches the positive-label curve identically at p = 0.99"
+          ],
+          answer: 1,
+          explanation: "For negative class y = 0, cross-entropy scores −log(1 − p), rewarding p → 0 (correctly low probability of positive) and heavily punishing confident false positives as p → 1."
         }
       ]
     });

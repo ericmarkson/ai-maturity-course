@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Level Overview — AI Maturity Course</title>
-<meta name="description" content="Topic list and progress for one level of the AI Maturity Course.">
+<meta name="description" content="Topic list and progress for Level 7 of the AI Maturity Course.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
@@ -16,14 +16,14 @@
 <div id="site-header"></div>
 
 <main class="page-main" id="main-content">
-  <p class="card-eyebrow" id="level-eyebrow">Level</p>
+  <p class="card-eyebrow" id="level-eyebrow">Level 7</p>
   <h1 id="level-title">Loading…</h1>
-  <p id="level-subtitle"></p>
+  <p id="level-subtitle" style="color: var(--color-text-muted);"></p>
 
   <div class="progress-summary" style="margin-bottom: var(--space-6);">
     <div>
       <div class="progress-summary-figure" id="level-progress-figure">0 / 0</div>
-      <div>topics complete in this level</div>
+      <div class="progress-summary-label">topics complete in this level</div>
     </div>
     <div class="progress-summary-bar">
       <div class="progress-bar" role="progressbar" aria-valuemin="0" id="level-progress-bar">
@@ -44,88 +44,9 @@
 <script src="../../assets/js/site.js"></script>
 <script>
   (function () {
-    var levelNum = window.CURRENT_LEVEL;
-
-    function getLevel() {
-      return window.COURSE.levels.find(function (l) { return l.num === levelNum; });
+    if (window.Site && typeof window.Site.renderLevelOverview === "function") {
+      window.Site.renderLevelOverview(window.CURRENT_LEVEL);
     }
-
-    function render() {
-      var level = getLevel();
-      if (!level) return;
-
-      document.title = "Level " + level.num + " — " + level.name + " | AI Maturity Course";
-      document.getElementById("level-eyebrow").textContent = "Level " + level.num + " of 10";
-      document.getElementById("level-title").textContent = level.name;
-      document.getElementById("level-subtitle").textContent = level.topics.length + " topics in this level.";
-
-      var lp = window.Progress.getLevelProgress(level.num);
-      var pct = lp.total > 0 ? Math.round((lp.completed / lp.total) * 100) : 0;
-      document.getElementById("level-progress-figure").textContent = lp.completed + " / " + lp.total;
-      var bar = document.getElementById("level-progress-bar");
-      bar.setAttribute("aria-valuemax", String(lp.total));
-      bar.setAttribute("aria-valuenow", String(lp.completed));
-      document.getElementById("level-progress-fill").style.width = pct + "%";
-
-      var list = document.getElementById("topic-list");
-      list.innerHTML = "";
-      level.topics.forEach(function (topic) {
-        var isDone = window.Progress.isComplete(topic.id);
-        var li = document.createElement("li");
-        li.className = "topic-list-item";
-
-        var link = document.createElement("a");
-        link.className = "topic-list-link";
-        link.href = topic.file.replace("levels/level-" + level.num + "/", "");
-        var numSpan = document.createElement("span");
-        numSpan.className = "topic-list-num";
-        numSpan.textContent = topic.num + ".";
-        link.appendChild(numSpan);
-        link.appendChild(document.createTextNode(topic.title));
-
-        var status = document.createElement("span");
-        status.className = "topic-status " + (isDone ? "is-complete" : "is-incomplete");
-        status.textContent = isDone ? "Complete" : "Not started";
-
-        li.appendChild(link);
-        li.appendChild(status);
-        list.appendChild(li);
-      });
-
-      var prevNext = document.getElementById("level-prev-next");
-      prevNext.innerHTML = "";
-      var prevLevel = window.COURSE.levels.find(function (l) { return l.num === level.num - 1; });
-      var nextLevel = window.COURSE.levels.find(function (l) { return l.num === level.num + 1; });
-
-      if (prevLevel) {
-        var prevA = document.createElement("a");
-        prevA.className = "btn btn-secondary";
-        prevA.href = "../level-" + prevLevel.num + "/index.html";
-        prevA.textContent = "← Level " + prevLevel.num + " — " + prevLevel.name;
-        prevNext.appendChild(prevA);
-      } else {
-        var prevSpan = document.createElement("span");
-        prevSpan.className = "is-disabled";
-        prevSpan.textContent = "← First level";
-        prevNext.appendChild(prevSpan);
-      }
-
-      if (nextLevel) {
-        var nextA = document.createElement("a");
-        nextA.className = "btn btn-primary";
-        nextA.href = "../level-" + nextLevel.num + "/index.html";
-        nextA.textContent = "Level " + nextLevel.num + " — " + nextLevel.name + " →";
-        prevNext.appendChild(nextA);
-      } else {
-        var nextSpan = document.createElement("span");
-        nextSpan.className = "is-disabled";
-        nextSpan.textContent = "Last level →";
-        prevNext.appendChild(nextSpan);
-      }
-    }
-
-    render();
-    window.Progress.onChange(render);
   })();
 </script>
 </body>

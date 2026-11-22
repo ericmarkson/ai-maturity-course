@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Maturity Course — Beginner to Master</title>
-<meta name="description" content="A free, self-paced, 10-level, 80-topic interactive course covering all of AI, from the absolute basics to frontier research.">
+<meta name="description" content="A free, self-paced, 10-level, 80-topic interactive curriculum covering all of AI, from foundations to frontier engineering.">
 <link rel="stylesheet" href="assets/css/styles.css">
 <script>window.SITE_ROOT = "";</script>
 </head>
@@ -15,10 +15,15 @@
 <main class="page-main page-main--wide" id="main-content">
 
   <section class="hero">
+    <span class="hero-kicker">10 Levels · 4 Tiers · 80 Interactive Topics</span>
     <h1>AI Maturity Course</h1>
-    <p>A free, self-paced curriculum that takes you from "what even is AI?" to research-grade
-       fluency — 10 levels, 80 topics, every one with a real hands-on interactive exercise and
-       a graded quiz. No sign-up, no backend: your progress is saved right in this browser.</p>
+    <p>A self-paced engineering &amp; conceptual curriculum taking you from foundational AI literacy
+       to LLM internals, agents, evals, inference optimization, and frontier safety — every topic
+       backed by an interactive browser lab and scenario quiz.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" id="hero-resume-btn" href="levels/level-1/topic-7.html">Start Level 1 →</a>
+      <a class="btn btn-secondary" href="#curriculum-browse">Browse Curriculum</a>
+    </div>
   </section>
 
   <section class="progress-section" aria-labelledby="progress-heading">
@@ -26,20 +31,44 @@
     <div class="progress-summary">
       <div>
         <div class="progress-summary-figure" id="home-progress-figure">0 / 80</div>
-        <div>topics complete</div>
+        <div class="progress-summary-label" id="home-progress-pct">0% complete</div>
       </div>
       <div class="progress-summary-bar">
         <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="80" aria-valuenow="0" id="home-progress-bar">
           <div class="progress-bar-fill" id="home-progress-fill" style="width:0%"></div>
         </div>
       </div>
-      <button type="button" class="btn btn-secondary" id="reset-progress-btn">Reset progress</button>
+      <div class="progress-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="export-progress-btn">Export JSON</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="import-progress-btn">Import JSON</button>
+        <input type="file" id="import-progress-file" accept=".json,application/json" hidden>
+        <button type="button" class="btn btn-secondary btn-sm" id="reset-progress-btn">Reset</button>
+      </div>
+      <p class="progress-import-msg" id="progress-import-msg" hidden></p>
     </div>
   </section>
 
-  <section aria-labelledby="levels-heading">
-    <h2 id="levels-heading">Choose a level</h2>
-    <div class="card-grid" id="levels-grid"></div>
+  <section id="curriculum-browse" aria-labelledby="levels-heading">
+    <div class="home-filter-bar">
+      <h2 id="levels-heading" style="margin: 0;">Explore the Curriculum</h2>
+      <div class="filter-chips" role="group" aria-label="Filter levels">
+        <button type="button" class="filter-chip is-active" data-filter="all">All Levels</button>
+        <button type="button" class="filter-chip" data-filter="incomplete">Incomplete</button>
+        <button type="button" class="filter-chip" data-filter="foundations">Foundations</button>
+        <button type="button" class="filter-chip" data-filter="core-ml">Core ML</button>
+        <button type="button" class="filter-chip" data-filter="llms-agents">LLMs &amp; Agents</button>
+        <button type="button" class="filter-chip" data-filter="frontier">Frontier</button>
+      </div>
+    </div>
+
+    <div class="home-filter-bar" style="margin-bottom: var(--space-5);">
+      <input type="search" id="home-topic-search" class="home-search-input"
+             placeholder="Search all 80 topics (e.g. attention, LoRA, KV-cache, RLVR, evals)..."
+             aria-label="Search all 80 topics">
+    </div>
+
+    <div id="home-search-results" hidden></div>
+    <div id="levels-tiers-container"></div>
   </section>
 
 </main>
@@ -51,67 +80,279 @@
 <script src="assets/js/site.js"></script>
 <script>
   (function () {
+    var activeFilter = "all";
+    var searchQuery = "";
+
+    function updateHeroCTA() {
+      var btn = document.getElementById("hero-resume-btn");
+      if (!btn || !window.Progress) return;
+      var rec = window.Progress.getNextRecommended();
+      if (!rec || !rec.topic) return;
+      btn.href = rec.topic.file;
+      if (rec.reason === "resume") {
+        btn.textContent = "Resume L" + rec.topic.levelNum + "." + rec.topic.num + ": " + rec.topic.title + " →";
+      } else if (rec.reason === "next") {
+        btn.textContent = "Continue L" + rec.topic.levelNum + "." + rec.topic.num + ": " + rec.topic.title + " →";
+      } else if (rec.reason === "review") {
+        btn.textContent = "Course Complete! Review Level 1 →";
+      } else {
+        btn.textContent = "Start Course: " + rec.topic.title + " →";
+      }
+    }
+
     function renderProgressSummary() {
       var completed = window.Progress.getCompletedCount();
       var total = window.Progress.getTotalCount();
       var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
       document.getElementById("home-progress-figure").textContent = completed + " / " + total;
+      document.getElementById("home-progress-pct").textContent = pct + "% complete";
       var bar = document.getElementById("home-progress-bar");
       bar.setAttribute("aria-valuenow", String(completed));
       bar.setAttribute("aria-valuemax", String(total));
       document.getElementById("home-progress-fill").style.width = pct + "%";
     }
 
-    function renderLevelsGrid() {
-      var grid = document.getElementById("levels-grid");
-      grid.innerHTML = "";
-      window.COURSE.levels.forEach(function (level) {
-        var lp = window.Progress.getLevelProgress(level.num);
-        var card = document.createElement("a");
-        card.className = "card";
-        card.href = "levels/level-" + level.num + "/index.html";
+    function buildLevelCard(level) {
+      var lp = window.Progress.getLevelProgress(level.num);
+      var pct = lp.total > 0 ? Math.round((lp.completed / lp.total) * 100) : 0;
 
-        var eyebrow = document.createElement("div");
-        eyebrow.className = "card-eyebrow";
-        eyebrow.textContent = "Level " + level.num;
+      var card = document.createElement("a");
+      card.className = "card card--" + (level.tierSlug || "foundations");
+      card.href = "levels/level-" + level.num + "/index.html";
 
-        var title = document.createElement("h3");
-        title.className = "card-title";
-        title.textContent = level.name;
+      var topRow = document.createElement("div");
+      topRow.className = "card-top-row";
+      var eyebrow = document.createElement("div");
+      eyebrow.className = "card-eyebrow";
+      eyebrow.textContent = "Level " + level.num;
+      var tierPill = document.createElement("span");
+      tierPill.className = "tier-pill tier-pill--" + (level.tierSlug || "foundations");
+      tierPill.textContent = level.tier || "";
+      topRow.appendChild(eyebrow);
+      topRow.appendChild(tierPill);
 
-        var desc = document.createElement("p");
-        desc.className = "card-desc";
-        desc.textContent = level.topics.length + " topics";
+      var title = document.createElement("h3");
+      title.className = "card-title";
+      title.textContent = level.name;
 
-        var progressWrap = document.createElement("div");
-        progressWrap.className = "card-progress";
-        var badge = document.createElement("span");
-        badge.className = "badge badge-accent";
-        badge.textContent = lp.completed + " / " + lp.total + " complete";
-        progressWrap.appendChild(badge);
+      var desc = document.createElement("p");
+      desc.className = "card-desc";
+      desc.textContent = level.summary || (level.topics.length + " topics");
 
-        card.appendChild(eyebrow);
-        card.appendChild(title);
-        card.appendChild(desc);
-        card.appendChild(progressWrap);
-        grid.appendChild(card);
+      var progressWrap = document.createElement("div");
+      progressWrap.className = "card-progress";
+
+      var meta = document.createElement("div");
+      meta.className = "card-progress-meta";
+      var countSpan = document.createElement("span");
+      countSpan.textContent = level.topics.length + " topics";
+      var doneSpan = document.createElement("span");
+      doneSpan.textContent = lp.completed + " / " + lp.total + " complete";
+      meta.appendChild(countSpan);
+      meta.appendChild(doneSpan);
+
+      var barOuter = document.createElement("div");
+      barOuter.className = "progress-bar";
+      var barFill = document.createElement("div");
+      barFill.className = "progress-bar-fill";
+      barFill.style.width = pct + "%";
+      barOuter.appendChild(barFill);
+
+      progressWrap.appendChild(meta);
+      progressWrap.appendChild(barOuter);
+
+      card.appendChild(topRow);
+      card.appendChild(title);
+      card.appendChild(desc);
+      card.appendChild(progressWrap);
+      return card;
+    }
+
+    function renderLevelsByTier() {
+      var searchResultsEl = document.getElementById("home-search-results");
+      var container = document.getElementById("levels-tiers-container");
+      var q = searchQuery.trim().toLowerCase();
+
+      if (q) {
+        container.hidden = true;
+        searchResultsEl.hidden = false;
+        searchResultsEl.innerHTML = "";
+
+        var matches = window.Site.flattenTopics().filter(function (t) {
+          if (activeFilter !== "all" && activeFilter !== "incomplete" && t.tierSlug !== activeFilter) return false;
+          if (activeFilter === "incomplete" && window.Progress.isComplete(t.id)) return false;
+          var hay = (t.title + " " + t.id + " level " + t.levelNum + " " + t.levelName + " " + t.tier).toLowerCase();
+          return hay.indexOf(q) !== -1;
+        });
+
+        var heading = document.createElement("p");
+        heading.style.color = "var(--color-text-muted)";
+        heading.textContent = matches.length + " matching topic" + (matches.length === 1 ? "" : "s") + ":";
+        searchResultsEl.appendChild(heading);
+
+        if (!matches.length) {
+          var empty = document.createElement("p");
+          empty.className = "card-desc";
+          empty.textContent = "No topics match that search and filter combination.";
+          searchResultsEl.appendChild(empty);
+          return;
+        }
+
+        var ul = document.createElement("ul");
+        ul.className = "topic-list";
+        matches.forEach(function (t) {
+          var isDone = window.Progress.isComplete(t.id);
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.className = "topic-list-card" + (isDone ? " is-complete" : "");
+          a.href = t.file;
+
+          var main = document.createElement("div");
+          main.className = "topic-list-main";
+          var num = document.createElement("span");
+          num.className = "topic-list-num";
+          num.textContent = "L" + t.levelNum + "." + t.num;
+          var title = document.createElement("span");
+          title.className = "topic-list-title";
+          title.textContent = t.title;
+          main.appendChild(num);
+          main.appendChild(title);
+
+          var status = document.createElement("span");
+          status.className = "topic-status " + (isDone ? "is-complete" : "is-incomplete");
+          status.textContent = isDone ? "✓ Complete" : t.levelName;
+
+          a.appendChild(main);
+          a.appendChild(status);
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        searchResultsEl.appendChild(ul);
+        return;
+      }
+
+      searchResultsEl.hidden = true;
+      container.hidden = false;
+      container.innerHTML = "";
+
+      (window.COURSE.tiers || []).forEach(function (tier) {
+        if (activeFilter !== "all" && activeFilter !== "incomplete" && activeFilter !== tier.slug) return;
+
+        var tierLevels = window.COURSE.levels.filter(function (l) {
+          if (l.tierSlug !== tier.slug) return false;
+          if (activeFilter === "incomplete") {
+            var lp = window.Progress.getLevelProgress(l.num);
+            return lp.completed < lp.total;
+          }
+          return true;
+        });
+
+        if (!tierLevels.length) return;
+
+        var sec = document.createElement("section");
+        sec.className = "tier-section";
+
+        var head = document.createElement("div");
+        head.className = "tier-header";
+        var titleWrap = document.createElement("div");
+        titleWrap.className = "tier-title-wrap";
+        var dot = document.createElement("span");
+        dot.className = "tier-dot tier-dot--" + tier.slug;
+        var h2 = document.createElement("h2");
+        h2.textContent = tier.name;
+        titleWrap.appendChild(dot);
+        titleWrap.appendChild(h2);
+
+        var p = document.createElement("p");
+        p.className = "tier-desc";
+        p.textContent = tier.desc;
+
+        head.appendChild(titleWrap);
+        head.appendChild(p);
+        sec.appendChild(head);
+
+        var grid = document.createElement("div");
+        grid.className = "card-grid";
+        tierLevels.forEach(function (level) {
+          grid.appendChild(buildLevelCard(level));
+        });
+        sec.appendChild(grid);
+        container.appendChild(sec);
       });
+
+      if (!container.children.length) {
+        var msg = document.createElement("p");
+        msg.className = "card-desc";
+        msg.textContent = "All levels in this filter are complete!";
+        container.appendChild(msg);
+      }
     }
 
     function renderAll() {
+      updateHeroCTA();
       renderProgressSummary();
-      renderLevelsGrid();
+      renderLevelsByTier();
     }
 
-    renderAll();
-    window.Progress.onChange(renderAll);
+    document.querySelectorAll(".filter-chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        document.querySelectorAll(".filter-chip").forEach(function (c) { c.classList.remove("is-active"); });
+        chip.classList.add("is-active");
+        activeFilter = chip.dataset.filter || "all";
+        renderLevelsByTier();
+      });
+    });
+
+    document.getElementById("home-topic-search").addEventListener("input", function (e) {
+      searchQuery = e.target.value;
+      renderLevelsByTier();
+    });
+
+    document.getElementById("export-progress-btn").addEventListener("click", function () {
+      var blob = new Blob([window.Progress.exportJSON()], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "ai-maturity-progress.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    var fileInput = document.getElementById("import-progress-file");
+    var importMsg = document.getElementById("progress-import-msg");
+    document.getElementById("import-progress-btn").addEventListener("click", function () {
+      fileInput.value = "";
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var res = window.Progress.importJSON(reader.result);
+        importMsg.hidden = false;
+        if (res.ok) {
+          importMsg.className = "progress-import-msg ok";
+          importMsg.textContent = "Imported progress for " + res.count + " topic" + (res.count === 1 ? "" : "s") + ".";
+        } else {
+          importMsg.className = "progress-import-msg err";
+          importMsg.textContent = res.error;
+        }
+      };
+      reader.readAsText(file);
+    });
 
     document.getElementById("reset-progress-btn").addEventListener("click", function () {
       if (window.confirm("Reset all course progress? This cannot be undone.")) {
         window.Progress.reset();
       }
     });
+
+    renderAll();
+    window.Progress.onChange(renderAll);
   })();
 </script>
 </body>

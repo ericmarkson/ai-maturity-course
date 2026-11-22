@@ -36,36 +36,63 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a 2D scatterplot and a new point, you should be able
-      to manually identify its nearest neighbors and predict a k-NN classification, and separately
-      describe what one "round" of k-means does to a set of cluster centers.
+      <strong>Learning objective:</strong> Predict a query point's class using k-NN majority voting, explain how
+      changing <code>k</code> shifts the bias–variance trade-off, and trace the assignment/update loop of
+      unsupervised k-means clustering.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>k-NN</strong> (k-nearest neighbors) classifies a new point by looking at its
-          <em>k</em> closest labeled neighbors and taking a majority vote among their classes.
-          <strong>k-means</strong> groups <em>unlabeled</em> points into k clusters by repeatedly
-          assigning each point to its nearest cluster center, then recomputing each center as the
-          average of the points assigned to it, until the centers stop moving.
+          <strong>k-NN (k-Nearest Neighbors)</strong> is a <em>supervised</em> algorithm that classifies a query by
+          measuring straight-line distance to labeled examples and taking the majority vote of its <code>k</code> closest
+          neighbors. <strong>k-means</strong> is an <em>unsupervised</em> algorithm that discovers <code>k</code>
+          compact groups inside unlabeled points by alternating nearest-centroid assignment and centroid averaging.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Distance as Similarity:</strong> Both algorithms rely on Euclidean distance
+        <code>d = √((x₁ − x₂)² + (y₁ − y₂)²)</code> (or Manhattan/cosine distance). Because raw coordinates determine
+        closeness, both require features on comparable scales.
+      </p>
+      <p>
+        <strong>2. Choosing <code>k</code> in k-NN (Bias–Variance Trade-Off):</strong> With <code>k = 1</code>, a query
+        copies its single nearest neighbor—creating jagged boundaries vulnerable to individual noisy labels (high
+        variance). Raising <code>k</code> (e.g., <code>k = 7</code>) averages over a wider neighborhood, smoothing out
+        outliers; pushing <code>k</code> too high blurs real local clusters into the global majority class (high bias).
+      </p>
+      <p>
+        <strong>3. The k-Means Loop:</strong> Initialize <code>k</code> centroids, then repeat two steps until
+        centroids stabilize: (1) <em>Assign</em> every point to its nearest centroid; (2) <em>Update</em> each centroid
+        to the mean <code>(x̄, ȳ)</code> of all points assigned to it.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: How One Stray Point Flips <code>k = 1</code> vs. <code>k = 5</code></h3>
+      <p>
+        Suppose a stray Class B label sits at <code>(100, 100)</code> inside a neighborhood of four Class A points
+        around <code>(90–115, 95–110)</code>. A new query arrives at <code>(102, 101)</code>:
+      </p>
       <ul>
-        <li><strong>Distance metrics (Euclidean distance, intuitively)</strong> — "closeness" between
-          two points as straight-line distance.</li>
-        <li><strong>Choosing k and the bias/variance tradeoff it creates</strong> — small k is jumpy
-          and sensitive to noise; large k smooths things out but can blur real boundaries.</li>
-        <li><strong>k-means initialization, assignment, and update loop</strong> — the repeating cycle
-          of "assign to nearest center, then move the center."</li>
-        <li><strong>Supervised (k-NN) vs. unsupervised (k-means)</strong> — k-NN needs labeled classes
-          to vote with; k-means discovers structure with no labels at all.</li>
+        <li><strong>At <code>k = 1</code>:</strong> The closest point is the single stray Class B point (distance ~2.2) &rarr; predicts <strong>Class B</strong> (fooled by noise!).</li>
+        <li><strong>At <code>k = 5</code>:</strong> The 5 nearest neighbors include that 1 stray B point plus 4 surrounding Class A points &rarr; votes <strong>4 A vs. 1 B &rarr; Class A</strong>.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Unscaled Axes &amp; Poor k-Means Starting Centroids</h3>
+      <p>
+        Because Euclidean distance squares coordinate differences, one large-scale feature (like salary in dollars vs.
+        age in years) silently dominates nearest-neighbor and k-means calculations unless columns are normalized first.
+        In k-means, random initial centroids can also trap clusters in bad local optima—always run multiple smart
+        restarts (<code>k-means++</code>) and keep the lowest total within-cluster distance.
+      </p>
     </section>
   </div>
 
@@ -442,43 +469,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In k-NN, if k = 3 and among a query point's 3 nearest neighbors there are 2 of Class A and 1 of Class B, what does k-NN predict?",
-          options: ["Class B, because ties go to B", "Class A, because it has the majority vote among the 3 nearest neighbors", "It refuses to predict with an even split", "Whichever class was added to the canvas first"],
-          answer: 1,
-          explanation: "k-NN takes a simple majority vote among the k nearest neighbors; 2 votes for A beats 1 vote for B."
-        },
-        {
-          q: "What does one 'round' of k-means do to the cluster centroids?",
+          q: "In binary k-NN classification, why do practitioners often pick an ODD value of k (such as 3, 5, or 7) instead of an even value?",
           options: [
-            "It deletes points that are far from every centroid",
-            "It assigns every point to its nearest centroid, then moves each centroid to the average position of the points assigned to it",
-            "It randomly reshuffles all centroids to new positions with no relationship to the data",
-            "It merges all centroids into a single centroid"
+            "Because Euclidean distance is only defined for odd numbers of neighbors",
+            "To prevent 50/50 voting ties between two classes on unweighted majority votes",
+            "Because even values of k automatically trigger k-means unsupervised clustering",
+            "Because k = 1 always produces lower variance than any even k"
           ],
           answer: 1,
-          explanation: "Each k-means iteration alternates an assignment step (nearest centroid wins each point) and an update step (centroid moves to the mean of its assigned points)."
+          explanation: "An odd k guarantees a clean majority winner in unweighted binary voting, avoiding arbitrary tie-breaking rules when neighbors split evenly."
         },
         {
-          q: "Which of these is the key difference between k-NN and k-means?",
+          q: "During one full iteration of k-means clustering, in what order do points and centroids update?",
           options: [
-            "k-NN is unsupervised and k-means is supervised",
-            "k-NN requires labeled classes to vote with; k-means finds structure in unlabeled data",
-            "They are two names for the exact same algorithm",
-            "k-means can only be used on images"
+            "First move centroids randomly toward denser regions, then split points evenly among them",
+            "First assign every point to its nearest centroid, then recompute each centroid as the mean of its assigned points",
+            "First take a majority vote of point labels, then move centroids toward misclassified points",
+            "First merge the two closest centroids, then reassign points using Euclidean distance"
           ],
           answer: 1,
-          explanation: "k-NN is a supervised method — it needs known class labels on its neighbor points. k-means is unsupervised — it groups points with no labels at all."
+          explanation: "k-means alternates expectation/assignment (each point picks its closest centroid) and maximization/update (each centroid shifts to the center of mass of its cluster) until assignments stop changing."
         },
         {
-          q: "If you set k very large in k-NN (close to the total number of points), what tends to happen?",
+          q: "How do the data requirements of k-NN and k-means differ fundamentally?",
           options: [
-            "Predictions become extremely sensitive to a single nearby outlier",
-            "The prediction gets smoothed out and starts to just reflect the overall class balance, potentially blurring real boundaries",
-            "The algorithm stops working entirely",
-            "Distance no longer matters at all, even for small k"
+            "k-NN works on unlabeled data to discover clusters, whereas k-means requires target class labels to compute centroids",
+            "k-NN requires labeled training points to vote on new queries (supervised), whereas k-means groups unlabeled points without target labels (unsupervised)",
+            "k-NN uses cosine similarity while k-means cannot run on numeric coordinates",
+            "k-means trains weights via gradient descent whereas k-NN fits linear boundaries"
           ],
           answer: 1,
-          explanation: "A very large k averages in points from far away, washing out local structure and pulling every prediction toward the global majority class."
+          explanation: "k-NN classifies queries using known neighbor labels (supervised). k-means receives only coordinates with no labels and discovers cohesive groups automatically (unsupervised)."
+        },
+        {
+          q: "What happens to a k-NN decision boundary if k is increased from k = 1 all the way up toward the total dataset size N?",
+          options: [
+            "The boundary becomes hyper-detailed, wrapping tiny islands around every single noisy outlier",
+            "The boundary smooths out and eventually collapses toward always predicting whichever class forms the global majority",
+            "Euclidean distance becomes invariant to feature scaling once k exceeds 10",
+            "Inference becomes faster because fewer neighbor distances need to be checked"
+          ],
+          answer: 1,
+          explanation: "Tiny k (like 1) produces high-variance jagged boundaries around noise; giant k averages far-away neighbors, pulling every prediction toward the overall majority class (high bias)."
         }
       ]
     });

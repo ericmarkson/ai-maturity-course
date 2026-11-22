@@ -22,35 +22,43 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain the tradeoff between synthetic-data scale and synthetic-data
-      quality/diversity, and describe at least one concrete failure mode (e.g., model collapse, distributional
-      narrowing) that unchecked synthetic-data reliance produces.
+      <strong>Learning objective:</strong> Architect synthetic-data pipelines using rejection sampling, Magpie/Evol-Instruct, and deduplication while preventing model collapse (tail truncation and distributional narrowing) through grounded real-data anchoring.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Synthetic data generation and curation means using AI models to generate — and then filter and select
-          — training data, instead of relying solely on human-produced or scraped data. Done carefully, it fills
-          gaps where real data is scarce or proprietary. Done carelessly, it can cause a model to slowly forget
-          the diversity of the real world by training on an ever-narrower echo of its own outputs.
+          Synthetic data generation and curation is the automated synthesis, verification, and diversity filtering of model-produced training examples—scaling high-signal instruction, reasoning, and tool trajectories beyond scarce human annotations without triggering recursive distributional collapse.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        High-yield synthetic pipelines treat generation and filtering as a coupled system:
+      </p>
       <ul>
-        <li>Why synthetic data matters now: high-quality generation is cheap while real, high-quality
-          human-annotated data is scarce and often proprietary</li>
-        <li>Generation pathways: direct frontier-model prompting with quality filtering, self-instruct/
-          self-questioning pipelines, and distillation from a stronger "teacher" model</li>
-        <li>Curation and quality control: deduplication, diversity filtering, human-in-the-loop down-selection,
-          and the risk of "model collapse" from training on unfiltered self-generated data</li>
-        <li>The hybrid consensus: synthetic data augments but does not replace real data as the anchor of quality
-          and grounding</li>
+        <li><strong>Verification-gated rejection sampling:</strong> Rather than distilling raw completions, frontier pipelines sample <code>k</code> rollouts per prompt and keep only trajectories verified by deterministic unit tests, math CAS solvers, or reward-model ensembles—converting inference compute into clean post-training data.</li>
+        <li><strong>Magpie &amp; Evol-Instruct diversity synthesis:</strong> <em>Evol-Instruct</em> iteratively mutates seed prompts along depth (constraints, multi-hop reasoning) and breadth dimensions. <em>Magpie</em> feeds an aligned chat template prefix (e.g., <code>&lt;|user|&gt;</code>) directly to an autoregressive model to sample fresh, unseeded user queries across long-tail topics.</li>
+        <li><strong>Model collapse dynamics:</strong> Shumailov et al. showed that repeatedly training generation <code>t+1</code> purely on generation <code>t</code>'s uncurated samples causes <em>early model collapse</em> (low-probability tail concepts vanish due to finite sampling variance) followed by <em>late collapse</em> (distribution variance <code>σ<sub>t</sub><sup>2</sup> → 0</code> onto a few repetitive modes).</li>
+        <li><strong>Dedup &amp; real-data anchoring:</strong> MinHash LSH (lexical) plus embedding cosine deduplication strips near-duplicate synthetic boilerplate, while retaining a non-zero fraction of fresh human/real data each round anchors variance and tail coverage.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Anchoring Recursive Self-Distillation</h3>
+      <p>
+        Suppose a base distribution has spread <code>σ<sub>0</sub> = 30</code> and each unanchored generation contracts spread by <code>0.8×</code>. After 5 purely synthetic generations (<code>0%</code> real re-injection), <code>σ<sub>5</sub> = 30 × 0.8<sup>5</sup> = 9.8</code> (<strong>33% of original diversity</strong>—tails wiped out). Re-injecting just <code>25%</code> real curated samples each round converges to a steady-state spread of <code>~18.8</code> (63% retained), keeping rare edge cases alive while still gaining 4× synthetic scale.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Over-pruning with narrow quality classifiers:</strong> Filtering out the lowest-scoring 80% of synthetic outputs with a single perplexity or RM threshold raises per-sample cleanliness while inadvertently discarding legitimate stylistic, domain, and difficulty diversity—leaving downstream models brittle outside narrow boilerplate templates.
+      </p>
     </section>
   </div>
 
@@ -287,48 +295,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is 'model collapse' in the context of synthetic data?",
+          q: "In Shumailov et al.'s formulation of 'model collapse', which part of the true data distribution degrades FIRST when models train recursively on uncurated synthetic outputs?",
           options: [
-            "A model literally crashing the training hardware",
-            "A technique for compressing model weights",
-            "Progressive narrowing of a data distribution's diversity when a model repeatedly trains on its own generated, unfiltered output across generations",
-            "When training loss becomes exactly zero"
-          ],
-          answer: 2,
-          explanation: "Without real-data grounding, each generation's outputs feed the next round's training, narrowing the distribution toward its own modes — exactly what the simulator's collapsing curve shows at 0% re-injection."
-        },
-        {
-          q: "Why does synthetic data matter more now, per the described tradeoff?",
-          options: [
-            "Human data is now worthless",
-            "High-quality generation is comparatively cheap while scarce, proprietary human-annotated data is expensive and hard to source at scale",
-            "Synthetic data is always higher quality than real data",
-            "Real data no longer exists anywhere"
+            "The high-probability mode collapses first, shifting the mean while leaving rare tail events intact",
+            "Low-probability distribution tails get truncated due to finite sampling variance, before repeated generations eventually collapse variance onto narrow modes",
+            "Only numeric tokens collapse while natural-language grammar remains invariant indefinitely",
+            "Model collapse occurs exclusively when synthetic data exceeds 1 trillion tokens on disk"
           ],
           answer: 1,
-          explanation: "Frontier models can generate plausible training data cheaply, while genuinely high-quality human annotation remains scarce, slow, and often locked behind proprietary walls."
+          explanation: "Finite sample sizes rarely draw rare tail events, so generation t+1 under-samples and forgets the tails first ('early model collapse') before compounding approximation errors shrink overall variance ('late collapse')."
         },
         {
-          q: "According to the hybrid consensus described in the material, what role should synthetic data play relative to real data?",
+          q: "Why does combining deterministic rejection sampling (e.g., filtering rollouts via unit tests or formal math verifiers) with synthetic generation resist collapse far better than unverified self-training?",
           options: [
-            "It should completely replace real data",
-            "Real data should be discarded once any synthetic data exists",
-            "Synthetic and real data must never be mixed",
-            "It should augment real data but not replace it as the anchor of quality and grounding"
+            "Rejection sampling introduces an external ground-truth correctness signal rather than reinforcing arbitrary high-likelihood model quirks, though diversity pruning/dedup is still needed",
+            "Rejection sampling forces every retained sample to use identical syntactic templates, preventing variance drift",
+            "Deterministic verifiers guarantee that zero paraphrases of held-out eval benchmarks enter the corpus",
+            "Unit tests eliminate the need for real-data anchoring completely after two training epochs"
           ],
-          answer: 3,
-          explanation: "The consensus view treats synthetic data as a scale multiplier on top of a real-data anchor, not a substitute for it — mixing in real data is exactly what prevents collapse in the simulator."
+          answer: 0,
+          explanation: "External verifiers anchor correctness against reality rather than the generator's biases—though without semantic deduplication and prompt diversity (e.g., Evol-Instruct/Magpie), rejection sampling can still narrow stylistic diversity."
         },
         {
-          q: "In the simulator, what happens to distributional diversity across generations at 0% real-data re-injection, versus re-injecting a meaningful fraction of real data each round?",
+          q: "In the curation lab above, why does pushing 'Quality-threshold pruning' to 90% and 'Dedup strength' to 90% simultaneously end up hurting the simulated downstream-quality score despite raising average per-sample quality?",
           options: [
-            "Both scenarios behave identically",
-            "Re-injecting real data always causes faster collapse",
-            "At 0% re-injection the distribution progressively narrows (collapses); re-injecting real data each round keeps diversity closer to the original",
-            "Diversity increases without bound in both cases"
+            "Deduplication algorithms corrupt UTF-8 byte encodings whenever threshold exceeds 50%",
+            "Over-aggressive pruning starves total effective sample count and collapses domain coverage, starving downstream learning even though surviving examples are individually clean",
+            "Higher per-sample quality automatically lowers the model's Chinchilla scaling exponent α",
+            "Real-data re-injection ceases to operate once deduplication exceeds 70%"
           ],
-          answer: 2,
-          explanation: "The simulator's collapse formula shrinks variance by a fixed factor each generation unless a re-injection fraction anchors it back toward the original real-data spread."
+          answer: 1,
+          explanation: "Training requires both cleanliness AND sufficient volume/coverage. Hyper-aggressive pruning leaves a tiny, overly uniform dataset whose insufficient token coverage degrades downstream generalization."
+        },
+        {
+          q: "How do Magpie and Evol-Instruct complement each other when scaling synthetic post-training datasets?",
+          options: [
+            "Magpie compresses model weights via 4-bit quantization while Evol-Instruct tunes AdamW learning rates",
+            "Magpie elicits diverse unseeded user queries directly from a model's chat-template prior, while Evol-Instruct systematically mutates existing prompts to step up reasoning depth and constraint complexity",
+            "Both methods require 100% manual human prompt authoring before synthetic responses can be sampled",
+            "Evol-Instruct deletes long prompts while Magpie strictly enforces exact-string matching"
+          ],
+          answer: 1,
+          explanation: "Magpie generates broad, natural user-query diversity without seed bias, whereas Evol-Instruct pushes existing seed prompts into multi-constraint, harder reasoning regimes."
         }
       ]
     });

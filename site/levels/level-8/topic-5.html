@@ -39,30 +39,65 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why an MoE model with N total parameters can be cheaper
-      to run than a dense model with N parameters, and describe what the router/gating network does.
+      <strong>Learning objective:</strong> Explain how sparse top-<em>k</em> MoE routing decouples total
+      model capacity from per-token FLOPs, formulate the load-balancing problem and auxiliary loss, and
+      analyze MoE VRAM footprint, All-to-All communication overhead, and batch-size tradeoffs in production.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Mixture-of-experts (MoE) is a model architecture with many specialized "expert" sub-networks,
-          where only a small subset is activated for any given input — keeping compute cost low while
-          total model capacity stays high. A router/gating network decides, per token, which experts get
-          to process it.
+          <strong>Mixture-of-Experts (MoE)</strong> is a sparse neural architecture that replaces each dense
+          Transformer feed-forward network (FFN) with <em>N</em> parallel expert FFNs and a lightweight
+          <strong>router (gating network)</strong>. For every token, the router activates only the top
+          <em>k</em> experts (typically <em>k</em> = 1 or 2 out of 8&ndash;256), scaling total parameter
+          knowledge while keeping per-token arithmetic FLOPs proportional only to active parameters.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Self-attention layers, embeddings, and layer norms remain shared across all tokens, while each FFN block
+        becomes a gated bank of experts {<em>E</em><sub>1</sub>, &hellip;, <em>E</em><sub>N</sub>}. For hidden
+        state <em>x</em>, a linear router computes logits <em>h</em>(<em>x</em>) = <em>W</em><sub>g</sub><em>x</em>,
+        keeps the top <em>k</em> scores, applies Softmax to obtain routing weights <em>g</em><sub>i</sub>, and
+        outputs the weighted sum <code>&Sigma; g_i(x) E_i(x)</code> over those <em>k</em> chosen experts.
+      </p>
       <ul>
-        <li><strong>Experts and the router</strong> — a gating network decides which experts run per token</li>
-        <li><strong>Sparse activation</strong> — activating only a few experts is cheaper than a dense model of the same total size</li>
-        <li><strong>Load balancing</strong> — spreading tokens evenly across experts, and the failure mode of a few experts dominating routing</li>
-        <li><strong>Tradeoffs</strong> — more total parameters/knowledge vs. routing complexity and memory footprint</li>
+        <li><strong>Routing collapse &amp; load balancing:</strong> Without balancing, gradient descent hits a "rich-get-richer" loop where a few experts receive most tokens while others starve and stay untrained. Training adds a differentiable <strong>auxiliary load-balancing loss</strong> <code>L_aux = &alpha; &middot; N &middot; &Sigma; f_i &middot; P_i</code> (penalizing correlation between fraction of tokens routed <em>f</em><sub>i</sub> and router probability mass <em>P</em><sub>i</sub>), or uses auxiliary-loss-free dynamic router bias updates (DeepSeek-V3 style).</li>
+        <li><strong>Expert parallelism &amp; All-to-All overhead:</strong> When experts are sharded across GPUs, tokens must be dispatched via <em>All-to-All</em> collective communication and combined back. Hardware buffers enforce a <em>capacity factor</em>; overloaded experts either drop excess tokens or stall peers waiting for the straggler GPU.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Take a Mixtral-style <strong>8&times;7B</strong> sparse MoE: shared attention and embeddings account for
+        ~1.9B parameters, and each layer holds 8 FFN experts (~5.6B per full expert stack), giving
+        <code>1.9B + 8 &times; 5.6B = 46.7B</code> total parameters. With <strong>top-2 routing</strong>, each
+        token executes only shared layers plus 2 experts:
+      </p>
+      <pre class="code-block"><code>Active params/token = 1.9B + 2 * 5.6B = 13.1B  (~28% of total weights)</code></pre>
+      <p>
+        Per-token FLOPs resemble a ~13B dense model while capacity rivals a ~45B dense model. However,
+        <strong>all 46.7B weights must sit in GPU HBM</strong> (~93 GB in BF16, ~47 GB in FP8), because
+        successive tokens in a sequence can route to any of the 8 experts.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Assuming MoE slashes VRAM or accelerates batch=1 inference linearly:</strong> MoE reduces
+        <em>compute FLOPs</em> per token, <strong>not memory footprint</strong> &mdash; you still pay VRAM for
+        every expert. Moreover, at small serving batch sizes (<em>B</em> = 1&ndash;4), autoregressive decode is
+        memory-bandwidth bound, and across 32+ layers nearly every expert may be touched over a short burst,
+        while distributed All-to-All latency adds overhead unless batch size is large enough to amortize expert
+        weight loads.
+      </p>
     </section>
 
   </div>
@@ -373,48 +408,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "An MoE model has 64B total parameters, but only activates 2 of 32 experts (plus shared layers) per token. Why is this cheaper to run than a 64B dense model?",
+          q: "Your team replaces a 13B dense model with a 47B total / 13B active MoE (8 experts, top-2) expecting both speed and GPU VRAM to stay identical to the 13B dense model. On deployment, the model OOMs on a single 40 GB GPU. Why?",
           options: [
-            "It isn't actually cheaper — total parameter count is all that matters for compute cost",
-            "Because only the active experts' parameters are used in the forward pass for a given token, so compute scales with active params, not total params",
-            "Because MoE models always use fewer total parameters than dense models",
-            "Because MoE models skip the attention layers entirely"
+            "MoE routers execute all 8 experts in parallel and only discard 6 outputs after matrix multiplication",
+            "Sparse routing cuts per-token FLOPs to ~13B, but all 47B total parameters must remain resident in GPU HBM so any token can route to any expert",
+            "Top-2 gating multiplies the KV-cache size by 8x compared to a dense attention layer",
+            "MoE models require FP32 weights inside the gating network and FFN layers"
           ],
           answer: 1,
-          explanation: "Compute cost for a token depends on which parameters actually do work on it. Sparse activation means most of the 64B sits idle for any given token, so per-token FLOPs look like the smaller active-parameter model, not the full 64B."
+          explanation: "MoE decouples FLOPs (active params) from memory footprint (total params): even though each token runs only 2 experts, all 8 experts must stay loaded in HBM unless offloaded at severe latency cost."
         },
         {
-          q: "What is the job of the router/gating network in an MoE layer?",
+          q: "During MoE pretraining without an auxiliary load-balancing loss (or bias control), three out of 16 experts quickly absorb 90% of tokens. Why does this hurt final model quality?",
           options: [
-            "It stores the actual expert weights",
-            "It decides, per token, which expert(s) should process that token",
-            "It trains all experts equally on every token",
-            "It compresses the model after training"
+            "Because the shared self-attention heads stop receiving gradients when experts are imbalanced",
+            "Routing collapse leaves 13 experts starved of gradient updates (wasting total parameter capacity) while overloading the few active experts and triggering token drops",
+            "Because softmax router weights become negative when expert loads diverge",
+            "Because imbalanced routing forces the model to switch from top-2 to dense all-expert execution"
           ],
           answer: 1,
-          explanation: "The router is a small network that scores experts for each token and selects the top-k to actually run — that's the 'gating' decision that makes sparse activation possible."
+          explanation: "Rich-get-richer routing collapse wastes most of the model's capacity on undertrained experts and creates hardware stragglers/token overflow under fixed expert capacity buffers."
         },
         {
-          q: "What does it mean if one expert consistently gets a much higher token load than the others (a high load-balance ratio)?",
+          q: "In a distributed 8-GPU cluster using Expert Parallelism (EP=8), what is the primary hidden runtime bottleneck compared to running a dense model of equal active FLOPs on a single GPU?",
           options: [
-            "This is always desirable and means the model is working correctly",
-            "It's a load-imbalance failure mode — a few experts dominate routing while others are underused, wasting capacity and risking undertrained experts",
-            "It means the model has too few total parameters",
-            "It has no effect on training or efficiency"
+            "Computing the linear router dot product W_g * x takes more FLOPs than the FFN itself",
+            "All-to-All cross-GPU communication to dispatch tokens to remote experts and combine results, plus waiting on whichever GPU receives the largest token batch",
+            "MoE models cannot use rotary positional embeddings (RoPE) across expert layers",
+            "Expert parallelism disables KV caching during autoregressive decode"
           ],
           answer: 1,
-          explanation: "Imbalanced routing means some experts rarely get trained (undertrained, wasted capacity) while a few are overloaded — MoE training typically adds an auxiliary loss to encourage more even load."
+          explanation: "Routing tokens across devices introduces All-to-All communication latency at every MoE layer, and uneven routing creates straggler synchronization delays."
         },
         {
-          q: "In the exercise, what happens to the 'active params / token' stat when you increase top-k while N stays fixed?",
+          q: "When serving a large MoE model (e.g. 64 experts, top-2) at batch size B=1 vs. B=128, why does the efficiency advantage over a dense model of equal total size look much stronger at B=128?",
           options: [
-            "It decreases, since fewer experts run per token",
-            "It increases, since more experts are activated for each token",
-            "It stays exactly the same regardless of k",
-            "It becomes undefined"
+            "At B=128 the router freezes weights so zero FLOPs are spent on gating",
+            "At B=1, decode is HBM memory-bandwidth bound and only touches a couple experts per token with poor arithmetic intensity; at larger batches, tokens grouped onto each expert run as efficient matrix multiplications",
+            "At B=1, MoE models fall back to dense execution across all 64 experts",
+            "At B=128, the auxiliary training loss actively re-weights tokens at inference time"
           ],
           answer: 1,
-          explanation: "Active params scales with k (plus the fixed shared params) — routing to more experts per token means more of the model's parameters actually do work for that token."
+          explanation: "Larger batches group multiple tokens per expert so expert GEMMs saturate Tensor Cores rather than paying full HBM weight-streaming latency per single token."
         }
       ]
     });

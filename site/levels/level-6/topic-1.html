@@ -74,14 +74,66 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Tokenization (subword tokenizers like BPE — how "unfriendliness" becomes multiple tokens)</li>
-        <li>Positional encoding (how transformers know word order despite processing in parallel)</li>
-        <li>Self-attention computation in more mathematical detail (scaled dot-product attention)</li>
-        <li>Layer stacking, residual connections, and layer normalization at a conceptual level</li>
+        <li>
+          <strong>Subword Tokenization (BPE):</strong> Byte-Pair Encoding starts from individual bytes or characters
+          and repeatedly merges the most frequent adjacent pair in the training corpus (e.g., <code>t + h → th</code>,
+          <code>th + e → the</code>) up to a fixed vocabulary size (typically 50k–128k). At inference time, those
+          learned merge rules run in strict priority order so frequent words become single tokens while rare words
+          decompose into reusable pieces with zero unknown-word failures.
+        </li>
+        <li>
+          <strong>Positional Encoding (Sinusoidal vs. RoPE):</strong> Because self-attention operates over a set of
+          embeddings simultaneously, permuting token positions leaves raw attention math unchanged. Early transformers
+          added fixed sinusoidal waves directly to input embeddings; modern LLMs use <strong>Rotary Position
+          Embeddings (RoPE)</strong>, which rotate each token's Query and Key vectors in 2D subspaces by an angle
+          proportional to position <code>m</code> so the resulting dot product depends on relative distance
+          <code>m − n</code>.
+        </li>
+        <li>
+          <strong>Scaled Dot-Product Self-Attention &amp; Residual Blocks:</strong> Each token projects into Query
+          (<code>Q</code>), Key (<code>K</code>), and Value (<code>V</code>) vectors of dimension <code>d<sub>k</sub></code>,
+          computing <code>softmax(QK<sup>T</sup> / √d<sub>k</sub> + M) · V</code>, where causal mask <code>M</code> sets
+          future positions to <code>−∞</code>. Dividing by <code>√d<sub>k</sub></code> keeps dot products from growing
+          large with width and pushing softmax into near-zero gradients. Pre-norm LayerNorm/RMSNorm and residual
+          skip connections (<code>x + Sublayer(Norm(x))</code>) stabilize gradient flow across deep layer stacks.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Trace two core behaviors inside a decoder block:
+      </p>
+      <ul>
+        <li>
+          <strong>BPE split vs. merge:</strong> On <code>"The unfriendliness"</code>, priority rules merge
+          <code>t+h → th → the</code> into <code>1</code> token, whereas rarer <code>"unfriendliness"</code> stops
+          matching whole-word merges and splits into subwords like <code>["un", "friend", "li", "ness"]</code>
+          (<code>4</code> tokens).
+        </li>
+        <li>
+          <strong>Scaling &amp; word order:</strong> For <code>"dog bites man"</code> vs. <code>"man bites dog"</code>,
+          RoPE rotates <code>Q</code> at position <code>0</code> vs. <code>2</code> differently relative to
+          <code>"bites"</code> (<code>m − n = −1</code> vs. <code>+1</code>). With head dimension <code>d<sub>k</sub> = 64</code>,
+          dividing raw scores by <code>√64 = 8</code> keeps logits in a moderate range (e.g., <code>[−3, +3]</code>
+          instead of <code>[−24, +24]</code>) so softmax preserves smooth gradient signal.
+        </li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Tokenizer blind spots and quadratic context cost.</strong> Because LLMs process subword IDs rather
+        than raw characters, BPE splitting breaks naive character counting (e.g., counting <code>"r"</code>s inside a
+        merged token) and causes non-English scripts or numeric tables to consume 2–4× more tokens per word—raising
+        both latency and cost. Meanwhile, standard self-attention scales <code>O(n<sup>2</sup>)</code> in compute and
+        KV memory with sequence length <code>n</code>.
+      </p>
     </section>
 
   </div>
@@ -252,48 +304,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why do subword tokenizers like BPE split rare words (e.g. \"unfriendliness\") into multiple tokens instead of keeping one token per word?",
+          q: "In scaled dot-product attention softmax(QK^T / √d_k) · V, why does dividing by √d_k matter as head dimension d_k grows?",
           options: [
-            "To save disk space only",
-            "Because a fixed-size vocabulary can't contain every possible whole word, so rare/complex words are represented as combinations of common smaller pieces",
-            "Because punctuation must always be a separate token",
-            "Because the model can only process lowercase text"
+            "Without dividing by √d_k, the variance of QK^T grows with d_k, pushing softmax into extreme regions with tiny gradients",
+            "Dividing by √d_k enforces causal masking so tokens cannot attend to future positions",
+            "It reduces the parameter count of the Q, K, and V projection matrices by half",
+            "It converts absolute token positions into relative distances between pairs of words"
           ],
-          answer: 1,
-          explanation: "A trained BPE vocabulary is finite. Common words get their own token; everything else is built from smaller, more frequent subword pieces so no word is ever \"unknown.\""
+          answer: 0,
+          explanation: "If Q and K components have unit variance, their dot product has variance d_k. Dividing by √d_k restores unit variance so softmax does not saturate near 0 and 1, keeping gradients healthy. Causal masking and RoPE handle future blinding and relative positions separately."
         },
         {
-          q: "Self-attention computes a weighted combination of every token's representation based on all other tokens in the sequence, regardless of their position. Given that, why is positional encoding needed at all?",
+          q: "Why does a transformer require positional encoding (such as sinusoidal vectors or RoPE) to distinguish 'dog bites man' from 'man bites dog'?",
           options: [
-            "It isn't needed — attention already tracks order",
-            "Because without it, the model would have no way to distinguish \"dog bites man\" from \"man bites dog\" — attention alone is order-agnostic",
-            "It only matters for images, not text",
-            "It reduces the number of parameters in the model"
+            "BPE tokenizers strip out word order before passing token IDs to the embedding table",
+            "Without positional information, self-attention computes a permutation-equivariant weighted sum over an unordered set of token embeddings",
+            "Layer normalization erases sequence indices after the first residual block",
+            "Causal masking only applies during fine-tuning, not during pretraining"
           ],
           answer: 1,
-          explanation: "Self-attention treats input as a set, not a sequence — swapping two tokens' positions doesn't change the raw attention math. Positional encoding injects order information so the model can tell sequences apart."
+          explanation: "Raw self-attention compares every Q against every K purely by content similarity; swapping positions 0 and 2 yields the same set of pairwise scores. Positional encodings (additive sinusoids or RoPE's position-dependent Q/K rotations) inject order directly into attention."
         },
         {
-          q: "What does a residual connection do in a transformer layer?",
+          q: "An engineering team notices that translating prompts into a morphologically rich or non-Latin language triples their API token bill and slows time-to-first-token, even for the same word count. What architectural cause explains this?",
           options: [
-            "It deletes tokens that aren't useful",
-            "It adds a layer's input back to its output, helping gradients flow through many stacked layers",
-            "It randomly drops connections during inference",
-            "It converts tokens into positional encodings"
+            "The self-attention head dimension d_k automatically expands for non-ASCII characters",
+            "The BPE merge table was learned mainly on high-frequency English patterns, so rarer words and UTF-8 byte sequences fall back to shorter subwords and more tokens per word",
+            "Residual connections skip every second transformer layer when processing non-English text",
+            "RoPE cannot encode relative distances when sequence length exceeds 512 characters"
           ],
           answer: 1,
-          explanation: "Residual (skip) connections let information and gradients bypass a layer's transformation, which makes very deep stacks of layers much easier to train."
+          explanation: "BPE vocabularies are finite and reflect training corpus frequencies. Frequent English words merge into single tokens, while rarer words, compound terms, or less-represented scripts require multiple smaller subword/byte pieces—multiplying total tokens."
         },
         {
-          q: "In the tokenizer visualizer above, why might \"the\" stay as one token while \"disheartening\" splits into several?",
+          q: "How do pre-norm residual connections (x + Sublayer(Norm(x))) work together with layer normalization in a deep stack of transformer blocks?",
           options: [
-            "\"the\" is shorter alphabetically",
-            "Common short words are more likely to have been merged into single tokens by the (simulated) merge rules, while less common longer words are built from more separate pieces",
-            "The tokenizer only merges vowels",
-            "Punctuation always forces a split"
+            "Layer normalization removes all positional information while residual connections re-inject it",
+            "Residual connections provide a direct identity highway for gradients across layers, while normalization keeps activation scales bounded",
+            "Residual connections double the effective vocabulary size at each layer",
+            "Layer normalization freezes early attention heads so only the final block trains"
           ],
           answer: 1,
-          explanation: "Merge rules (real BPE or this toy version) tend to fully collapse frequent short patterns, while rarer, longer, or unusual words don't match as many merge rules and stay split into more pieces."
+          explanation: "Skip connections let gradients propagate straight back through deep stacks without vanishing, while LayerNorm/RMSNorm stabilizes activation magnitudes before each attention and MLP sublayer."
         }
       ]
     });

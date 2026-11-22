@@ -36,30 +36,38 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why evaluating a model on its own training data gives a
-      misleadingly optimistic result, using the train/validation/test framework correctly.
+      <strong>Learning objective:</strong> Explain why testing a model on its training data inflates accuracy,
+      separate the distinct roles of training, validation, and test splits, and spot data leakage early.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          ML data is typically split into three parts: a <strong>training set</strong> the model actually
-          learns from, a <strong>validation set</strong> used to tune choices along the way, and a
-          <strong>test set</strong> kept completely separate until the very end, used to honestly measure
-          how the model performs on data it has never seen.
+          Before training any model, teams divide their labeled dataset into three non-overlapping buckets: a
+          <strong>training set</strong> to teach the model, a <strong>validation set</strong> to guide tuning choices
+          along the way, and a sealed <strong>test set</strong> evaluated once at the end to measure honest
+          real-world generalization.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (The Exam Analogy)</h2>
       <ul>
-        <li>Why you can't fairly evaluate a model on the same data it learned from</li>
-        <li>The role of the training set, validation set, and test set</li>
-        <li>Typical split ratios as a rule of thumb (e.g., 70/15/15 or 80/10/10)</li>
-        <li>Data leakage: the key failure mode where test data accidentally influences training</li>
+        <li><strong>Training set (~70–80%) = Practice problems with the answer key:</strong> The model adjusts its internal weights by studying these examples repeatedly.</li>
+        <li><strong>Validation set (~10–15%) = Practice mock quizzes:</strong> Whenever you compare two models or tweak settings, you grade them here so you don't fool yourself—without touching the final exam.</li>
+        <li><strong>Test set (~10–15%) = The sealed final exam:</strong> Used once after all decisions are locked in. Testing a model on its own training set is like giving students the exact worksheet they memorized and claiming they mastered the subject.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Silent Data Leakage</h3>
+      <p>
+        <strong>Data leakage</strong> happens whenever information from the validation or test set sneaks into training—such
+        as duplicate customer rows landing in both train and test, or normalizing features using averages from the whole
+        dataset before splitting. Leakage produces glowing evaluation scores that collapse immediately on live users.
+      </p>
     </section>
   </div>
 
@@ -218,43 +226,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why is it misleading to evaluate a model's accuracy using the same data it was trained on?",
+          q: "Why does checking accuracy on the training set often produce a much higher score than the model achieves in production?",
           options: [
-            "It's not misleading, that's the standard approach",
-            "The model may have memorized that data, producing an artificially high score that doesn't reflect performance on new data",
-            "Training data is always smaller than test data",
-            "Training data doesn't have labels"
+            "Because training splits typically exclude outliers and noisy examples automatically",
+            "Because the model already adjusted its weights to those exact examples and may have memorized quirks rather than general rules",
+            "Because validation and test sets use stricter loss formulas than training sets",
+            "Because training datasets are evaluated before model weights finish initializing"
           ],
           answer: 1,
-          explanation: "A model can memorize quirks of its training data, so testing on it gives an overly optimistic, unreliable accuracy number."
+          explanation: "Evaluating on seen examples measures memorization as much as understanding—like grading students with the exact practice sheet they memorized."
         },
         {
-          q: "What is the validation set primarily used for?",
+          q: "You are comparing three candidate models and trying five different settings to pick the winner. Which split should guide that selection?",
           options: [
-            "Training the final model weights",
-            "Tuning choices (like settings or model variants) during development",
-            "Replacing the test set entirely",
-            "Storing backup copies of the training data"
+            "The training set, because it holds the largest sample of labeled examples",
+            "The validation set, keeping the test set untouched until your final model choice is locked",
+            "The test set, because it gives the sharpest final estimate for each setting",
+            "Whichever split currently contains the highest proportion of rare labels"
           ],
           answer: 1,
-          explanation: "The validation set helps you tune decisions along the way without touching the untouched, final-evaluation test set."
+          explanation: "Repeatedly picking winners using the test set leaks test information into your decisions. The validation set is designed for model comparison and tuning, preserving the test set as an unbiased final check."
         },
         {
-          q: "What is \"data leakage\"?",
+          q: "Which scenario is a real example of 'data leakage'?",
           options: [
-            "When training data is deleted accidentally",
-            "When test data accidentally influences training, invalidating the evaluation",
-            "When a model outputs too many predictions",
-            "When the validation set is larger than the training set"
+            "Reserving only 10% of a 100,000-row dataset for final testing",
+            "Splitting a medical dataset randomly so scans from the same patient end up in both training and test sets",
+            "Running 10 training epochs over the same training split before evaluating",
+            "Using an 80/10/10 split instead of a 70/15/15 split"
           ],
           answer: 1,
-          explanation: "Data leakage happens when information from the test set leaks into training, making evaluation results unreliable."
+          explanation: "If the same patient appears in both train and test, the model can recognize patient anatomy rather than disease—artificially inflating test accuracy. Always group/split by independent entity."
         },
         {
-          q: "A common rule-of-thumb split ratio for train/validation/test is:",
-          options: ["10/10/80", "70/15/15", "1/1/98", "50/50/0"],
+          q: "For a moderate 10,000-row dataset, which train / validation / test split follows standard practice?",
+          options: [
+            "20% train / 40% validation / 40% test",
+            "70% train / 15% validation / 15% test",
+            "50% train / 50% validation / 0% test",
+            "10% train / 10% validation / 80% test"
+          ],
           answer: 1,
-          explanation: "70/15/15 (or similar ratios like 80/10/10) is a typical starting point, giving most data to training while keeping meaningful validation and test sets."
+          explanation: "Standard splits like 70/15/15 or 80/10/10 give the model most of the data to learn patterns from while retaining large enough validation and test sets for reliable evaluation."
         }
       ]
     });

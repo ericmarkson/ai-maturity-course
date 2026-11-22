@@ -3,26 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Novel Theoretical Contributions: Papers and Architectures — AI Maturity Course</title>
-<meta name="description" content="Producing new, formally or empirically grounded ideas that advance the field's shared body of knowledge.">
+<title>Experimental Rigor: Ablations, Baselines & Reproducible ML Research — AI Maturity Course</title>
+<meta name="description" content="Controlled ablations, compute- and tuning-matched baselines, bits-per-byte tokenizer controls, contamination checks, and statistical seed rigor.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "10-3";
 </script>
 <style>
-  .ob-meter-wrap { margin: var(--space-4) 0; }
-  .ob-meter-bar { height: 14px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
-  .ob-meter-fill { height: 100%; background: var(--color-primary); width: 0%; transition: width 0.2s ease; }
-  .ob-meter-label { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
-  .ob-section { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); background: var(--color-bg-alt); }
-  .ob-section.complete { border-color: var(--color-success); background: var(--color-success-bg); }
-  .ob-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-  .ob-section-title { font-weight: 700; margin: 0; }
-  .ob-badge { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-faint); }
-  .ob-section.complete .ob-badge { color: var(--color-success); }
-  .ob-guiding { font-size: var(--font-size-sm); font-style: italic; color: var(--color-text-muted); margin: var(--space-1) 0 var(--space-2) 0; }
-  .ob-section textarea { width: 100%; min-height: 70px; padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-sm); resize: vertical; }
+  .ab-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ab-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .ab-tab { border: 1px solid var(--color-border-strong); background: var(--color-bg); color: var(--color-text); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm); font-weight: 700; cursor: pointer; }
+  .ab-tab:hover { border-color: var(--color-primary); }
+  .ab-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .ab-tab.is-solved { border-left: 4px solid var(--color-success); }
+  .ab-report { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-4); }
+  .ab-claim { font-weight: 700; font-size: var(--font-size-md); margin: 0 0 var(--space-3) 0; color: var(--color-text); }
+  .ab-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); margin-bottom: var(--space-3); }
+  .ab-table th, .ab-table td { border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left; vertical-align: top; }
+  .ab-table th { background: var(--color-bg-inset); font-weight: 700; width: 24%; }
+  .ab-choices { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-3) 0; }
+  .ab-choice { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-alt); cursor: pointer; font-size: var(--font-size-sm); }
+  .ab-choice:hover { border-color: var(--color-primary); }
+  .ab-choice input { margin-top: 3px; flex-shrink: 0; }
+  .ab-feedback { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); margin-top: var(--space-2); }
+  .ab-feedback.ok { background: var(--color-success-bg); color: var(--color-success); border-left: 4px solid var(--color-success); }
+  .ab-feedback.bad { background: var(--color-error-bg); color: var(--color-error); border-left: 4px solid var(--color-error); }
+  .ab-remediation { margin-top: var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); color: var(--color-text); border-left: 4px solid var(--color-primary); font-size: var(--font-size-sm); }
+  .ab-progress { font-weight: 700; font-size: var(--font-size-sm); color: var(--color-text-muted); }
 </style>
 </head>
 <body>
@@ -32,35 +40,59 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 10 — Master</p>
-  <h1>Novel Theoretical Contributions: Papers and Architectures</h1>
+  <h1>Experimental Rigor: Ablations, Baselines &amp; Reproducible ML Research</h1>
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a one-paragraph research idea, structure it into a paper-shaped outline (claim, evidence plan, ablations, limitations) that a rigorous reviewer would find complete.
+      <strong>Learning objective:</strong> Diagnose hidden confounders in empirical ML claims—unequal tuning budgets, multi-factor changes, seed selection bias, data contamination, and FLOP mismatches—and specify the exact controlled ablation needed to validate the claim.
     </div>
+
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Novel theoretical contributions are new, formally or empirically grounded ideas that advance the field's
-          shared body of knowledge — the currency of academic/research AI. A contribution earns its place not by
-          being interesting but by being a falsifiable claim, positioned against related work, and backed by
-          evidence proportional to the strength of what it asserts.
+          Experimental rigor in machine learning is the discipline of isolating causal effects inside complex training pipelines so that reported gains genuinely come from the proposed method rather than hidden tuning effort, extra compute, lucky random seeds, or evaluation leakage.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        In high-dimensional deep learning systems, changing one hyperparameter can mask or mimic architectural breakthroughs. Credible frontier papers enforce four experimental controls:
+      </p>
       <ul>
-        <li><strong>Anatomy of a strong AI research paper</strong> — problem framing, related-work positioning, a
-          falsifiable claim, and evidence proportional to the claim's strength.</li>
-        <li><strong>Novelty vs. incrementalism</strong> — distinguishing a genuinely new contribution from a
-          re-packaging of an existing method.</li>
-        <li><strong>Peer review norms</strong> — what reviewers at top venues (NeurIPS/ICML/ICLR-class) actually
-          scrutinize: reproducibility, ablations, honest limitations sections.</li>
-        <li><strong>Open science practices</strong> — releasing code/weights/data, and the tension between openness
-          and frontier-safety concerns.</li>
+        <li><strong>Single-variable controlled ablations:</strong> Hold data ordering, token budget, context length, and optimizer schedule identical while toggling one mechanism at a time. When tokenizers differ, raw cross-entropy (nats/token) is non-comparable—convert to <em>bits per byte</em> (<code>BPB = L<sub>nats</sub> · tokens / (bytes · ln 2)</code>).</li>
+        <li><strong>Compute- &amp; tuning-matched baselines:</strong> A new architecture or optimizer must be compared against a baseline given the <em>same training FLOPs</em> (not just equal parameter count, which favors MoE or multi-epoch runs) and an <em>equal hyperparameter search budget</em>.</li>
+        <li><strong>Data contamination &amp; leakage audits:</strong> Synthetic rewrites, instruction distillation, and web crawls frequently leak held-out benchmarks. Rigorous pipelines run n-gram overlap (e.g., 13-gram/substring checks), embedding similarity filtering, and canary perplexity checks before reporting improvements.</li>
+        <li><strong>Statistical variance across seeds:</strong> On noisy reasoning benchmarks (e.g., 500-item math suites where SE ≈ 1.5–2.2%), reporting <code>max(5 seeds)</code> against a single baseline run turns random initialization noise into illusory "SOTA" gains. Always run paired multi-seed evaluations and report mean ± SE or McNemar/bootstrap p-values.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Unmasking a Context-Length Confounder</h3>
+      <p>
+        A paper claims: <em>"Linear-Attention Block X improves 32k LongBench QA by +4.1% over Standard Attention at 7B."</em> Inspecting the appendix reveals:
+      </p>
+      <table class="lesson-table">
+        <thead>
+          <tr><th>Factor</th><th>Baseline (Standard Attn)</th><th>Proposed (Block X)</th><th>Effect</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>RoPE base frequency</td><td>10,000 (trained at 4k)</td><td>1,000,000 (mid-trained at 32k)</td><td><strong>Confounder</strong> (+5% on 32k tasks)</td></tr>
+          <tr><td>Training tokens</td><td>2.0T tokens</td><td>2.0T + 50B 32k anneal</td><td><strong>Confounder</strong> (extra long-doc tokens)</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>Remediation:</strong> Apply the identical 50B 32k RoPE-1M annealing stage to Standard Attention; when both share the exact long-context curriculum, Block X actually trails Standard Attention by −0.8%.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Asymmetric baseline tuning ("strawman baselines"):</strong> Spending 30 GPU-days sweeping learning rates, warmup schedules, and weight decay for your proposed optimizer while running the baseline with out-of-the-box defaults from an older paper at a different batch size. Any observed win measures sweep effort, not algorithmic superiority.
+      </p>
     </section>
   </div>
 
@@ -90,91 +122,259 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Paper outline builder",
+      title: "Ablation & Confounder Debugger (5 Experiment Audits)",
       instructions:
-        "Type your one-paragraph research idea into each labeled section below, guided by the prompt question. " +
-        "Each section lights up green once it has enough content, and the completeness meter tracks your overall " +
-        "outline as you fill it in.",
+        "Inspect each of the 5 experiment reports below comparing a baseline against a proposed method. Identify the exact " +
+        "methodological confounder invalidating the reported claim, click 'Audit Experiment', and verify the rigorous remediation.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
-        var wrap = document.createElement("div");
-
-        var meterWrap = document.createElement("div");
-        meterWrap.className = "ob-meter-wrap";
-        var meterBar = document.createElement("div");
-        meterBar.className = "ob-meter-bar";
-        var meterFill = document.createElement("div");
-        meterFill.className = "ob-meter-fill";
-        meterBar.appendChild(meterFill);
-        var meterLabel = document.createElement("p");
-        meterLabel.className = "ob-meter-label";
-        meterWrap.appendChild(meterBar);
-        meterWrap.appendChild(meterLabel);
-        wrap.appendChild(meterWrap);
-
-        var sections = [
-          { key: "claim", title: "Claim", guiding: "What is the single, falsifiable claim this paper makes?" },
-          { key: "gap", title: "Related-work gap", guiding: "What does prior work fail to address that your claim targets?" },
-          { key: "method", title: "Method", guiding: "What is the concrete method or architecture that supports the claim?" },
-          { key: "ablations", title: "Expected ablations", guiding: "Which components would you remove or vary to prove each part matters?" },
-          { key: "limitations", title: "Limitations", guiding: "Where does this claim NOT hold, or what would a skeptical reviewer flag?" }
+        var REPORTS = [
+          {
+            id: "r1",
+            short: "1. Optimizer Tuning",
+            claim: "Claim: 'Our new Spectral-SGD optimizer lowers 70B validation loss by 0.035 nats over AdamW at 1T tokens.'",
+            rows: [
+              ["Model & Data", "70B dense Llama-style, 1T tokens", "70B dense Llama-style, 1T tokens"],
+              ["Tokenizer & Context", "32k BPE, 4096 seq len", "32k BPE, 4096 seq len"],
+              ["Hyperparam Sweep", "Copied LR=1.5e-4, wd=0.1 from 7B paper (1 run)", "24-run sweep over LR, momentum, cosine floor, wd"],
+              ["Reported Metric", "Val loss = 1.945 (1 seed)", "Val loss = 1.910 (1 seed)"]
+            ],
+            options: [
+              "FLOP-unmatched comparison because AdamW uses more optimizer-state memory than Spectral-SGD",
+              "Unequal hyperparameter tuning budget: 24 sweeps on Spectral-SGD vs. un-tuned paper defaults on AdamW",
+              "Tokenizer mismatch invalidating cross-entropy nats-per-token comparisons",
+              "Eval contamination in the validation split due to synthetic data"
+            ],
+            answer: 1,
+            why: "AdamW received zero tuning at 70B (reusing 7B hyperparameters that are typically suboptimal at 70B), whereas Spectral-SGD received a 24-run sweep.",
+            remediation: "Give AdamW the identical 24-run tuning budget (or μP proxy sweep at 400M) and verify gains across the full LR/weight-decay Pareto front."
+          },
+          {
+            id: "r2",
+            short: "2. Tokenizer + Arch",
+            claim: "Claim: 'Replacing SwiGLU with ReLU² cuts token-level cross-entropy loss from 2.18 to 1.89 on FineWeb-Edu.'",
+            rows: [
+              ["Architecture", "7B Transformer, SwiGLU FFN", "7B Transformer, ReLU² FFN"],
+              ["Tokenizer", "32k BPE (3.8 chars/token)", "128k BPE (4.5 chars/token)"],
+              ["Training Budget", "500B tokens", "500B tokens"],
+              ["Reported Metric", "Cross-entropy = 2.18 nats/token", "Cross-entropy = 1.89 nats/token"]
+            ],
+            options: [
+              "Changing tokenizer vocabulary (32k → 128k) AND activation simultaneously, while comparing non-comparable nats/token metrics",
+              "Insufficient random seeds causing >0.3 nat variance on FineWeb-Edu",
+              "MoE active parameter mismatch hiding extra training FLOPs",
+              "Pipeline bubble overhead distorting gradient updates in SwiGLU"
+            ],
+            answer: 0,
+            why: "Two variables changed at once, AND per-token loss cannot be compared across tokenizers—a 128k tokenizer packs ~18% more bytes per token, naturally shifting nats/token AND exposing 18% more raw bytes in 500B tokens!",
+            remediation: "Hold the tokenizer fixed in an isolated ReLU² ablation, and match total training *bytes* while reporting normalized Bits-Per-Byte (BPB)."
+          },
+          {
+            id: "r3",
+            short: "3. Seed Selection",
+            claim: "Claim: 'Adding Self-Consistency Critique during RLVR lifts MATH-500 accuracy from 64.2% to 66.0% (+1.8%).'",
+            rows: [
+              ["Base Model & Compute", "8B checkpoint, 10k GRPO steps", "8B checkpoint, 10k GRPO steps"],
+              ["Seeds Executed", "1 baseline run", "5 random seeds trained; highest checkpoint reported"],
+              ["Benchmark Variance", "MATH-500 (n=500; binomial SE ≈ ±2.1%)", "MATH-500 (n=500; seed spread 62.8%–66.0%)"],
+              ["Reported Metric", "64.2% single run", "66.0% ('best converged run')"]
+            ],
+            options: [
+              "FLOP-unmatched baseline because GRPO steps take longer with larger batch sizes",
+              "Cherry-picking best-of-5 seeds against a single baseline run inside high binomial variance (±2.1% SE)",
+              "Tokenizer vocabulary mismatch distorting token probabilities on math symbols",
+              "Pretraining data contamination from synthetic math prompts"
+            ],
+            answer: 1,
+            why: "With n=500 test items, standard error is ~2.1%, and the 5 seeds already span 62.8%–66.0% (mean ~64.4%). Selecting the maximum of 5 noisy RL runs virtually guarantees a fake +1.5–2% win.",
+            remediation: "Train both baseline and proposed method across 5 matched seeds, report mean ± standard deviation, and run a paired McNemar/bootstrap significance test on all 500 items."
+          },
+          {
+            id: "r4",
+            short: "4. Synthetic Leakage",
+            claim: "Claim: 'Our 3B Synthetic-Math curriculum outperforms 70B open models on GSM8K (+14.2% jump).'",
+            rows: [
+              ["Model & Compute", "3B model, 50B web math tokens", "3B model + 10B GPT-4 rewrites seeded from math benchmarks"],
+              ["Decontamination", "Exact string match only on train vs. test", "Exact string match only; paraphrase/n-gram check skipped"],
+              ["Eval Results", "GSM8K: 58.0% | Held-out Private Math: 56.5%", "GSM8K: 72.2% | Held-out Private Math: 57.1%"],
+              ["Perplexity Check", "Test split PPL = 8.4", "Test split PPL = 1.9 (4.4× lower than private split)"]
+            ],
+            options: [
+              "Unequal hyperparameter sweep budget favoring the 3B synthetic run",
+              "Benchmark contamination: synthetic paraphrases leaked GSM8K test problems past exact-match deduplication",
+              "Seed variance cherry-picking on a small test suite",
+              "Non-comparable cross-entropy loss across tokenizers"
+            ],
+            answer: 1,
+            why: "Exact-string matching misses paraphrased benchmark items generated from seed prompts. The telltale signature: GSM8K jumps +14.2% while an uncontaminated private math split moves +0.6% and test perplexity collapses to 1.9.",
+            remediation: "Run 13-gram/8-gram overlap AND embedding cosine similarity decontamination against all eval sets, plus verify transfer on freshly authored private holdouts."
+          },
+          {
+            id: "r5",
+            short: "5. FLOP Mismatch",
+            claim: "Claim: 'Sparse-MoE 30B beats Dense 30B across every reasoning benchmark at matched model scale.'",
+            rows: [
+              ["Parameter Count", "30B dense (30B active / tok)", "140B total params, top-2 routing (30B active / tok)"],
+              ["Tokens & Training FLOPs", "2.0T tokens (3.6 × 10²³ FLOPs)", "4.0T tokens (7.2 × 10²³ FLOPs, 2× wall-clock)"],
+              ["Memory Footprint", "60 GB BF16 weights", "280 GB BF16 weights (requires 4× more HBM)"],
+              ["Reported Framing", "'30B Dense Baseline'", "'30B-Class MoE'"]
+            ],
+            options: [
+              "Eval contamination from synthetic rewrites in the MoE pretraining mix",
+              "Cherry-picked best seed out of multiple MoE training runs",
+              "FLOP- and memory-unmatched comparison: MoE used 2× training FLOPs (4T vs 2T tokens) and 4.7× total HBM capacity",
+              "Incompatible tokenizer vocabularies skewing per-token cross-entropy"
+            ],
+            answer: 2,
+            why: "Labeling a 140B-total-param MoE trained on 4T tokens as '30B-class' hides both 2× training compute (6·N_active·D) and 4.7× parameter memory capacity (which must sit in HBM during serving).",
+            remediation: "Compare along an iso-FLOP and iso-serving-memory Pareto curve (e.g., training Dense 30B to 4T tokens or matching total cluster cost and HBM footprint)."
+          }
         ];
 
-        var sectionEls = {};
+        var wrap = document.createElement("div");
+        wrap.className = "ab-wrap";
 
-        sections.forEach(function (s) {
-          var card = document.createElement("div");
-          card.className = "ob-section";
+        var progressEl = document.createElement("div");
+        progressEl.className = "ab-progress";
+        wrap.appendChild(progressEl);
 
-          var head = document.createElement("div");
-          head.className = "ob-section-head";
-          var title = document.createElement("p");
-          title.className = "ob-section-title";
-          title.textContent = s.title;
-          var badge = document.createElement("span");
-          badge.className = "ob-badge";
-          badge.textContent = "○ incomplete";
-          head.appendChild(title);
-          head.appendChild(badge);
-          card.appendChild(head);
+        var tabsEl = document.createElement("div");
+        tabsEl.className = "ab-tabs";
+        wrap.appendChild(tabsEl);
 
-          var guiding = document.createElement("p");
-          guiding.className = "ob-guiding";
-          guiding.textContent = s.guiding;
-          card.appendChild(guiding);
-
-          var textarea = document.createElement("textarea");
-          textarea.placeholder = "Write this section...";
-          card.appendChild(textarea);
-
-          wrap.appendChild(card);
-          sectionEls[s.key] = { card: card, badge: badge, textarea: textarea };
-
-          textarea.addEventListener("input", updateMeter);
-        });
+        var reportBox = document.createElement("div");
+        reportBox.className = "ab-report";
+        wrap.appendChild(reportBox);
 
         root.appendChild(wrap);
 
-        function updateMeter() {
-          var complete = 0;
-          sections.forEach(function (s) {
-            var el = sectionEls[s.key];
-            var done = el.textarea.value.trim().length >= 25;
-            if (done) {
-              el.card.classList.add("complete");
-              el.badge.textContent = "✓ complete";
-              complete++;
-            } else {
-              el.card.classList.remove("complete");
-              el.badge.textContent = "○ incomplete";
-            }
+        var activeIdx = 0;
+        var solved = {}; // id -> bool
+        var lastChoice = {}; // id -> selected option idx
+
+        function renderTabs() {
+          tabsEl.innerHTML = "";
+          var solvedCount = Object.keys(solved).filter(function (k) { return solved[k]; }).length;
+          progressEl.textContent = "Audited accurately: " + solvedCount + " / " + REPORTS.length + " experiment reports";
+
+          REPORTS.forEach(function (rep, idx) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "ab-tab" + (idx === activeIdx ? " is-active" : "") + (solved[rep.id] ? " is-solved" : "");
+            btn.textContent = (solved[rep.id] ? "✓ " : "") + rep.short;
+            btn.setAttribute("aria-pressed", idx === activeIdx ? "true" : "false");
+            btn.addEventListener("click", function () {
+              activeIdx = idx;
+              renderTabs();
+              renderReport();
+            });
+            tabsEl.appendChild(btn);
           });
-          var pct = Math.round((complete / sections.length) * 100);
-          meterFill.style.width = pct + "%";
-          meterLabel.textContent = "Outline completeness: " + complete + " / " + sections.length + " sections (" + pct + "%)";
         }
 
-        updateMeter();
+        function renderReport() {
+          var rep = REPORTS[activeIdx];
+          reportBox.innerHTML = "";
+
+          var claim = document.createElement("p");
+          claim.className = "ab-claim";
+          claim.textContent = rep.claim;
+          reportBox.appendChild(claim);
+
+          var table = document.createElement("table");
+          table.className = "ab-table";
+          var thead = document.createElement("thead");
+          thead.innerHTML = "<tr><th>Dimension</th><th>Baseline Config</th><th>Proposed Config</th></tr>";
+          table.appendChild(thead);
+          var tbody = document.createElement("tbody");
+          rep.rows.forEach(function (r) {
+            var tr = document.createElement("tr");
+            var th = document.createElement("th"); th.textContent = r[0];
+            var td1 = document.createElement("td"); td1.textContent = r[1];
+            var td2 = document.createElement("td"); td2.textContent = r[2];
+            tr.appendChild(th); tr.appendChild(td1); tr.appendChild(td2);
+            tbody.appendChild(tr);
+          });
+          table.appendChild(tbody);
+          reportBox.appendChild(table);
+
+          var qTitle = document.createElement("p");
+          qTitle.style.fontWeight = "700";
+          qTitle.style.margin = "0 0 var(--space-1) 0";
+          qTitle.textContent = "Select the exact root confounder invalidating this report:";
+          reportBox.appendChild(qTitle);
+
+          var choices = document.createElement("div");
+          choices.className = "ab-choices";
+          var groupName = "ab-diag-" + rep.id;
+          rep.options.forEach(function (optText, optIdx) {
+            var optId = groupName + "-" + optIdx;
+            var lbl = document.createElement("label");
+            lbl.className = "ab-choice";
+            lbl.setAttribute("for", optId);
+            var radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = groupName;
+            radio.id = optId;
+            radio.value = String(optIdx);
+            if (lastChoice[rep.id] === optIdx) radio.checked = true;
+            var span = document.createElement("span");
+            span.textContent = optText;
+            lbl.appendChild(radio);
+            lbl.appendChild(span);
+            choices.appendChild(lbl);
+          });
+          reportBox.appendChild(choices);
+
+          var auditBtn = document.createElement("button");
+          auditBtn.type = "button";
+          auditBtn.className = "btn btn-primary";
+          auditBtn.textContent = "Audit Experiment";
+          reportBox.appendChild(auditBtn);
+
+          var feedbackWrap = document.createElement("div");
+          feedbackWrap.setAttribute("role", "status");
+          reportBox.appendChild(feedbackWrap);
+
+          function showFeedback(selected) {
+            feedbackWrap.innerHTML = "";
+            if (selected === undefined || isNaN(selected)) {
+              var warn = document.createElement("div");
+              warn.className = "ab-feedback bad";
+              warn.textContent = "Select one diagnosis option first.";
+              feedbackWrap.appendChild(warn);
+              return;
+            }
+            var isOk = selected === rep.answer;
+            var fb = document.createElement("div");
+            fb.className = "ab-feedback " + (isOk ? "ok" : "bad");
+            fb.textContent = (isOk ? "Exact diagnosis! " : "Not the primary confounder. ") + rep.why;
+            feedbackWrap.appendChild(fb);
+
+            if (isOk) {
+              solved[rep.id] = true;
+              var rem = document.createElement("div");
+              rem.className = "ab-remediation";
+              rem.innerHTML = "<strong>Rigorous Remediation Check:</strong> " + rep.remediation;
+              feedbackWrap.appendChild(rem);
+              renderTabs();
+            }
+          }
+
+          if (solved[rep.id] && lastChoice[rep.id] === rep.answer) {
+            showFeedback(rep.answer);
+          }
+
+          auditBtn.addEventListener("click", function () {
+            var checked = reportBox.querySelector('input[name="' + groupName + '"]:checked');
+            var val = checked ? parseInt(checked.value, 10) : NaN;
+            if (!isNaN(val)) lastChoice[rep.id] = val;
+            showFeedback(val);
+          });
+        }
+
+        renderTabs();
+        renderReport();
       }
     });
 
@@ -183,48 +383,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What makes a research claim 'falsifiable' in the context of a strong AI research paper?",
+          q: "Two pretraining runs use different BPE tokenizers (32k vs. 128k vocabulary) on the same raw corpus. Why is comparing raw cross-entropy loss in nats/token misleading, and what metric fixes it?",
           options: [
-            "It can never be proven wrong under any circumstances",
-            "There exists a concrete experiment or evidence that could, in principle, show the claim is false",
-            "It is stated as an opinion rather than a fact",
-            "It relies entirely on anecdote"
+            "Larger vocabularies reduce softmax temperature automatically; normalizing by layer depth restores comparability",
+            "A larger vocabulary packs more characters per token, mechanically shifting loss per token regardless of model quality; normalize total sequence loss into Bits Per Byte (BPB)",
+            "Cross-entropy is invariant to tokenizer granularity once training exceeds 100B tokens",
+            "Perplexity is strictly independent of vocabulary size, so reporting exp(loss_nats) resolves the difference"
           ],
           answer: 1,
-          explanation: "A falsifiable claim specifies conditions under which it could be shown wrong — this is what lets ablations and experiments actually test it, rather than merely illustrate it."
+          explanation: "Predicting a coarser 128k token is a harder per-token prediction across fewer tokens, making nats/token non-comparable (and exp(nats/token) suffers the exact same distortion). Converting total corpus cross-entropy into Bits Per Byte (BPB) measures compression over identical raw UTF-8 bytes."
         },
         {
-          q: "What is the key difference between a genuinely novel contribution and incrementalism?",
+          q: "You train a proposed RL method across 5 random seeds and report the best seed (67.4%) against a single baseline run (65.2%) on a 400-question benchmark. Why does this fail peer-review rigor?",
           options: [
-            "Incremental work is always worthless and should never be published",
-            "Novelty introduces a new idea, mechanism, or framing, while incrementalism mainly re-packages an existing method with minor tweaks",
-            "Novel work never builds on prior work",
-            "There is no meaningful difference"
+            "400 questions gives a binomial standard error near ±2.4%, so taking max(5 seeds) creates an illusory +2% win purely from selection over random noise",
+            "Random seeds only affect pretraining weight initialization and have zero effect on RL variance",
+            "A 400-question benchmark requires at least 50 seeds before paired tests become mathematically defined",
+            "Reporting the best seed is valid as long as the baseline uses greedy decoding at temperature 0"
           ],
-          answer: 1,
-          explanation: "Novelty is about a genuine addition to the field's understanding, whereas incrementalism largely restates existing methods with small variations dressed up as new."
+          answer: 0,
+          explanation: "Selection bias (reporting max over k runs while running the baseline once) inflates expected scores by roughly a standard deviation or more. Rigorous evaluation runs matched multi-seed budgets for both methods and checks paired significance."
         },
         {
-          q: "At top-tier venues (NeurIPS/ICML/ICLR-class), what do reviewers typically scrutinize most heavily?",
+          q: "A team compares a 140B-total-parameter MoE (28B active) trained on 3T tokens against a 28B dense model trained on 1.5T tokens, claiming 'MoE dominates at the 28B scale.' Which baseline control is violated?",
           options: [
-            "The number of authors on the paper",
-            "Reproducibility, ablations, and an honest limitations section",
-            "How many citations the paper includes regardless of relevance",
-            "The length of the paper's introduction"
+            "The dense model lacks μP learning-rate scaling across its attention heads",
+            "Both models must use identical activation functions (SwiGLU) before active FLOPs can be compared",
+            "The comparison violates iso-FLOP and iso-memory matching: the MoE consumed 2× the training FLOPs and requires 5× the parameter HBM memory",
+            "MoE models cannot be evaluated on dense benchmarks without disabling expert routing"
           ],
-          answer: 1,
-          explanation: "Rigorous reviewers focus on whether results can be reproduced, whether ablations isolate what actually matters, and whether limitations are honestly disclosed rather than hidden."
+          answer: 2,
+          explanation: "Even though active FLOPs per token match (28B), doubling the token count doubles training compute (C = 6 · N_active · D), and 140B total parameters consume 5× more GPU HBM memory during both training and serving."
         },
         {
-          q: "What tension exists around open science practices (releasing code/weights/data) at the frontier-AI level?",
+          q: "Exact string matching passes cleanly on a synthetic math training set, yet the trained model gains +15% on GSM8K while improving only +0.5% on a freshly written private math set. What diagnostic best confirms the suspicion?",
           options: [
-            "There is no tension — full openness is always the correct choice",
-            "Openness accelerates verification and community progress, but can also lower the barrier to misuse of frontier-capable systems",
-            "Open science practices are illegal in most jurisdictions",
-            "Releasing code is unrelated to safety concerns"
+            "Measure n-gram/semantic embedding overlap and compare test-split perplexity against the private holdout split",
+            "Check whether the AdamW beta2 decay constant drifted during late annealing",
+            "Increase evaluation temperature from 0.0 to 0.7 to verify pass@1 stability",
+            "Compare training wall-clock time across InfiniBand vs. RoCE interconnects"
           ],
-          answer: 1,
-          explanation: "Open science speeds up reproducibility and field-wide progress, but for frontier-capable systems it can also make misuse or unsafe replication easier — a genuine tradeoff labs must navigate."
+          answer: 0,
+          explanation: "Paraphrased synthetic rewrites evade exact-string filters. Checking fuzzy n-gram/embedding similarity and comparing test-set vs. uncontaminated private-set perplexity reveals whether memorized test distributions are driving the jump."
         }
       ]
     });

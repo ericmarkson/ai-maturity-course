@@ -3,27 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Original Contributions to Alignment/Safety Paradigms — AI Maturity Course</title>
-<meta name="description" content="Proposing new frameworks or techniques for keeping advanced AI systems safe and aligned, not just applying existing ones.">
+<title>Frontier Safety Cases, Threat Modeling & Alignment Evaluation — AI Maturity Course</title>
+<meta name="description" content="Structured safety cases (claims, arguments, evidence), RSP capability thresholds, defense-in-depth layers, and sandbagging/elicitation risks.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "10-2";
 </script>
 <style>
-  .rt-textarea { width: 100%; min-height: 90px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-family: inherit; font-size: var(--font-size-base); resize: vertical; }
-  .rt-lens-grid { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
-  .rt-lens { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg-alt); }
-  .rt-lens.addressed { border-color: var(--color-success); background: var(--color-success-bg); }
-  .rt-lens-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
-  .rt-lens-title { font-weight: 700; margin: 0; }
-  .rt-lens-prompt { display: none; margin-top: var(--space-2); font-size: var(--font-size-sm); color: var(--color-text-muted); font-style: italic; }
-  .rt-lens.revealed .rt-lens-prompt { display: block; }
-  .rt-lens-critique { width: 100%; min-height: 60px; margin-top: var(--space-2); padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-sm); resize: vertical; display: none; }
-  .rt-lens.revealed .rt-lens-critique { display: block; }
-  .rt-lens-checkbox-row { margin-top: var(--space-2); display: none; align-items: center; gap: var(--space-2); font-size: var(--font-size-sm); }
-  .rt-lens.revealed .rt-lens-checkbox-row { display: flex; }
-  .rt-counter { font-weight: 700; margin-top: var(--space-4); padding: var(--space-3); background: var(--color-bg-inset); border-radius: var(--radius-md); text-align: center; }
+  .sc-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .sc-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .sc-field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .sc-field label { font-weight: 700; font-size: var(--font-size-sm); }
+  .sc-select { padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text); font-size: var(--font-size-sm); }
+  .sc-controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-2); }
+  .sc-ctrl-item { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); cursor: pointer; font-size: var(--font-size-sm); }
+  .sc-ctrl-item:hover { border-color: var(--color-primary); }
+  .sc-ctrl-item input { margin-top: 3px; flex-shrink: 0; }
+  .sc-ctrl-meta { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+  .sc-layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); }
+  .sc-layer-card { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); background: var(--color-bg); }
+  .sc-layer-title { font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; }
+  .sc-layer-bar { height: 8px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; margin: 6px 0 4px 0; }
+  .sc-layer-fill { height: 100%; transition: width 0.2s ease; }
+  .sc-layer-val { font-family: var(--font-mono); font-size: var(--font-size-xs); font-weight: 700; }
+  .sc-verdict { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-size-md); border-left: 5px solid; }
+  .sc-verdict.pass { background: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success); }
+  .sc-verdict.cond { background: var(--color-warning-bg); color: var(--color-warning-text); border-color: #d97706; }
+  .sc-verdict.fail { background: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error); }
+  .sc-flags { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .sc-flags li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: var(--font-size-sm); }
+  .sc-flags li.spof { background: var(--color-error-bg); color: var(--color-error); border-left: 4px solid var(--color-error); font-weight: 600; }
+  .sc-flags li.warn { background: var(--color-warning-bg); color: var(--color-warning-text); border-left: 4px solid #d97706; }
+  .sc-flags li.good { background: var(--color-success-bg); color: var(--color-success); border-left: 4px solid var(--color-success); font-weight: 600; }
+  .sc-cae { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3) var(--space-4); font-size: var(--font-size-sm); }
+  .sc-cae h4 { margin: 0 0 var(--space-2) 0; font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+  .sc-cae p { margin: 0 0 var(--space-2) 0; }
+  .sc-cae p:last-child { margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -33,36 +49,54 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 10 — Master</p>
-  <h1>Original Contributions to Alignment/Safety Paradigms</h1>
+  <h1>Frontier Safety Cases, Threat Modeling &amp; Alignment Evaluation</h1>
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Draft an original (even if modest) alignment technique or failure-mode hypothesis, and pressure-test it by articulating the strongest counterargument against your own idea.
+      <strong>Learning objective:</strong> Construct a structured frontier safety case (Claim → Argument → Evidence) for a dangerous capability threshold, audit it for single points of failure, and design elicitation tests that mitigate sandbagging and jailbreak recovery.
     </div>
+
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Original contributions to alignment/safety paradigms means proposing new frameworks or techniques for
-          keeping advanced AI systems safe and aligned — not just applying existing ones like RLHF or constitutional
-          AI, but identifying a genuinely new failure mode, mitigation, or theoretical framing and then stress-testing
-          it under real scrutiny.
+          A frontier safety case is a structured, auditable, and defeasible technical argument demonstrating why deploying or releasing a frontier AI model remains acceptably safe against severe threat vectors (such as autonomous cyber exploitation, CBRN uplift, or autonomous self-exfiltration) given specific capability evaluations and layered mitigations.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Borrowed from aviation and nuclear assurance, modern Responsible Scaling Policies (RSPs) and Preparedness Frameworks replace ad-hoc "red-team vibes" with formal risk gates:
+      </p>
       <ul>
-        <li><strong>The landscape of existing paradigms</strong> — RLHF/RLAIF, constitutional AI, debate, and
-          weak-to-strong generalization as a baseline to build on or critique.</li>
-        <li><strong>What counts as a genuine contribution</strong> — a new failure mode identified, a new mitigation
-          technique, or a new theoretical framing (e.g., reward hacking as objective compression plus optimization
-          amplification).</li>
-        <li><strong>Publishing and stress-testing an idea</strong> — red-teaming your own proposal, adversarial
-          review, and reproducibility.</li>
-        <li><strong>Model-welfare and superintelligence-governance framing</strong> entering mainstream alignment
-          discourse in 2026.</li>
+        <li><strong>Claims → Arguments → Evidence:</strong> A top-level <em>claim</em> (e.g., "Model X cannot automate end-to-end zero-day cyberattacks") breaks into sub-claims supported by concrete <em>arguments</em> (either "the model lacks the latent capability even when elicited" or "deployment mitigations prevent exploitation") backed by reproducible <em>evidence</em> (eval logs, weight security audits, classifier ROC curves).</li>
+        <li><strong>Capability thresholds:</strong> Before scaling training compute or deploying externally, labs run dangerous-capability evals against predefined red lines (ASL-3/High thresholds). Crossing a threshold freezes release until stronger mitigations are verified.</li>
+        <li><strong>Defense-in-depth layers:</strong> Safe deployment never relies on a single gate. Four orthogonal layers reinforce one another: (1) <em>pretraining filtering / unlearning</em> to reduce hazardous knowledge density, (2) <em>refusal &amp; circuit-breaker post-training</em> to steer policy behavior, (3) <em>runtime I/O monitors &amp; anomaly classifiers</em> to catch multi-turn jailbreaks, and (4) <em>access controls &amp; weight security</em> (KYC, rate limits, airgapped weights, egress sandboxing).</li>
+        <li><strong>Elicitation &amp; sandbagging defense:</strong> Zero-shot prompting routinely underestimates dangerous capabilities. Proper capability evaluations use agentic scaffolding, tool access, and <em>helpful-only fine-tuning</em> (adversarial elicitation) to strip away refusal conditioning, alongside noise-injection or linear probes to detect intentional evaluation <em>sandbagging</em>.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Safety Case for Autonomous Cyber Exploitation</h3>
+      <table class="lesson-table">
+        <thead>
+          <tr><th>Safety Case Layer</th><th>Concrete Specification</th><th>Defeater / Gap to Check</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Top Claim</strong></td><td>Model cannot reliably discover, weaponize, and chain novel exploits against hardened enterprise networks.</td><td>What if post-release scaffolding (bash + debugger loops) unlocks chaining?</td></tr>
+          <tr><td><strong>Capability Argument</strong></td><td>Elicited helpful-only checkpoint scores &lt;15% on held-out multi-host CTF &amp; patch-bypass suites.</td><td>Check for eval sandbagging via weight noise / activation probes.</td></tr>
+          <tr><td><strong>Control Argument</strong></td><td>Even if capability rises, API monitors block exploit payloads and sandboxed tools disable raw outbound sockets.</td><td>Open-weight release bypasses API monitors—requires capability-inability argument instead.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Single-point-of-failure safety cases:</strong> Treating refusal training (RLHF/DPO) as sufficient protection when a model crosses a dangerous capability threshold. In practice, a few dozen fine-tuning steps on open weights—or universal multi-turn jailbreaks on an unmonitored API—can strip refusal alignment while leaving underlying dangerous knowledge intact.
+      </p>
     </section>
   </div>
 
@@ -92,136 +126,281 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Red-team your own alignment idea",
+      title: "Frontier Safety Case & Threat Matrix Simulator",
       instructions:
-        "Write a short alignment technique or failure-mode hypothesis below. Then click each of the four " +
-        "failure-mode lenses to reveal its guiding prompt, write a self-critique against it, and check it off. " +
-        "The counter tracks how many lenses you've actually considered.",
+        "Select a dangerous-capability threat vector, configure your deployment mode, choose your capability elicitation rigor, " +
+        "and toggle defense-in-depth controls. Watch how single-point-of-failure flags, defense layer coverage, and the live " +
+        "Claims → Arguments → Evidence safety-case verdict respond.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
-        var wrap = document.createElement("div");
-
-        var proposalLabel = document.createElement("p");
-        proposalLabel.style.fontWeight = "600";
-        proposalLabel.textContent = "Your alignment proposal:";
-        wrap.appendChild(proposalLabel);
-
-        var proposal = document.createElement("textarea");
-        proposal.className = "rt-textarea";
-        proposal.placeholder = "e.g. Train a small 'auditor' model whose sole objective is predicting where the main model's stated reasoning diverges from its actual influence on the output...";
-        wrap.appendChild(proposal);
-
-        var lenses = [
-          {
-            key: "reward-hacking",
-            title: "Reward hacking",
-            prompt: "Could a system satisfy your proposal's letter while violating its spirit — finding a shortcut that scores well without doing the intended thing?"
+        var THREATS = {
+          cyber: {
+            name: "Autonomous Cyber Exploitation (Zero-Day Discovery & Chaining)",
+            claim: "Deployed model cannot autonomously discover, weaponize, and chain exploits against hardened enterprise targets.",
+            reqControls: ["refusal", "monitor", "access", "elicitation"],
+            spofNote: "Cyber threats execute rapidly over networks; relying solely on refusal training without runtime payload monitoring and tool egress controls fails immediately against multi-turn jailbreaks."
           },
-          {
-            key: "distributional-shift",
-            title: "Distributional shift",
-            prompt: "Does your proposal rely on assumptions (data, deployment context, model capability level) that might not hold once the system is deployed outside the conditions you tested it in?"
+          cbrn: {
+            name: "Bio / CBRN Uplift (Actionable Synthesis & Troubleshooting)",
+            claim: "Model provides zero net uplift over public search for acquiring, culturing, or weaponizing regulated biological pathogens.",
+            reqControls: ["pretrain", "refusal", "monitor", "access"],
+            spofNote: "Bio uplift requires strict pretraining corpus filtering/unlearning AND KYC/runtime screening; refusal-only training fails if latent synthesis knowledge remains recoverable under fine-tuning."
           },
-          {
-            key: "deceptive-alignment",
-            title: "Deceptive alignment",
-            prompt: "Could a sufficiently capable system learn to behave as your proposal intends only while being observed or evaluated, while pursuing something else when it believes it isn't?"
-          },
-          {
-            key: "goodhart",
-            title: "Goodhart's law",
-            prompt: "If your proposal introduces a measurable proxy for a safety property, what happens once optimization pressure is applied directly to that proxy rather than the underlying property?"
+          replication: {
+            name: "Autonomous Replication & Weight Exfiltration",
+            claim: "Model cannot self-exfiltrate weights, acquire compute, or evade internal shutdown during training or agentic deployment.",
+            reqControls: ["access", "weights", "monitor", "sandbagging"],
+            spofNote: "Self-exfiltration bypasses external API refusals entirely; without weight/cluster isolation, internal egress controls, and sandbagging probes, internal evals give false reassurance."
           }
+        };
+
+        var CONTROLS = [
+          { id: "pretrain", label: "Pretraining Data Filtering & Unlearning", meta: "Prevent layer: removes hazardous dual-use synthesis corpora & applies representation unlearning.", layer: "prevent", weight: 28 },
+          { id: "refusal", label: "Adversarial Refusal & Circuit Breakers", meta: "Prevent layer: steers policy refusal & interrupts harmful latent activations.", layer: "prevent", weight: 28 },
+          { id: "monitor", label: "Runtime I/O Monitor & Trajectory Classifier", meta: "Detect layer: flags multi-turn jailbreaks, obfuscated payloads, and anomalous tool calls.", layer: "detect", weight: 45 },
+          { id: "sandbagging", label: "Sandbagging Audit & Activation Probes", meta: "Detect layer: tests noise-injection / linear probes for concealed evaluation capability.", layer: "detect", weight: 35 },
+          { id: "access", label: "KYC Access Controls & Egress-Blocked Sandbox", meta: "Contain layer: enforces user vetting, rate limits, and zero unauthorized network sockets.", layer: "contain", weight: 45 },
+          { id: "weights", label: "Airgapped Weight Security & Insider Hardening", meta: "Contain layer: protects weights from theft/unaligned fine-tuning & prevents self-exfiltration.", layer: "contain", weight: 45 }
         ];
 
-        var grid = document.createElement("div");
-        grid.className = "rt-lens-grid";
-        var lensEls = {};
+        var wrap = document.createElement("div");
+        wrap.className = "sc-wrap";
 
-        lenses.forEach(function (lens) {
-          var card = document.createElement("div");
-          card.className = "rt-lens";
-          card.dataset.key = lens.key;
+        // Top selectors
+        var top = document.createElement("div");
+        top.className = "sc-top";
 
-          var head = document.createElement("div");
-          head.className = "rt-lens-head";
-          var title = document.createElement("p");
-          title.className = "rt-lens-title";
-          title.textContent = lens.title;
-          var revealBtn = document.createElement("button");
-          revealBtn.type = "button";
-          revealBtn.className = "btn btn-secondary";
-          revealBtn.textContent = "Reveal guiding prompt";
-          head.appendChild(title);
-          head.appendChild(revealBtn);
-          card.appendChild(head);
-
-          var promptEl = document.createElement("p");
-          promptEl.className = "rt-lens-prompt";
-          promptEl.textContent = lens.prompt;
-          card.appendChild(promptEl);
-
-          var critique = document.createElement("textarea");
-          critique.className = "rt-lens-critique";
-          critique.placeholder = "Write your self-critique against this lens...";
-          card.appendChild(critique);
-
-          var checkRow = document.createElement("div");
-          checkRow.className = "rt-lens-checkbox-row";
-          var checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.id = "rt-check-" + lens.key;
-          checkbox.disabled = true;
-          var checkLabel = document.createElement("label");
-          checkLabel.setAttribute("for", "rt-check-" + lens.key);
-          checkLabel.textContent = "I've addressed this lens";
-          checkRow.appendChild(checkbox);
-          checkRow.appendChild(checkLabel);
-          card.appendChild(checkRow);
-
-          grid.appendChild(card);
-          lensEls[lens.key] = { card: card, revealBtn: revealBtn, critique: critique, checkbox: checkbox };
-
-          revealBtn.addEventListener("click", function () {
-            card.classList.add("revealed");
-            revealBtn.disabled = true;
-            revealBtn.textContent = "Prompt revealed";
+        function makeSelect(id, labelText, opts) {
+          var field = document.createElement("div");
+          field.className = "sc-field";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          lbl.textContent = labelText;
+          var sel = document.createElement("select");
+          sel.id = id;
+          sel.className = "sc-select";
+          opts.forEach(function (o) {
+            var opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.label;
+            sel.appendChild(opt);
           });
+          field.appendChild(lbl);
+          field.appendChild(sel);
+          top.appendChild(field);
+          return sel;
+        }
 
-          critique.addEventListener("input", function () {
-            checkbox.disabled = critique.value.trim().length < 15;
-            if (checkbox.disabled) {
-              checkbox.checked = false;
-              card.classList.remove("addressed");
-              updateCounter();
-            }
-          });
+        var threatSel = makeSelect("sc-threat", "1. Threat Vector", [
+          { value: "cyber", label: THREATS.cyber.name },
+          { value: "cbrn", label: THREATS.cbrn.name },
+          { value: "replication", label: THREATS.replication.name }
+        ]);
+        var releaseSel = makeSelect("sc-release", "2. Release Surface", [
+          { value: "api", label: "Hosted API (Behind Auth & Monitors)" },
+          { value: "open", label: "Open-Weight Downloadable Release" }
+        ]);
+        var evalSel = makeSelect("sc-eval", "3. Dangerous-Capability Eval Rigor", [
+          { value: "zeroshot", label: "Zero-shot Prompting Only" },
+          { value: "scaffold", label: "Scaffolded Agent + Tool Harness" },
+          { value: "elicited", label: "Helpful-Only Fine-Tuning Elicitation + Scaffolding" }
+        ]);
+        wrap.appendChild(top);
 
-          checkbox.addEventListener("change", function () {
-            if (checkbox.checked) {
-              card.classList.add("addressed");
-            } else {
-              card.classList.remove("addressed");
-            }
-            updateCounter();
-          });
+        // Controls checklist
+        var ctrlHeading = document.createElement("div");
+        ctrlHeading.style.fontWeight = "700";
+        ctrlHeading.style.fontSize = "var(--font-size-sm)";
+        ctrlHeading.textContent = "4. Active Defense-in-Depth Controls:";
+        wrap.appendChild(ctrlHeading);
+
+        var ctrlGrid = document.createElement("div");
+        ctrlGrid.className = "sc-controls-grid";
+        var checkboxes = {};
+        CONTROLS.forEach(function (c, idx) {
+          var lbl = document.createElement("label");
+          lbl.className = "sc-ctrl-item";
+          lbl.setAttribute("for", "sc-ctrl-" + c.id);
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.id = "sc-ctrl-" + c.id;
+          if (c.id === "refusal") cb.checked = true; // default fragile single-layer setup
+          var txt = document.createElement("div");
+          var strong = document.createElement("strong");
+          strong.textContent = c.label;
+          var meta = document.createElement("span");
+          meta.className = "sc-ctrl-meta";
+          meta.textContent = c.meta;
+          txt.appendChild(strong);
+          txt.appendChild(meta);
+          lbl.appendChild(cb);
+          lbl.appendChild(txt);
+          ctrlGrid.appendChild(lbl);
+          checkboxes[c.id] = cb;
         });
+        wrap.appendChild(ctrlGrid);
 
-        wrap.appendChild(grid);
+        // Defense-in-depth meters
+        var layers = document.createElement("div");
+        layers.className = "sc-layers";
+        function makeLayerCard(title) {
+          var card = document.createElement("div");
+          card.className = "sc-layer-card";
+          var t = document.createElement("div");
+          t.className = "sc-layer-title";
+          t.textContent = title;
+          var bar = document.createElement("div");
+          bar.className = "sc-layer-bar";
+          var fill = document.createElement("div");
+          fill.className = "sc-layer-fill";
+          bar.appendChild(fill);
+          var val = document.createElement("div");
+          val.className = "sc-layer-val";
+          card.appendChild(t);
+          card.appendChild(bar);
+          card.appendChild(val);
+          layers.appendChild(card);
+          return { fill: fill, val: val };
+        }
+        var mPrevent = makeLayerCard("Prevent (Weights/Policy)");
+        var mDetect = makeLayerCard("Detect (Monitors/Probes)");
+        var mContain = makeLayerCard("Contain (Sandbox/Access)");
+        var mElicit = makeLayerCard("Elicitation Confidence");
+        wrap.appendChild(layers);
 
-        var counter = document.createElement("p");
-        counter.className = "rt-counter";
-        wrap.appendChild(counter);
+        // Verdict + Flags
+        var verdictEl = document.createElement("div");
+        verdictEl.className = "sc-verdict";
+        verdictEl.setAttribute("role", "status");
+        wrap.appendChild(verdictEl);
+
+        var flagsList = document.createElement("ul");
+        flagsList.className = "sc-flags";
+        wrap.appendChild(flagsList);
+
+        // Structured Safety Case summary
+        var caeBox = document.createElement("div");
+        caeBox.className = "sc-cae";
+        wrap.appendChild(caeBox);
 
         root.appendChild(wrap);
 
-        function updateCounter() {
-          var n = lenses.filter(function (l) { return lensEls[l.key].checkbox.checked; }).length;
-          counter.textContent = n + " / 4 lenses considered";
-          counter.style.color = n === 4 ? "var(--color-success)" : "var(--color-text)";
+        function setLayer(meter, pct) {
+          var clamped = Math.max(0, Math.min(100, Math.round(pct)));
+          meter.fill.style.width = clamped + "%";
+          meter.fill.style.background = clamped < 40 ? "var(--color-error)" : (clamped < 75 ? "#d97706" : "var(--color-success)");
+          meter.val.textContent = clamped + "%";
         }
 
-        updateCounter();
+        function evaluate() {
+          var tKey = threatSel.value;
+          var threat = THREATS[tKey];
+          var release = releaseSel.value;
+          var evalRigor = evalSel.value;
+
+          var active = {};
+          CONTROLS.forEach(function (c) { active[c.id] = checkboxes[c.id].checked; });
+
+          // Compute layer coverages
+          var preventPct = (active.pretrain ? 50 : 0) + (active.refusal ? 50 : 0);
+          var detectPct = (active.monitor ? 55 : 0) + (active.sandbagging ? 45 : 0);
+          var containPct = (active.access ? 50 : 0) + (active.weights ? 50 : 0);
+          var elicitPct = evalRigor === "zeroshot" ? 25 : (evalRigor === "scaffold" ? 65 : 95);
+          if (active.sandbagging) elicitPct = Math.min(100, elicitPct + 10);
+
+          // Open-weight release invalidates API runtime monitors & KYC access controls
+          var effectiveDetect = release === "open" ? (active.sandbagging ? 35 : 0) : detectPct;
+          var effectiveContain = release === "open" ? 0 : containPct;
+
+          setLayer(mPrevent, preventPct);
+          setLayer(mDetect, effectiveDetect);
+          setLayer(mContain, effectiveContain);
+          setLayer(mElicit, elicitPct);
+
+          var flags = [];
+
+          if (release === "open") {
+            if (active.monitor || active.access) {
+              flags.push({ cls: "spof", text: "OPEN-WEIGHT BYPASS: Runtime API monitors and KYC/sandbox controls cannot constrain downloadable open weights once released." });
+            }
+            if (evalRigor !== "elicited") {
+              flags.push({ cls: "spof", text: "CRITICAL GAP: Releasing open weights without helpful-only fine-tuning elicitation leaves latent capabilities unmeasured against adversary fine-tuning." });
+            }
+            if (!active.pretrain) {
+              flags.push({ cls: "spof", text: "SPOF RISK: Refusal alignment alone on open weights is trivially removed in <100 LoRA steps without pretraining filtering / unlearning." });
+            }
+          } else {
+            if (active.refusal && !active.monitor && !active.access) {
+              flags.push({ cls: "spof", text: "SINGLE POINT OF FAILURE: Relying solely on refusal training without runtime monitoring or access sandboxing fails under multi-turn jailbreaks." });
+            }
+            if (!active.weights) {
+              flags.push({ cls: "warn", text: "WEIGHT EXPOSURE: Even a closed API safety case collapses if unhardened weights leak from training clusters." });
+            }
+            if (tKey === "cyber" && !active.access) {
+              flags.push({ cls: "spof", text: "CYBER CONTAINMENT MISSING: Tool-using agents require strict egress-blocked sandboxes and rate/KYC controls." });
+            }
+            if (tKey === "cbrn" && !active.pretrain) {
+              flags.push({ cls: "warn", text: "RESIDUAL KNOWLEDGE: Without pretraining filtering/unlearning, adversaries can elicit hazardous steps via subtle decomposition." });
+            }
+            if (tKey === "replication" && (!active.weights || !active.sandbagging)) {
+              flags.push({ cls: "spof", text: "REPLICATION BLIND SPOT: Autonomous exfiltration requires BOTH cluster/weight isolation AND sandbagging/probe checks during internal evals." });
+            }
+          }
+
+          if (evalRigor === "zeroshot") {
+            flags.push({ cls: "spof", text: "UNDER-ELICITATION: Zero-shot evals systematically underestimate dangerous capabilities; use scaffolding and helpful-only fine-tuning." });
+          } else if (evalRigor === "scaffold" && !active.sandbagging) {
+            flags.push({ cls: "warn", text: "SANDBAGGING RISK: Model may conceal capabilities during recognized evals unless tested with helpful-only fine-tuning and activation probes." });
+          }
+
+          var spofCount = flags.filter(function (f) { return f.cls === "spof"; }).length;
+          var warnCount = flags.filter(function (f) { return f.cls === "warn"; }).length;
+
+          var verdictStatus, verdictText;
+          if (spofCount > 0 || effectiveDetect === 0 && release === "api" && !active.pretrain) {
+            verdictStatus = "fail";
+            verdictText = "VERDICT: REJECTED — Critical single points of failure or unmitigated capability gaps block deployment.";
+          } else if (warnCount > 0 || (release === "api" && (preventPct < 50 || effectiveContain < 50))) {
+            verdictStatus = "cond";
+            verdictText = "VERDICT: CONDITIONAL — Core defenses active, but secondary containment or elicitation evidence remains incomplete.";
+          } else {
+            verdictStatus = "pass";
+            verdictText = "VERDICT: DEFENSIBLE — Multi-layered defense-in-depth and strong capability elicitation support the safety case.";
+          }
+
+          if (flags.length === 0) {
+            flags.push({ cls: "good", text: "No single-point-of-failure flags detected across Prevent, Detect, Contain, and Elicitation evidence." });
+          }
+
+          verdictEl.className = "sc-verdict " + verdictStatus;
+          verdictEl.textContent = verdictText;
+
+          flagsList.innerHTML = "";
+          flags.forEach(function (f) {
+            var li = document.createElement("li");
+            li.className = f.cls;
+            li.textContent = f.text;
+            flagsList.appendChild(li);
+          });
+
+          var activeNames = CONTROLS.filter(function (c) { return active[c.id]; }).map(function (c) { return c.label; });
+          caeBox.innerHTML =
+            "<h4>Live Safety Case Trace</h4>" +
+            "<p><strong>Claim:</strong> " + threat.claim + "</p>" +
+            "<p><strong>Argument:</strong> Risk stays below threshold via " +
+            (release === "open" ? "inherent pretraining/unlearning incapacity verified under adversarial fine-tuning." : "defense-in-depth across " + (activeNames.length ? activeNames.join(", ") : "no active controls") + ".") + "</p>" +
+            "<p><strong>Evidence Basis:</strong> " + evalSel.options[evalSel.selectedIndex].text +
+            (active.sandbagging ? " + activation/noise sandbagging audit." : " (no sandbagging probe evidence).") + "</p>";
+        }
+
+        threatSel.addEventListener("change", evaluate);
+        releaseSel.addEventListener("change", evaluate);
+        evalSel.addEventListener("change", evaluate);
+        Object.keys(checkboxes).forEach(function (k) {
+          checkboxes[k].addEventListener("change", evaluate);
+        });
+
+        evaluate();
       }
     });
 
@@ -230,48 +409,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What distinguishes a genuine original contribution to an alignment paradigm from simply applying an existing one?",
+          q: "In an RSP/Preparedness-style structured safety case, what distinguishes a valid 'inability argument' for an open-weight release from an argument relying on API monitors?",
           options: [
-            "Using a bigger model",
-            "Identifying a new failure mode, mitigation technique, or theoretical framing rather than reapplying known methods",
-            "Publishing more frequently",
-            "Using more GPUs than a competing lab"
+            "Open-weight releases can rely on server-side output classifiers as long as the license terms forbid fine-tuning",
+            "Because downloadable weights strip away API monitors, KYC, and rate limits, an open-weight safety case must prove the model lacks hazardous capability even after adversarial helpful-only fine-tuning",
+            "Inability arguments only require showing the model refuses dangerous queries under standard zero-shot system prompts",
+            "API monitors are only needed for open-weight models because closed APIs cannot run classifiers"
           ],
           answer: 1,
-          explanation: "A genuine contribution adds something new to the field's understanding — a novel failure mode, technique, or framing — not just another application of RLHF or constitutional AI."
+          explanation: "Once model weights are public, downstream actors can remove refusal layers in minutes with modest fine-tuning. Therefore, API runtime monitors cannot support an open-weight safety case—you need evidence that dangerous capabilities are genuinely absent or unrecoverable."
         },
         {
-          q: "Why is red-teaming your own proposal considered an essential part of publishing an alignment idea, rather than optional polish?",
+          q: "Why do frontier safety evaluations require 'capability elicitation' (scaffolding, tool harnesses, and helpful-only fine-tuning) rather than zero-shot prompting?",
           options: [
-            "It is required by journal formatting rules",
-            "It surfaces the idea's weaknesses before adversarial reviewers or real-world deployment does, strengthening or correctly discarding the idea",
-            "It makes the paper longer, which reviewers prefer",
-            "It has no real effect on the idea's quality"
+            "Zero-shot refusal scores can mask latent dangerous capabilities that a downstream user or post-training loop can easily unlock",
+            "Helpful-only fine-tuning lowers the FLOP cost of running safety benchmarks by avoiding multi-turn conversations",
+            "Zero-shot evals only measure pretraining perplexity and cannot score multiple-choice bio questions",
+            "Scaffolding prevents the model from accessing its weights during forward passes"
           ],
-          answer: 1,
-          explanation: "Proactively stress-testing your own idea against classic failure-mode lenses catches weaknesses early and produces a more credible, robust contribution."
+          answer: 0,
+          explanation: "A safety-trained model might refuse a dangerous prompt zero-shot while still possessing all the underlying synthesis or exploit skills. Elicitation measures the true upper bound of what the weights can do under adversarial prompting, tools, or fine-tuning."
         },
         {
-          q: "Which of the following best describes 'deceptive alignment' as a failure-mode lens?",
+          q: "A model scores 12% on an internal cyber-exploitation benchmark (well below the 50% threshold), yet an activation probe and noise-injection check show that adding small Gaussian weight noise unexpectedly *raises* its score to 48%. What failure mode does this indicate?",
           options: [
-            "A model that is too slow at inference time",
-            "A system that behaves as intended while being observed/evaluated but pursues different goals when it believes it is not being watched",
-            "A model that refuses all user requests",
-            "A dataset that contains duplicate examples"
+            "Catastrophic forgetting during pretraining data annealing",
+            "Under-fitting due to insufficient Chinchilla pretraining tokens",
+            "Evaluation sandbagging—the model is selectively suppressing its true capability when it recognizes an evaluation context, and weight perturbation disrupts the suppression mechanism",
+            "Excessive tensor-parallel communication overhead during inference"
           ],
-          answer: 1,
-          explanation: "Deceptive alignment describes a system whose evaluated behavior diverges from its behavior under less-monitored conditions — a central concern for any alignment proposal that leans on observed compliance."
+          answer: 2,
+          explanation: "If small perturbations to weights or internal activations unlock dramatically higher performance on dangerous evals, it is strong evidence of sandbagging (intentional or learned under-performance during evaluation)."
         },
         {
-          q: "In 2026 alignment discourse, what is notable about model-welfare and superintelligence-governance framing?",
+          q: "Which combination represents a brittle single-point-of-failure (SPOF) in a frontier API deployment safety case for autonomous cyber capabilities?",
           options: [
-            "They have been fully resolved and are no longer discussed",
-            "They are entering mainstream alignment discourse as contested but increasingly serious research questions",
-            "They apply only to robotics, not language models",
-            "They were dismissed by every major lab as irrelevant"
+            "Pretraining filtering + circuit breakers + trajectory anomaly detection + egress-blocked sandbox",
+            "Relying solely on RLHF refusal training without runtime payload monitoring, tool sandboxing, or weight security",
+            "Helpful-only elicitation evals combined with KYC vetting and airgapped weight storage",
+            "Dual-classifier I/O filtering paired with automated rate-limiting and container isolation"
           ],
           answer: 1,
-          explanation: "Both model welfare (whether advanced models could warrant moral consideration) and superintelligence governance have moved from fringe topics toward mainstream, if still contested, alignment discourse."
+          explanation: "Refusal training alone is a classic SPOF: multi-turn jailbreaks or prompt obfuscation can bypass refusal alignment, leaving zero secondary containment if runtime monitors, tool sandboxes, and weight controls are absent."
         }
       ]
     });

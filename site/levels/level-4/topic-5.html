@@ -23,37 +23,67 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Construct a confusion matrix from a small set of
-      predictions vs. true labels and compute precision, recall, and F1 from it by hand, and explain
-      a real-world scenario (e.g. medical screening) where recall matters more than precision, or
-      vice versa.
+      <strong>Learning objective:</strong> Compute precision, recall, and F1 from a confusion matrix by hand, tune
+      decision thresholds around asymmetric error costs (false positives vs. false negatives), and interpret ROC-AUC as a
+      threshold-independent ranking metric.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          "Percent correct" (accuracy) can be badly misleading, especially when one class is rare —
-          a model that always predicts "healthy" can be 99% accurate on a rare-disease dataset while
-          being useless. The standard set of numbers used to judge a classifier more honestly all
-          start from the <strong>confusion matrix</strong>: how many predictions were true positives,
-          false positives, true negatives, and false negatives.
+          Raw accuracy (<code>(TP + TN) / Total</code>) hides failure whenever classes are imbalanced or errors carry
+          unequal costs. Classifier evaluation starts from the 2×2 <strong>confusion matrix</strong> (TP, FP, FN, TN) to
+          separate alarm reliability (<strong>precision</strong>) from detection completeness (<strong>recall</strong>),
+          combine them (<strong>F1</strong>), and evaluate score separation across all thresholds (<strong>ROC-AUC</strong>).
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Precision vs. Recall Trade-Off:</strong>
+        <code>Precision = TP / (TP + FP)</code> measures how trustworthy a positive prediction is;
+        <code>Recall = TP / (TP + FN)</code> measures what fraction of true positives the model actually caught.
+        Raising the decision threshold makes the model flag fewer examples—boosting precision while dropping recall;
+        lowering the threshold catches more positives at the cost of extra false alarms.
+      </p>
+      <p>
+        <strong>2. F1 Score (Harmonic Mean):</strong> <code>F1 = 2 · (P · R) / (P + R)</code>. Because the harmonic
+        mean is pulled down by whichever metric is smaller, a model cannot game F1 by achieving 100% precision with 5%
+        recall (<code>F1 = 0.095</code>, unlike arithmetic mean <code>0.525</code>).
+      </p>
+      <p>
+        <strong>3. ROC-AUC Across All Thresholds:</strong> Sweeping the decision threshold from 100 down to 0 traces True
+        Positive Rate (<code>Recall</code>) against False Positive Rate (<code>FP / (FP + TN)</code>). The Area Under
+        this ROC Curve (<strong>AUC</strong>) equals the probability that a random actual positive scores higher than a
+        random actual negative (<code>0.5</code> = random coin flip, <code>1.0</code> = perfect separation).
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Computing Precision, Recall, and F1 by Hand</h3>
+      <p>
+        Suppose a spam filter evaluates 100 emails (10 real spam, 90 legitimate) at a chosen threshold and flags 8 emails
+        as spam: <code>TP = 6</code>, <code>FP = 2</code>, <code>FN = 4</code>, <code>TN = 88</code>.
+      </p>
       <ul>
-        <li>The confusion matrix (true/false positives/negatives) as the foundation</li>
-        <li><strong>Precision</strong>: of everything the model predicted positive, how much was
-          actually positive? vs. <strong>recall</strong>: of everything that was actually positive,
-          how much did the model catch?</li>
-        <li><strong>F1 score</strong> as a single number balancing precision and recall (their
-          harmonic mean)</li>
-        <li><strong>ROC-AUC</strong> as a threshold-independent measure of how well a model separates
-          the two classes, across every possible decision threshold at once</li>
+        <li><strong>Accuracy:</strong> <code>(6 + 88) / 100 = 94%</code> (looks high, yet missed 40% of spam!)</li>
+        <li><strong>Precision:</strong> <code>6 / (6 + 2) = 75%</code> (3 out of 4 flagged emails were truly spam)</li>
+        <li><strong>Recall:</strong> <code>6 / (6 + 4) = 60%</code> (caught 6 of the 10 actual spam emails)</li>
+        <li><strong>F1 Score:</strong> <code>2 × (0.75 × 0.60) / (0.75 + 0.60) = 0.90 / 1.35 ≈ 66.7%</code></li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Trusting ROC-AUC Blindly on Rare Events</h3>
+      <p>
+        When negatives vastly outnumber positives (say 99.9% legitimate transactions vs. 0.1% fraud), a tiny False
+        Positive Rate like <code>1%</code> still generates 10× more false alarms than true catches—wrecking precision
+        even while ROC-AUC stays above <code>0.96</code>. On heavily skewed data, inspect Precision–Recall curves and
+        precision at fixed recall alongside ROC-AUC.
+      </p>
     </section>
 
   </div>
@@ -308,48 +338,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A false negative happens when the model predicts...",
+          q: "A classifier evaluates 50 items and outputs TP = 8, FP = 2, FN = 12, TN = 28. What are its Precision and Recall?",
           options: [
-            "Positive, and the true label is actually positive",
-            "Negative, and the true label is actually positive",
-            "Positive, and the true label is actually negative",
-            "Negative, and the true label is actually negative"
+            "Precision = 40%, Recall = 80%",
+            "Precision = 80%, Recall = 40%",
+            "Precision = 72%, Recall = 40%",
+            "Precision = 80%, Recall = 93%"
           ],
           answer: 1,
-          explanation: "False negative = the model said 'negative' but missed an actual positive case — e.g. a disease screening test that says 'healthy' for a sick patient."
+          explanation: "Precision = TP/(TP+FP) = 8/(8+2) = 80%. Recall = TP/(TP+FN) = 8/(8+12) = 40%. Swapping FP and FN in the denominator is the classic precision/recall mix-up."
         },
         {
-          q: "A model has high recall but low precision. What does that tell you?",
+          q: "As you drag the decision threshold HIGHER (e.g., from 35 to 85) in the exercise, how do Recall and Precision generally shift?",
           options: [
-            "It catches most of the actual positives, but also raises a lot of false alarms",
-            "It never makes a mistake",
-            "It misses most actual positives but rarely raises false alarms",
-            "Recall and precision can never both be measured on the same model"
-          ],
-          answer: 0,
-          explanation: "High recall means few false negatives (it catches almost everything positive); low precision means many of its positive predictions are wrong (lots of false positives) — a noisy-but-thorough detector."
-        },
-        {
-          q: "For screening a rare, serious, and treatable disease, which mistake is usually worse: a false negative (missed case) or a false positive (unnecessary follow-up test)?",
-          options: [
-            "False positive — extra tests are far more costly than a missed diagnosis",
-            "False negative — missing an actual case can mean a real health outcome lost, so recall is prioritized even at some cost to precision",
-            "They are always equally costly in every screening scenario",
-            "Neither matters if accuracy is high"
+            "Both precision and recall steadily rise together because fewer low-confidence errors occur",
+            "Recall drops (more actual positives fall below the stricter cutoff), while precision usually rises among the remaining confident predictions",
+            "Recall rises while precision drops because more negative examples are ignored",
+            "Precision and recall stay fixed while only ROC-AUC changes with the threshold"
           ],
           answer: 1,
-          explanation: "In screening contexts, missing a real case (false negative) is usually far more costly than a false alarm that gets ruled out with a follow-up test, so these systems are tuned for high recall."
+          explanation: "A higher cutoff demands stronger evidence before predicting positive, reducing false alarms (higher precision) at the cost of missing borderline true positives (lower recall). ROC-AUC itself stays constant across threshold changes."
         },
         {
-          q: "What makes ROC-AUC different from precision, recall, or F1 at a single cutoff?",
+          q: "Why is F1 defined as the harmonic mean rather than the simple average (P + R) / 2?",
           options: [
-            "It's computed without any labeled data at all",
-            "It summarizes how well the model separates the two classes across every possible decision threshold, not just one",
-            "It only works for regression models, not classifiers",
-            "It is always equal to accuracy"
+            "Because the harmonic mean matches overall accuracy when class counts are equal",
+            "Because the harmonic mean stays low if EITHER precision or recall is poor, preventing a trivial 100%-recall / 2%-precision classifier from scoring ~51%",
+            "Because arithmetic means exceed 1.0 whenever recall is higher than precision",
+            "Because the harmonic mean weights true negatives equally with true positives"
           ],
           answer: 1,
-          explanation: "Precision/recall/F1 depend on wherever you set the threshold. ROC-AUC sweeps the threshold from one extreme to the other and measures overall separability, so it doesn't depend on picking one cutoff."
+          explanation: "If Precision = 0.02 and Recall = 1.0, an arithmetic average gives 0.51, hiding the broken precision; the harmonic mean gives 2(0.02)(1.0)/1.02 ≈ 0.039, reflecting the weak link."
+        },
+        {
+          q: "What does an ROC-AUC score of 0.85 tell you that Precision/Recall at threshold 0.50 cannot?",
+          options: [
+            "That the model achieves 85% precision at its default operating cutoff",
+            "That across all possible score thresholds, a randomly drawn positive example has an 85% chance of scoring higher than a randomly drawn negative example",
+            "That false positives and false negatives carry equal business cost in deployment",
+            "That the dataset has balanced 50/50 positive and negative class counts"
+          ],
+          answer: 1,
+          explanation: "ROC-AUC evaluates ranking separation across every threshold simultaneously—measuring how cleanly the model orders positives ahead of negatives independent of any single cutoff."
         }
       ]
     });

@@ -37,31 +37,64 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Trace, step by step, how a hidden state updates as a short toy
-      sequence is fed through an RNN one item at a time, and explain in plain language what an LSTM's
-      "forget gate" is protecting against.
+      <strong>Learning objective:</strong> Trace how a recurrent hidden state updates step by step across a sequence,
+      explain why plain RNNs forget early context via vanishing gradients over time, and describe how LSTM gates
+      selectively preserve long-range signals.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Recurrent Neural Networks (RNNs)</strong> process sequences — like text or time series —
-          one step at a time while carrying a "memory" (hidden state) forward. <strong>LSTMs</strong> (Long
-          Short-Term Memory networks) are an improved RNN design with gates that decide what to keep vs.
-          discard, making them much better at remembering things over long sequences.
+          <strong>Recurrent Neural Networks (RNNs)</strong> process ordered sequences (text, audio, sensor streams) one
+          step at a time, updating a persistent <strong>hidden state</strong> <code>h_t</code> that summarizes prior
+          steps. <strong>LSTMs (Long Short-Term Memory)</strong> add a protected memory cell and learned gates
+          (<em>forget, input, output</em>) to choose what past context to retain across dozens or hundreds of steps.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Recurrent State Updates:</strong> At step <code>t</code>, a plain RNN computes
+        <code>h_t = tanh(W_h h_{t-1} + W_x x_t + b)</code>—combining the previous memory <code>h_{t-1}</code> with
+        the current token <code>x_t</code> using the exact same weights at every position.
+      </p>
+      <p>
+        <strong>2. Why Plain RNNs Lose Long-Range Context:</strong> Because every step folds old memory through fixed
+        matrix multiplication and squashing, early signals decay exponentially over unrolled time steps—and during
+        backpropagation through time (BPTT), repeated chain-rule multiplications cause gradients from late errors to
+        vanish before reaching early words.
+      </p>
+      <p>
+        <strong>3. LSTM Gates (Selective Memory):</strong> An LSTM maintains a separate cell state <code>c_t</code>
+        updated additively: <code>c_t = f_t ⊙ c_{t-1} + i_t ⊙ c̃_t</code>. The <strong>forget gate</strong>
+        <code>f_t ∈ (0, 1)</code> decides how much prior memory to keep; the <strong>input gate</strong>
+        <code>i_t</code> decides how much new candidate content to write; and the <strong>output gate</strong>
+        controls what part of <code>c_t</code> enters the exposed state <code>h_t</code>.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Filler Words vs. Sentiment Carryover</h3>
+      <p>
+        Suppose an RNN reads <code>"The movie was surprisingly great ... [5 neutral clauses] ... overall"</code>:
+      </p>
       <ul>
-        <li>The hidden state as memory passed from one time step to the next</li>
-        <li>Why plain RNNs struggle with long sequences (vanishing gradients over time)</li>
-        <li>LSTM gates (forget/input/output) at a conceptual "what to keep vs. discard" level</li>
-        <li>Sequence-to-sequence intuition (e.g., predicting the next word)</li>
+        <li><strong>Plain RNN:</strong> If each step retains <code>40%</code> of old state (<code>h_t = 0.4 h_{t-1} + 0.6 x_t</code>), after just 4 neutral filler words (<code>x ≈ 0</code>), the <code>"great"</code> signal shrinks to <code>0.4⁴ = 2.6%</code> of its strength—swamped by the latest neutral word.</li>
+        <li><strong>LSTM:</strong> On neutral filler words, the learned forget gate stays open (<code>f_t ≈ 0.95</code>) and the input gate stays nearly shut (<code>i_t ≈ 0.05</code>), letting <code>"great"</code> glide along cell state <code>c_t</code> until a decisive reversal like <code>"but forgettable"</code> opens the gates to overwrite it.</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Assuming LSTMs Parallelize Like Transformers</h3>
+      <p>
+        While LSTMs tame vanishing gradients far better than plain RNNs, they remain strictly sequential: computing
+        <code>h_t</code> still waits for <code>h_{t-1}</code>. On modern GPU clusters and multi-thousand-token prompts,
+        that step-by-step dependency creates a training bottleneck—which is why Transformer self-attention largely
+        replaced RNNs/LSTMs for large-scale language modeling.
+      </p>
     </section>
   </div>
 
@@ -248,48 +281,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the exercise, what is the 'hidden state' bar tracking as each word is stepped through?",
+          q: "In a recurrent neural network, what role does the hidden state h_t serve as tokens enter one by one?",
           options: [
-            "The exact word being read",
-            "A running memory value carried forward from one time step to the next",
-            "The total number of words in the sentence",
-            "A random number with no meaning"
+            "It stores a fixed lookup table of every token seen in the entire training corpus",
+            "It acts as a continuously updated summary vector combining past context (h_{t−1}) with the current input (x_t)",
+            "It counts token positions so the network skips positional encoding",
+            "It holds the gradient updates before backpropagation runs across the batch"
           ],
           answer: 1,
-          explanation: "The hidden state is the RNN's memory — a value that's updated at every step and carried into the next one, summarizing what's been seen so far."
+          explanation: "At each step t, the hidden state summarizes relevant history from steps 1…t−1 and merges it with x_t, passing the updated state to step t+1."
         },
         {
-          q: "Why does the plain-RNN memory bar 'fade fast', losing the influence of an early important word like 'great' by the time later neutral words arrive?",
+          q: "Why does a plain RNN struggle to connect an important clue at word 2 to a prediction at word 40?",
           options: [
-            "Because plain RNNs delete memory on purpose after 3 words",
-            "Because each step heavily overwrites the memory with the newest input regardless of the previous value's importance",
-            "Because plain RNNs don't have a hidden state at all",
-            "Because the sentence is too short"
+            "Plain RNNs only allocate memory slots for the most recent 5 tokens",
+            "Repeated fixed state overwrites and multiplying derivatives across 38 steps cause both early signals and backpropagated gradients to shrink exponentially",
+            "Plain RNNs reverse word order during backpropagation through time",
+            "Plain RNNs drop hidden states whenever punctuation tokens appear"
           ],
           answer: 1,
-          explanation: "A plain RNN blends old memory with new input using a fixed rule every step, so strong old signal keeps getting diluted no matter how important it was."
+          explanation: "Unrolling a plain RNN through 38 steps repeatedly multiplies gradients and blends states at a fixed rate, diluting early information and vanishing error signals backward through time."
         },
         {
-          q: "What is an LSTM's 'forget gate' conceptually protecting against?",
+          q: "In an LSTM cell, how do the forget gate (f_t) and input gate (i_t) protect long-range context when neutral filler words arrive?",
           options: [
-            "Running out of GPU memory",
-            "Losing genuinely important information from earlier in the sequence just because new, less important tokens keep arriving",
-            "The model training too quickly",
-            "Tokenization errors"
+            "By pausing backpropagation entirely on neutral tokens",
+            "By keeping f_t near 1 (preserving cell memory c_{t−1}) and i_t near 0 (blocking irrelevant updates from overwriting it)",
+            "By jumping directly over neutral tokens without advancing the step counter",
+            "By copying early token embeddings directly into the output vocabulary layer"
           ],
           answer: 1,
-          explanation: "The forget gate lets the network decide, per step, how much of its existing memory to keep — so unimportant tokens don't wipe out important earlier context, unlike a plain RNN's fixed overwrite rate."
+          explanation: "Because c_t = f_t ⊙ c_{t−1} + i_t ⊙ c̃_t is additive rather than a forced fixed blend, setting f_t ≈ 1 and i_t ≈ 0 lets vital context flow unchanged across uninformative steps."
         },
         {
-          q: "Which of these is closest to the 'sequence-to-sequence' intuition mentioned in this topic?",
+          q: "What structural limitation do BOTH plain RNNs and LSTMs share when scaling to huge text datasets?",
           options: [
-            "Classifying a single static image",
-            "Using the current hidden state, built from everything seen so far, to predict the next item (e.g. the next word)",
-            "Sorting a list of numbers",
-            "Compressing an image file"
+            "Neither can accept variable-length input sequences",
+            "Step t depends sequentially on step t−1, preventing parallel processing across all tokens in a sequence during training",
+            "Neither can be trained using gradient descent and backpropagation",
+            "Both require separate weight matrices for every single word position in the sequence"
           ],
           answer: 1,
-          explanation: "Sequence models like RNNs/LSTMs are commonly used to predict what comes next in a sequence, using the accumulated hidden state as context."
+          explanation: "RNNs and LSTMs share weights across positions and handle arbitrary lengths, but their sequential h_{t−1} → h_t dependency forces step-by-step computation—a bottleneck Transformers solved with parallel self-attention."
         }
       ]
     });

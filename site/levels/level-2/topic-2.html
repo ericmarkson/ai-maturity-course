@@ -33,31 +33,51 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Read a model's output like "87% confidence this is spam" and correctly
-      explain what that percentage represents and why it isn't a guarantee.
+      <strong>Learning objective:</strong> Interpret model confidence percentages as probabilities rather than guarantees,
+      distinguish center (mean/median) from spread (variance), and spot correlation without mistaking it for causation.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Machine learning leans on a small toolbox of statistics ideas to describe data and quantify
-          uncertainty: <strong>probability</strong> (how likely something is, from 0 to 1), the
-          <strong>mean and variance</strong> of a dataset (its center and spread), and
-          <strong>correlation</strong> (whether two variables tend to move together — which is not the
-          same thing as one causing the other).
+          Machine learning runs on uncertainty rather than absolute rules. <strong>Probability</strong> expresses how
+          likely an outcome is on a <code>0</code> to <code>1</code> (or <code>0%–100%</code>) scale;
+          <strong>mean, median, and variance</strong> summarize where data centers and how widely it spreads; and
+          <strong>correlation</strong> measures whether two variables tend to rise or fall together—which never by
+          itself proves one causes the other.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Everyday Intuition)</h2>
       <ul>
-        <li>Probability basics: the likelihood of an event, expressed as 0–1 or a percentage</li>
-        <li>Mean, median, and variance/spread of a dataset</li>
-        <li>Correlation (two variables moving together) vs. causation</li>
-        <li>Why ML predictions are often probabilities/confidence scores, not certainties</li>
+        <li><strong>Model outputs are weather forecasts, not promises:</strong> Saying "80% chance of rain" means that across days with similar radar patterns, it rains about 8 out of 10 times—not that it definitely will rain today.</li>
+        <li><strong>Center vs. Spread:</strong> Two classrooms can both have an average (mean) test score of 75, yet one has almost everyone scoring 72–78 (low variance) while the other mixes 50s and 100s (high variance). Knowing only the average hides how predictable individual points are.</li>
+        <li><strong>Correlation vs. Causation:</strong> Variables often move together because of a hidden shared driver (confounder)—like summer heat driving both ice cream sales and swimming pool attendance.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Reading "87% Confidence This Is Spam"</h3>
+      <p>
+        Suppose your inbox receives <strong>100 messages</strong> that your spam filter scores around <strong>87%</strong>.
+        If the model is well-calibrated, roughly <strong>87 of those emails truly are spam</strong>, and about
+        <strong>13 are legitimate messages</strong> that happened to contain spam-like words (like "urgent invoice" or
+        "free upgrade"). That's why email apps route borderline flags to a Spam folder instead of permanently deleting
+        them!
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Assuming Mean Tells the Whole Story (or Acting on Spurious Correlations)</h3>
+      <p>
+        A single billionaire walking into a coffee shop skyrockets the <em>mean</em> income inside the room even though
+        everyone else's pay stayed identical—which is why <strong>median</strong> (the middle value) is often safer when
+        outliers exist. Similarly, building a product feature around a spurious correlation (e.g., sending free umbrellas
+        thinking it stops rain) fails whenever the hidden real cause stays untouched.
+      </p>
     </section>
   </div>
 
@@ -344,43 +364,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A spam filter says it is \"87% confident\" an email is spam. What does that number represent?",
+          q: "A spam filter flags an email with '87% confidence spam'. What is the most accurate way to interpret that number?",
           options: [
-            "A guarantee that the email is spam",
-            "The model's estimated probability that the email is spam, not a certainty",
-            "The percentage of the model's training data that was spam",
-            "The number of spam keywords found"
+            "87% of the words in that email match a spam keyword list",
+            "It is the model's estimated probability that the email is spam—meaning roughly 13 out of 100 emails with similar scores could still be legitimate",
+            "The model used 87% of its training data to inspect this specific message",
+            "It guarantees the email is spam as long as the threshold is set below 90%"
           ],
           answer: 1,
-          explanation: "Confidence scores are probabilities. 87% confident still leaves a real chance the model is wrong."
+          explanation: "Confidence scores represent probabilities, not certainty. Even at 87%, roughly 1 in 8 similar cases can be legitimate false positives."
         },
         {
-          q: "If you shift an entire distribution to the right without changing its shape, what happens to the mean and variance?",
+          q: "In the histogram exercise, if you drag ONLY the 'Shift (mean)' slider to the right without touching 'Spread (variance)', what happens to the distribution?",
           options: [
-            "Both increase",
-            "The mean increases, variance stays the same",
-            "The variance increases, mean stays the same",
-            "Both stay the same"
+            "Both the mean and variance increase together because values become larger",
+            "The center (mean) shifts higher while the spread (variance) stays essentially unchanged",
+            "The variance increases while the mean stays fixed at the midpoint",
+            "The distribution becomes skewed with a higher median than mean"
           ],
           answer: 1,
-          explanation: "Shifting moves the center (mean) but doesn't change the spread of values around that center (variance)."
+          explanation: "Adding a constant shift moves every data point together, changing the average (mean) without spreading points farther apart from one another (variance)."
         },
         {
-          q: "Ice cream sales and drowning incidents both rise in the summer. What does this best illustrate?",
+          q: "A city notices that higher ice cream sales strongly correlate with higher drowning incidents in historical data. Why would banning ice cream fail to stop drownings?",
           options: [
-            "Ice cream sales cause drownings",
-            "Correlation without causation — a hidden factor (hot weather) drives both",
-            "Drownings cause ice cream sales",
-            "The two variables are uncorrelated"
+            "Because ice cream sales and drownings must have a negative correlation rather than positive",
+            "Because correlation doesn't prove causation—a third factor (hot summer weather bringing people to beaches and ice cream stands) drives both",
+            "Because statistical correlation only applies when datasets have low variance",
+            "Because machine learning models ignore seasonal features unless normalized"
           ],
           answer: 1,
-          explanation: "The two are correlated because a third factor (summer heat) influences both, not because either causes the other."
+          explanation: "Summer heat is a confounding variable driving both behaviors independently. Predicting one from the other works statistically, yet intervening on ice cream won't change drowning risk."
         },
         {
-          q: "Which statistic best describes how spread out a dataset's values are around the mean?",
-          options: ["Median", "Probability", "Variance", "Correlation"],
-          answer: 2,
-          explanation: "Variance measures how far values tend to be from the mean — the spread of the data."
+          q: "Two support teams both average (mean) 20 minutes per ticket, but Team A has low variance while Team B has very high variance. What does that mean for a customer?",
+          options: [
+            "Team B resolves half of its tickets faster than 0 minutes",
+            "Team A gives consistent ~20-minute waits, whereas Team B mixes super-fast replies with unpredictable multi-hour waits",
+            "Team A's median wait time must be much higher than Team B's",
+            "Team B handles more total tickets per day than Team A"
+          ],
+          answer: 1,
+          explanation: "Variance measures how widely individual values scatter around the mean. Equal averages can hide dramatically different consistency."
         }
       ]
     });

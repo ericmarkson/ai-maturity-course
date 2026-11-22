@@ -4,19 +4,104 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Transformer Architecture and Attention — AI Maturity Course</title>
-<meta name="description" content="How transformers use self-attention to decide which earlier tokens matter most when producing the next token.">
+<meta name="description" content="How transformers compute scaled dot-product self-attention with Q/K/V projections, multi-head subspaces, and causal vs. bidirectional masking.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "5-1";
 </script>
 <style>
-  .attn-tokens { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--space-4) 0; }
-  .attn-token { border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); padding: 6px 10px; background: #fff; cursor: pointer; font: inherit; font-family: var(--font-mono); }
+  .attn-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: var(--space-3);
+  }
+  .attn-head-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: var(--space-3);
+  }
+  .attn-head-btn {
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    background: #fff;
+    color: #151c2e;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .attn-head-btn:hover { border-color: var(--color-primary); }
+  .attn-head-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .attn-mask-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: #151c2e;
+    background: #fff;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .attn-tokens { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--space-3) 0; }
+  .attn-token {
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    background: #fff;
+    color: #151c2e;
+    cursor: pointer;
+    font: inherit;
+    font-family: var(--font-mono);
+  }
   .attn-token:hover { border-color: var(--color-primary); }
-  .attn-token[aria-pressed="true"] { border-color: var(--color-primary); border-width: 2px; font-weight: 700; }
-  .attn-legend { color: var(--color-text-muted); font-size: var(--font-size-sm); margin-top: var(--space-2); }
-  .attn-canvas-wrap { margin-top: var(--space-4); }
+  .attn-token[aria-pressed="true"] { border-color: #0d946e; border-width: 2px; font-weight: 700; }
+  .attn-token.is-masked {
+    border-style: dashed;
+    opacity: 0.6;
+  }
+  .attn-legend { color: var(--color-text-muted); font-size: var(--font-size-sm); margin: var(--space-2) 0; }
+  .attn-embed-readout {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    color: #151c2e;
+    margin-bottom: var(--space-3);
+  }
+  .attn-canvas-wrap { margin-top: var(--space-3); }
+  .attn-table-wrap { overflow-x: auto; margin-top: var(--space-3); }
+  .attn-score-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: #fff;
+    color: #151c2e;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  .attn-score-table th, .attn-score-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+  .attn-score-table th:first-child, .attn-score-table td:first-child { text-align: left; }
+  .attn-score-table th { background: var(--color-bg-inset); font-weight: 700; }
+  .attn-score-table tr.is-query-row { background: #e1f6eb; font-weight: 700; }
+  .attn-score-table tr.is-masked-row { color: #646f8d; background: #f8fafc; }
 </style>
 </head>
 <body>
@@ -30,31 +115,91 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain, in plain language and with a diagram, how a transformer decides
-      which earlier words matter most when producing the next word, and why this replaced RNNs for most large-scale NLP.
+      <strong>Learning objective:</strong> Trace how scaled dot-product self-attention computes Query, Key, and Value
+      projections, explain why dividing by <code>sqrt(d_k)</code> stabilizes softmax gradients, and distinguish
+      multi-head subspaces as well as bidirectional encoder vs. causally masked decoder attention.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>transformer</strong> is a neural network design that processes an entire sequence at once using
-          <strong>attention</strong> to weigh how much every other token should influence each token, instead of
-          reading one word at a time like older recurrent models (RNNs). Attention lets the model directly connect
-          "it" in a sentence back to the noun it refers to, even many words earlier, without passing information
-          step by step through every word in between.
+          A <strong>transformer</strong> processes an entire token sequence in parallel using <strong>scaled dot-product
+          self-attention</strong>, where every token directly queries every other token and blends their representations
+          according to learned compatibility weights:
+          <code>Attention(Q, K, V) = softmax((Q Kᵀ) / √d_k + M) V</code>.
+          Because any pair of tokens interacts in a single matrix multiply rather than passing state sequentially
+          through every intermediate step like an RNN, transformers capture long-range dependencies and parallelize
+          cleanly across GPUs.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Query, Key, and Value Projections:</strong> Each input embedding vector <code>x_i</code> is multiplied
+        by three learned projection matrices to form <code>q_i = x_i W_Q</code> (what token <code>i</code> is looking for),
+        <code>k_j = x_j W_K</code> (what token <code>j</code> advertises it contains), and <code>v_j = x_j W_V</code>
+        (the payload transferred when token <code>j</code> is selected). Decoupling <code>K</code> from <code>V</code>
+        allows a word like <code>"cat"</code> to advertise grammatical traits ("singular animate noun") via its Key while
+        sending rich semantic traits ("furry mammal, subject") via its Value.
+      </p>
+      <p>
+        <strong>2. Dot-Product Compatibility &amp; Scaling by <code>√d_k</code>:</strong> The raw score between token
+        <code>i</code> and token <code>j</code> is the dot product <code>q_i · k_j</code>. Vectors aligned along shared
+        feature dimensions yield large positive scores; orthogonal or opposing vectors yield zero or negative scores.
+        However, if <code>q</code> and <code>k</code> have dimension <code>d_k</code> with unit-variance entries, their
+        dot product has variance <code>d_k</code> (standard deviation <code>√d_k</code>). Without dividing by
+        <code>√d_k</code>, large <code>d_k</code> values push logits into extreme tails where <code>softmax</code> saturates
+        near <code>0</code> or <code>1</code> and gradients vanish toward zero.
+      </p>
+      <p>
+        <strong>3. Multi-Head Subspaces:</strong> Rather than running one attention map over the full model width
+        <code>d_model</code>, transformers split into <code>h</code> parallel heads of width <code>d_k = d_model / h</code>,
+        each with its own <code>(W_Q, W_K, W_V)</code>. One head can track pronoun coreference, another verb-object links,
+        and another local neighbor phrasing simultaneously before their outputs are concatenated and projected with <code>W_O</code>.
+      </p>
+      <p>
+        <strong>4. Encoder Bidirectional vs. Decoder Causal Masks:</strong> Because <code>Q Kᵀ</code> scores all pairs
+        simultaneously, training avoids the RNN step-by-step bottleneck (<code>h_t</code> waiting on <code>h_{t-1}</code>).
+        In an <strong>encoder</strong> (like BERT), mask <code>M = 0</code> everywhere so every token attends bidirectionally.
+        In an autoregressive <strong>decoder</strong> (like GPT), a <strong>causal mask</strong> sets future entries
+        <code>M_{i,j} = -∞</code> for <code>j &gt; i</code> so <code>softmax</code> outputs exactly <code>0</code> and token
+        <code>i</code> never peeks ahead during parallel training.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Scaled Dot-Product Attention for <code>"it"</code></h3>
+      <p>
+        Suppose <code>d_k = 4</code> (so scaling factor <code>√d_k = 2</code>) over interpretable dimensions
+        <code>[entity, action, pronoun/ref, spatial]</code>. In <code>"The cat sat on the mat"</code>, query token
+        <code>"it"</code> projects to <code>q_it = [2.0, 0.0, 2.0, 0.0]</code> (seeking an entity/referent), and faces three keys:
+      </p>
       <ul>
-        <li>Self-attention and the query/key/value mechanism</li>
-        <li>Multi-head attention (why multiple attention "views" help)</li>
-        <li>Encoder vs. decoder blocks and encoder-decoder vs. decoder-only designs</li>
-        <li>Why transformers parallelize better than RNNs (no sequential bottleneck)</li>
+        <li><code>k_cat = [2.0, 0.0, 1.0, 0.0]</code> &rarr; raw <code>q·k = 2(2)+0+2(1)+0 = 6.0</code> &rarr; scaled <code>/2 = 3.0</code></li>
+        <li><code>k_sat = [0.0, 2.0, 0.0, 0.5]</code> &rarr; raw <code>q·k = 0.0</code> &rarr; scaled <code>/2 = 0.0</code></li>
+        <li><code>k_mat = [1.5, 0.0, 0.0, 1.5]</code> &rarr; raw <code>q·k = 2(1.5) = 3.0</code> &rarr; scaled <code>/2 = 1.5</code></li>
       </ul>
+      <p>
+        Exponentiating the scaled scores gives <code>e^3.0 ≈ 20.09</code>, <code>e^0.0 = 1.00</code>, and
+        <code>e^1.5 ≈ 4.48</code> (sum <code>25.57</code>), producing softmax weights of <strong>78.6%</strong> on
+        <code>"cat"</code>, <strong>3.9%</strong> on <code>"sat"</code>, and <strong>17.5%</strong> on <code>"mat"</code>.
+        Without dividing by <code>√4 = 2</code>, raw logits <code>[6.0, 0.0, 3.0]</code> yield
+        <code>95.0% / 0.2% / 4.7%</code>—already starving gradients on competing tokens at just 4 dimensions.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Leakage in Decoders &amp; Quadratic <code>O(N²)</code> Cost</h3>
+      <p>
+        First, omitting the upper-triangular <code>-∞</code> causal mask in a decoder lets token <code>i</code> attend to
+        <code>i + 1</code> during parallel training—training loss plunges artificially, then collapses at inference when
+        future tokens are unavailable. Second, parallelization eliminates sequential step latency but not sequence-length
+        compute: forming the full <code>N × N</code> matrix <code>Q Kᵀ</code> scales quadratically <code>O(N²)</code> in both
+        compute and memory as context length <code>N</code> grows.
+      </p>
     </section>
   </div>
 
@@ -84,14 +229,186 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Attention heatmap: click a word, switch heads",
+      title: "Scaled Dot-Product Attention Lab (Q · K / √d_k + Softmax)",
       instructions:
-        "Type a short sentence, click any word to make it the \"query\" token, and watch a simulated " +
-        "attention-weight overlay light up the other words it attends to. Drag the head slider to see how " +
-        "different simulated attention heads (local, long-range, lexical) redistribute the weights.",
+        "Tokenize a sentence, select any query word, and inspect real 4D Q·K dot products, √4 = 2 scaling, and Softmax weights. " +
+        "Switch between four learned attention head projections and toggle the decoder Causal Mask to see future tokens masked with −∞.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
         var DEFAULT_SENTENCE = "The cat sat on the mat because it was tired";
+        var D_K = 4;
+        var SQRT_DK = Math.sqrt(D_K); // 2
+
+        // Interpretable 4D base embeddings: [entity, action, pronoun/ref, spatial]
+        var LEXICON = {
+          "the":     [0.55, 0.05, 0.35, 0.20],
+          "a":       [0.55, 0.05, 0.20, 0.20],
+          "an":      [0.55, 0.05, 0.20, 0.20],
+          "cat":     [1.90, 0.10, 0.25, 0.20],
+          "dog":     [1.90, 0.15, 0.25, 0.20],
+          "alice":   [2.00, 0.10, 0.30, 0.10],
+          "bob":     [2.00, 0.10, 0.30, 0.10],
+          "robot":   [1.90, 0.30, 0.20, 0.30],
+          "model":   [1.70, 0.25, 0.20, 0.20],
+          "token":   [1.55, 0.15, 0.25, 0.35],
+          "mat":     [1.25, 0.05, 0.05, 1.55],
+          "table":   [1.35, 0.05, 0.05, 1.45],
+          "chair":   [1.35, 0.05, 0.05, 1.35],
+          "room":    [1.20, 0.05, 0.05, 1.70],
+          "ball":    [1.65, 0.20, 0.10, 0.70],
+          "book":    [1.55, 0.10, 0.10, 0.55],
+          "sat":     [0.20, 1.90, 0.05, 0.75],
+          "ran":     [0.20, 2.00, 0.05, 0.65],
+          "jumped":  [0.20, 2.00, 0.05, 0.85],
+          "chased":  [0.30, 2.00, 0.10, 0.40],
+          "saw":     [0.30, 1.90, 0.10, 0.30],
+          "ate":     [0.30, 1.90, 0.05, 0.20],
+          "slept":   [0.20, 1.65, 0.10, 0.30],
+          "was":     [0.15, 1.25, 0.30, 0.10],
+          "is":      [0.15, 1.25, 0.30, 0.10],
+          "were":    [0.15, 1.25, 0.30, 0.10],
+          "tired":   [0.45, 1.20, 0.25, 0.10],
+          "happy":   [0.45, 1.05, 0.25, 0.10],
+          "hungry":  [0.45, 1.10, 0.25, 0.10],
+          "on":      [0.10, 0.30, 0.10, 2.00],
+          "in":      [0.10, 0.20, 0.10, 2.00],
+          "under":   [0.10, 0.20, 0.10, 2.00],
+          "over":    [0.10, 0.30, 0.10, 1.90],
+          "near":    [0.10, 0.20, 0.10, 1.90],
+          "at":      [0.10, 0.20, 0.10, 1.85],
+          "to":      [0.10, 0.50, 0.20, 1.50],
+          "from":    [0.10, 0.40, 0.20, 1.60],
+          "here":    [0.20, 0.10, 0.70, 1.90],
+          "there":   [0.20, 0.10, 0.80, 1.90],
+          "it":      [1.20, 0.10, 2.00, 0.10],
+          "they":    [1.20, 0.10, 2.00, 0.10],
+          "he":      [1.45, 0.10, 2.00, 0.10],
+          "she":     [1.45, 0.10, 2.00, 0.10],
+          "him":     [1.35, 0.10, 1.90, 0.10],
+          "her":     [1.35, 0.10, 1.90, 0.10],
+          "them":    [1.25, 0.10, 1.90, 0.10],
+          "that":    [0.60, 0.20, 1.60, 0.35],
+          "which":   [0.50, 0.20, 1.70, 0.30],
+          "who":     [1.10, 0.20, 1.80, 0.10],
+          "because": [0.10, 0.65, 1.25, 0.10],
+          "and":     [0.20, 0.35, 0.55, 0.10],
+          "but":     [0.10, 0.45, 0.75, 0.10]
+        };
+
+        // Deterministic morphological semantic embedding for arbitrary user words
+        function getEmbedding(rawTok, idx) {
+          var lower = rawTok.toLowerCase();
+          if (LEXICON[lower]) return LEXICON[lower].slice();
+
+          var entity = 1.0, action = 0.4, ref = 0.2, spatial = 0.3;
+          var isCapitalizedMid = idx > 0 && /^[A-Z]/.test(rawTok);
+
+          if (isCapitalizedMid) {
+            entity = 1.9; action = 0.15; ref = 0.3; spatial = 0.15;
+          } else if (/(ing|ed|ize|ify|ate)$/.test(lower)) {
+            entity = 0.35; action = 1.8; ref = 0.15; spatial = 0.35;
+          } else if (/ly$/.test(lower)) {
+            entity = 0.25; action = 1.25; ref = 0.25; spatial = 0.45;
+          } else if (/(tion|ment|ness|ity|ship|er|or|ist)$/.test(lower)) {
+            entity = 1.65; action = 0.25; ref = 0.25; spatial = 0.25;
+          } else if (lower.length <= 3) {
+            entity = 0.45; action = 0.45; ref = 0.85; spatial = 0.85;
+          } else {
+            // General content noun/adjective balance based on vowel/consonant cues
+            entity = 1.45; action = 0.45; ref = 0.20; spatial = 0.45;
+          }
+          return [entity, action, ref, spatial];
+        }
+
+        function dot4(a, b) {
+          return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+        }
+
+        // Four explicit 4D Q/K projections
+        var HEADS = {
+          1: {
+            name: "Head 1: Coreference / Pronouns",
+            desc: "Projects pronoun/reference queries onto high-entity, non-spatial noun keys.",
+            projectQ: function (e) {
+              return [
+                1.05 * e[2] + 0.55 * e[0],
+                0.25 * e[1],
+                0.55 * e[2],
+                -0.35 * e[3]
+              ];
+            },
+            projectK: function (e) {
+              return [
+                1.15 * e[0] - 0.65 * e[3] - 0.40 * e[2],
+                0.20 * e[1],
+                0.70 * e[0],
+                0.25 * e[3]
+              ];
+            }
+          },
+          2: {
+            name: "Head 2: Verb-Object / Action",
+            desc: "Cross-pairs action queries with entity/spatial arguments, and entity queries with action verbs.",
+            projectQ: function (e) {
+              return [
+                1.05 * e[1],
+                0.95 * e[0] + 0.30 * e[2],
+                0.55 * e[3],
+                0.25 * e[1]
+              ];
+            },
+            projectK: function (e) {
+              return [
+                0.95 * e[0] + 0.45 * e[3],
+                1.05 * e[1],
+                0.55 * e[3],
+                0.35 * e[0]
+              ];
+            }
+          },
+          3: {
+            name: "Head 3: Local Window",
+            desc: "Adds 2D rotary-style positional coordinates into Q and K so nearby tokens score highest.",
+            projectQ: function (e, pos) {
+              var theta = 0.28 * pos;
+              return [
+                0.35 * e[0],
+                0.35 * e[1],
+                2.10 * Math.cos(theta),
+                2.10 * Math.sin(theta)
+              ];
+            },
+            projectK: function (e, pos) {
+              var theta = 0.28 * pos;
+              return [
+                0.35 * e[0],
+                0.35 * e[1],
+                2.10 * Math.cos(theta),
+                2.10 * Math.sin(theta)
+              ];
+            }
+          },
+          4: {
+            name: "Head 4: Uniform / Identity",
+            desc: "Low-magnitude broad projection with mild self/exact-word resonance (identity + broad context).",
+            projectQ: function (e, pos) {
+              return [
+                0.25 * e[0],
+                0.25 * e[1],
+                0.30 + 0.15 * Math.cos(0.45 * pos),
+                0.30 + 0.15 * Math.sin(0.45 * pos)
+              ];
+            },
+            projectK: function (e, pos) {
+              return [
+                0.25 * e[0],
+                0.25 * e[1],
+                0.30 + 0.15 * Math.cos(0.45 * pos),
+                0.30 + 0.15 * Math.sin(0.45 * pos)
+              ];
+            }
+          }
+        };
 
         var wrap = document.createElement("div");
 
@@ -116,44 +433,63 @@
         inputRow.appendChild(renderBtn);
         wrap.appendChild(inputRow);
 
-        var headRow = document.createElement("div");
-        headRow.className = "slider-row";
-        var headLabel = document.createElement("label");
-        headLabel.setAttribute("for", "attn-head");
-        headLabel.textContent = "Attention head";
-        var headSlider = document.createElement("input");
-        headSlider.type = "range";
-        headSlider.min = "1";
-        headSlider.max = "4";
-        headSlider.step = "1";
-        headSlider.value = "1";
-        headSlider.id = "attn-head";
-        var headReadout = document.createElement("span");
-        headReadout.className = "readout";
-        headReadout.id = "attn-head-readout";
-        var headNames = ["", "Head 1: local/nearby", "Head 2: long-range", "Head 3: broad/uniform", "Head 4: lexical match"];
-        headReadout.textContent = headNames[1];
-        headRow.appendChild(headLabel);
-        headRow.appendChild(headSlider);
-        headRow.appendChild(headReadout);
-        wrap.appendChild(headRow);
+        var headGroup = document.createElement("div");
+        headGroup.className = "attn-head-group";
+        headGroup.setAttribute("role", "group");
+        headGroup.setAttribute("aria-label", "Attention head selector");
+        var headButtons = {};
+        [1, 2, 3, 4].forEach(function (hNum) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "attn-head-btn";
+          btn.textContent = HEADS[hNum].name;
+          btn.setAttribute("aria-pressed", hNum === 1 ? "true" : "false");
+          btn.addEventListener("click", function () {
+            activeHead = hNum;
+            Object.keys(headButtons).forEach(function (k) {
+              headButtons[k].setAttribute("aria-pressed", Number(k) === activeHead ? "true" : "false");
+            });
+            updateOverlay();
+          });
+          headButtons[hNum] = btn;
+          headGroup.appendChild(btn);
+        });
+        wrap.appendChild(headGroup);
+
+        var controlsRow = document.createElement("div");
+        controlsRow.className = "attn-controls-row";
+        var maskLabel = document.createElement("label");
+        maskLabel.className = "attn-mask-toggle";
+        maskLabel.setAttribute("for", "attn-causal-mask");
+        var maskCheckbox = document.createElement("input");
+        maskCheckbox.type = "checkbox";
+        maskCheckbox.id = "attn-causal-mask";
+        var maskText = document.createElement("span");
+        maskText.textContent = "Causal Mask (Decoder mode: set future j > i to −∞)";
+        maskLabel.appendChild(maskCheckbox);
+        maskLabel.appendChild(maskText);
+        controlsRow.appendChild(maskLabel);
+        wrap.appendChild(controlsRow);
 
         var tokensBox = document.createElement("div");
         tokensBox.className = "attn-tokens";
         wrap.appendChild(tokensBox);
 
+        var embedReadout = document.createElement("div");
+        embedReadout.className = "attn-embed-readout";
+        wrap.appendChild(embedReadout);
+
         var legend = document.createElement("p");
         legend.className = "attn-legend";
-        legend.textContent = "Click a word above to see which other words it attends to. Darker blue = higher simulated attention weight.";
         wrap.appendChild(legend);
 
         var canvasWrap = document.createElement("div");
         canvasWrap.className = "attn-canvas-wrap";
         var canvas = document.createElement("canvas");
-        canvas.width = 600;
-        canvas.height = 160;
+        canvas.width = 640;
+        canvas.height = 165;
         canvas.style.width = "100%";
-        canvas.style.maxWidth = "600px";
+        canvas.style.maxWidth = "640px";
         canvas.style.display = "block";
         canvas.style.background = "#fff";
         canvas.style.border = "1px solid var(--color-border)";
@@ -161,110 +497,189 @@
         canvasWrap.appendChild(canvas);
         wrap.appendChild(canvasWrap);
 
+        var tableWrap = document.createElement("div");
+        tableWrap.className = "attn-table-wrap";
+        var scoreTable = document.createElement("table");
+        scoreTable.className = "attn-score-table";
+        var thead = document.createElement("thead");
+        var headTr = document.createElement("tr");
+        ["Key Token (j)", "Raw q·k", "Scaled (q·k / √4)", "Softmax Weight"].forEach(function (col) {
+          var th = document.createElement("th");
+          th.textContent = col;
+          headTr.appendChild(th);
+        });
+        thead.appendChild(headTr);
+        var scoreTbody = document.createElement("tbody");
+        scoreTable.appendChild(thead);
+        scoreTable.appendChild(scoreTbody);
+        tableWrap.appendChild(scoreTable);
+        wrap.appendChild(tableWrap);
+
         root.appendChild(wrap);
         var cvsCtx = canvas.getContext("2d");
 
         var tokens = [];
+        var embeddings = [];
         var selectedIndex = null;
+        var activeHead = 1;
 
-        function hashStr(s) {
-          var h = 2166136261;
-          for (var i = 0; i < s.length; i++) {
-            h = h ^ s.charCodeAt(i);
-            h = (h * 16777619) >>> 0;
-          }
-          return h;
-        }
+        function computeAttention(idx, headNum, causalMask) {
+          var head = HEADS[headNum];
+          var q = head.projectQ(embeddings[idx], idx);
+          var rawScores = [];
+          var scaledScores = [];
+          var isMasked = [];
 
-        function pseudoRand(seedStr) {
-          var h = hashStr(seedStr);
-          return Math.abs(Math.sin(h)) % 1;
-        }
-
-        function computeAttention(idx, head) {
-          var weights = tokens.map(function (tok, i) {
-            var base = pseudoRand(tok.toLowerCase() + "|" + idx + "|" + head + "|" + i);
-            var dist = Math.abs(i - idx);
-            var w = base;
-            if (head === 1) {
-              // local head: strongly favors nearby tokens
-              w = base * (1 / (1 + dist * dist));
-            } else if (head === 2) {
-              // long-range head: suppresses immediate neighbors, favors distant tokens
-              w = base * (dist === 0 ? 0.08 : Math.min(1, 0.3 + dist * 0.15));
-            } else if (head === 3) {
-              // broad/uniform head: nearly flat with mild randomness
-              w = base * 0.7 + 0.3;
-            } else if (head === 4) {
-              // lexical head: boosts tokens sharing a first letter with the query token
-              var sameLetter = tokens[i].charAt(0).toLowerCase() === tokens[idx].charAt(0).toLowerCase();
-              w = base * (sameLetter ? 1.8 : 0.5);
+          for (var j = 0; j < tokens.length; j++) {
+            var masked = causalMask && j > idx;
+            isMasked.push(masked);
+            if (masked) {
+              rawScores.push(-Infinity);
+              scaledScores.push(-Infinity);
+            } else {
+              var k = head.projectK(embeddings[j], j);
+              var raw = dot4(q, k);
+              // Head 4 adds a clean self/exact-token diagonal identity term (+1.8)
+              if (headNum === 4 && (j === idx || tokens[j].toLowerCase() === tokens[idx].toLowerCase())) {
+                raw += 1.8;
+              }
+              rawScores.push(raw);
+              scaledScores.push(raw / SQRT_DK);
             }
-            if (i === idx) w = Math.max(w, 0.15);
-            return w;
+          }
+
+          // Numerically stable softmax over unmasked scores
+          var maxScaled = -Infinity;
+          for (var m = 0; m < scaledScores.length; m++) {
+            if (!isMasked[m] && scaledScores[m] > maxScaled) maxScaled = scaledScores[m];
+          }
+          var exps = scaledScores.map(function (s, m) {
+            return isMasked[m] ? 0 : Math.exp(s - maxScaled);
           });
-          var sum = weights.reduce(function (a, b) { return a + b; }, 0) || 1;
-          return weights.map(function (w) { return w / sum; });
+          var sumExp = exps.reduce(function (a, b) { return a + b; }, 0) || 1;
+          var weights = exps.map(function (e) { return e / sumExp; });
+
+          return {
+            q: q,
+            rawScores: rawScores,
+            scaledScores: scaledScores,
+            weights: weights,
+            isMasked: isMasked
+          };
         }
 
-        function drawBars(weights, idx) {
+        function drawBars(weights, isMasked, idx) {
           var w = canvas.width, h = canvas.height;
           cvsCtx.clearRect(0, 0, w, h);
           var n = tokens.length;
           if (n === 0) return;
-          var marginX = 10, marginBottom = 34;
+          var marginX = 12, marginBottom = 34;
           var barGap = 6;
-          var barW = Math.max(8, (w - marginX * 2 - barGap * (n - 1)) / n);
-          var maxBarH = h - marginBottom - 10;
+          var barW = Math.max(10, (w - marginX * 2 - barGap * (n - 1)) / n);
+          var maxBarH = h - marginBottom - 16;
 
           for (var i = 0; i < n; i++) {
             var x = marginX + i * (barW + barGap);
             var barH = weights[i] * maxBarH;
             var y = h - marginBottom - barH;
-            cvsCtx.fillStyle = i === idx ? "#0f9d78" : "#2952e3";
-            cvsCtx.globalAlpha = 0.35 + weights[i] * 0.65;
-            cvsCtx.fillRect(x, y, barW, barH);
+            if (isMasked && isMasked[i]) {
+              cvsCtx.fillStyle = "#cbd5e1";
+              cvsCtx.globalAlpha = 0.55;
+              cvsCtx.fillRect(x, h - marginBottom - 4, barW, 4);
+            } else {
+              cvsCtx.fillStyle = i === idx ? "#0d946e" : "#2554e8";
+              cvsCtx.globalAlpha = 0.30 + weights[i] * 0.70;
+              cvsCtx.fillRect(x, y, barW, barH);
+            }
             cvsCtx.globalAlpha = 1;
-            cvsCtx.fillStyle = "#1a2033";
-            cvsCtx.font = "10px monospace";
+            cvsCtx.fillStyle = isMasked && isMasked[i] ? "#646f8d" : "#151c2e";
+            cvsCtx.font = "11px monospace";
             cvsCtx.textAlign = "center";
-            var label = tokens[i].length > 6 ? tokens[i].slice(0, 5) + "…" : tokens[i];
-            cvsCtx.fillText(label, x + barW / 2, h - marginBottom + 14);
-            cvsCtx.fillText(Math.round(weights[i] * 100) + "%", x + barW / 2, y - 4 < 8 ? 10 : y - 4);
+            var label = tokens[i].length > 7 ? tokens[i].slice(0, 6) + "…" : tokens[i];
+            cvsCtx.fillText(label, x + barW / 2, h - marginBottom + 15);
+            var pctText = (isMasked && isMasked[i]) ? "−∞" : (Math.round(weights[i] * 1000) / 10).toFixed(1) + "%";
+            cvsCtx.fillText(pctText, x + barW / 2, y - 4 < 11 ? 11 : y - 4);
           }
         }
 
+        function renderScoreTable(res, idx) {
+          scoreTbody.innerHTML = "";
+          tokens.forEach(function (tok, j) {
+            var tr = document.createElement("tr");
+            if (j === idx) tr.className = "is-query-row";
+            if (res.isMasked[j]) tr.className = "is-masked-row";
+            var rawStr = res.isMasked[j] ? "−∞ (masked)" : res.rawScores[j].toFixed(2);
+            var scaledStr = res.isMasked[j] ? "−∞" : res.scaledScores[j].toFixed(2);
+            var weightStr = (res.weights[j] * 100).toFixed(1) + "%";
+            ["[" + j + "] " + tok + (j === idx ? " (Query)" : ""), rawStr, scaledStr, weightStr].forEach(function (val) {
+              var td = document.createElement("td");
+              td.textContent = val;
+              tr.appendChild(td);
+            });
+            scoreTbody.appendChild(tr);
+          });
+        }
+
         function updateOverlay() {
-          var head = parseInt(headSlider.value, 10);
-          headReadout.textContent = headNames[head];
+          var causalMask = maskCheckbox.checked;
+          var head = HEADS[activeHead];
           var buttons = tokensBox.querySelectorAll(".attn-token");
+
           if (selectedIndex === null) {
-            buttons.forEach(function (b) { b.style.background = "#fff"; b.setAttribute("aria-pressed", "false"); });
-            drawBars(tokens.map(function () { return 0; }), -1);
-            legend.textContent = "Click a word above to see which other words it attends to. Darker blue = higher simulated attention weight.";
+            buttons.forEach(function (b) {
+              b.style.background = "#fff";
+              b.style.color = "#151c2e";
+              b.classList.remove("is-masked");
+              b.setAttribute("aria-pressed", "false");
+            });
+            embedReadout.textContent = "Select a word above to inspect its 4D embedding and Q·K scores.";
+            legend.textContent = head.desc;
+            drawBars(tokens.map(function () { return 0; }), tokens.map(function () { return false; }), -1);
+            scoreTbody.innerHTML = "";
             return;
           }
-          var weights = computeAttention(selectedIndex, head);
+
+          var res = computeAttention(selectedIndex, activeHead, causalMask);
+          var emb = embeddings[selectedIndex];
+          embedReadout.textContent =
+            "Query \"" + tokens[selectedIndex] + "\" [" + selectedIndex + "] embedding " +
+            "[entity, action, ref, spatial] = [" +
+            emb.map(function (v) { return v.toFixed(2); }).join(", ") + "]  |  " +
+            head.name + " (" + (causalMask ? "Causal Decoder" : "Bidirectional Encoder") + ")";
+
           buttons.forEach(function (b, i) {
-            var alpha = weights[i];
-            b.style.background = "rgba(41, 82, 227, " + Math.min(0.85, alpha * 2.2) + ")";
-            b.style.color = alpha > 0.25 ? "#fff" : "#1a2033";
+            var alpha = res.weights[i];
+            if (res.isMasked[i]) {
+              b.style.background = "#e9edf7";
+              b.style.color = "#646f8d";
+              b.classList.add("is-masked");
+            } else {
+              b.classList.remove("is-masked");
+              b.style.background = "rgba(37, 84, 232, " + Math.min(0.88, alpha * 2.1) + ")";
+              b.style.color = alpha > 0.24 ? "#fff" : "#151c2e";
+            }
             b.setAttribute("aria-pressed", i === selectedIndex ? "true" : "false");
           });
-          drawBars(weights, selectedIndex);
-          legend.textContent = "\"" + tokens[selectedIndex] + "\" attends most to: " +
-            weights
-              .map(function (w, i) { return { w: w, t: tokens[i] }; })
-              .sort(function (a, b) { return b.w - a.w; })
-              .slice(0, 3)
-              .map(function (o) { return o.t + " (" + Math.round(o.w * 100) + "%)"; })
-              .join(", ");
+
+          drawBars(res.weights, res.isMasked, selectedIndex);
+          renderScoreTable(res, selectedIndex);
+
+          var top3 = res.weights
+            .map(function (w, i) { return { w: w, t: tokens[i], masked: res.isMasked[i] }; })
+            .filter(function (o) { return !o.masked; })
+            .sort(function (a, b) { return b.w - a.w; })
+            .slice(0, 3)
+            .map(function (o) { return o.t + " (" + (o.w * 100).toFixed(1) + "%)"; })
+            .join(", ");
+
+          legend.textContent = head.desc + " Top attended: " + top3 + ".";
         }
 
         function tokenize() {
           var raw = sentenceInput.value.trim();
           if (!raw) raw = DEFAULT_SENTENCE;
           tokens = raw.split(/\s+/).map(function (t) { return t.replace(/[^\w']/g, ""); }).filter(Boolean);
+          embeddings = tokens.map(function (tok, i) { return getEmbedding(tok, i); });
           selectedIndex = null;
           tokensBox.innerHTML = "";
           tokens.forEach(function (tok, i) {
@@ -286,11 +701,11 @@
         sentenceInput.addEventListener("keydown", function (e) {
           if (e.key === "Enter") tokenize();
         });
-        headSlider.addEventListener("input", updateOverlay);
+        maskCheckbox.addEventListener("change", updateOverlay);
 
         tokenize();
-        if (tokens.length > 6) {
-          selectedIndex = 6; // pre-select "it" in the default sentence to show something immediately
+        if (tokens.length > 7) {
+          selectedIndex = 7; // pre-select "it" in the default sentence
           updateOverlay();
         }
       }
@@ -301,48 +716,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What does self-attention let a transformer do that a word-by-word RNN struggles with?",
+          q: "In scaled dot-product attention, why does each token project into separate Key (K) and Value (V) vectors rather than reusing a single vector for both?",
           options: [
-            "Directly relate any two tokens in a sequence regardless of distance between them",
-            "Store the entire vocabulary in memory",
-            "Guarantee the output is always grammatically correct",
-            "Avoid needing any training data"
-          ],
-          answer: 0,
-          explanation: "Self-attention computes a direct weighted connection between every pair of tokens in one step, instead of passing information sequentially through every token in between."
-        },
-        {
-          q: "In the query/key/value mechanism, what is the query roughly used for?",
-          options: [
-            "It is the vocabulary size",
-            "It represents 'what this token is looking for' when comparing against other tokens' keys",
-            "It is the final output word",
-            "It only matters during multi-head attention, never single-head"
+            "Because K is only computed during training while V is only computed during inference",
+            "K acts as an address vector for matching against Queries (Q), while V carries the separate payload content aggregated into the output",
+            "V must have the same dimension as the vocabulary size, whereas K matches the sequence length",
+            "K holds the sinusoidal positional encoding while V holds the causal attention mask"
           ],
           answer: 1,
-          explanation: "Each token produces a query vector that is compared against every other token's key vector to compute attention scores; those scores weight the values that get combined."
+          explanation: "Separating K and V lets a token advertise structural/matching cues (e.g., 'singular noun') in K for compatibility scoring with Q, while transferring richer semantic content via V. K and V are both projected per token during both training and inference."
         },
         {
-          q: "Why do transformers use multiple attention heads instead of just one?",
+          q: "Why does the attention formula divide the dot product QKᵀ by √d_k before applying softmax?",
           options: [
-            "To make the model slower on purpose",
-            "Because one head can only look at the first word in a sentence",
-            "Different heads can learn to attend to different kinds of relationships (e.g. nearby words vs. long-range references) in parallel",
-            "Multiple heads are required to run on a GPU at all"
+            "Because dividing by √d_k forces every attention logit strictly into the range [0, 1]",
+            "Because the variance of Q·K grows linearly with d_k, pushing unscaled logits into flat tails of softmax where gradients vanish",
+            "Because softmax becomes mathematically undefined whenever any dot product exceeds 1.0",
+            "Because dividing by √d_k normalizes scores across sequence length N so longer prompts keep identical attention peaks"
           ],
-          answer: 2,
-          explanation: "Multiple heads let the model capture several different attention patterns simultaneously — like the local vs. long-range vs. lexical heads simulated in the exercise."
+          answer: 1,
+          explanation: "For independent unit-variance components, the dot product of two d_k-dimensional vectors has variance d_k (standard deviation √d_k). Dividing by √d_k restores unit variance so softmax avoids saturation and vanishing gradients; sequence length N is handled by softmax normalization, not √d_k."
         },
         {
-          q: "Why do transformers generally parallelize better than RNNs during training?",
+          q: "Why does splitting d_model into h parallel attention heads (with d_k = d_model / h) outperform a single full-width head?",
           options: [
-            "Transformers process the whole sequence's attention computations at once, while RNNs must process tokens one at a time in order",
-            "Transformers don't need GPUs",
-            "RNNs use more attention heads",
-            "Transformers only work on sequences of length 1"
+            "Each head computes an independent softmax over a distinct projected subspace, letting the model capture multiple relationship types at once",
+            "Splitting into heads reduces total attention matrix memory from O(N²) to O(N² / h)",
+            "Each head processes a non-overlapping chunk of sequence tokens, expanding the maximum context window",
+            "A single attention head can only assign non-zero weight to one token per step because softmax acts as hard argmax"
           ],
           answer: 0,
-          explanation: "RNNs have a sequential bottleneck — each step depends on the previous one's hidden state — while transformer attention over a whole sequence can be computed in parallel."
+          explanation: "A single head averages all signals into one probability distribution over tokens. Multiple heads with separate (W_Q, W_K, W_V) projections attend simultaneously to different subspaces (e.g., coreference vs. verb-object vs. local window). Note that h heads actually store h separate N×N maps, not less memory."
+        },
+        {
+          q: "How does a decoder-only transformer train across all sequence positions in parallel while still preventing token i from peeking at future tokens j > i?",
+          options: [
+            "It processes tokens sequentially through a recurrent hidden state during training and only parallelizes during inference",
+            "It discards Key and Value projections for all tokens after position 0 at the tokenizer stage",
+            "It computes the full QKᵀ matrix in parallel and adds an upper-triangular −∞ causal mask before softmax so future positions get zero weight",
+            "It uses bidirectional encoder attention during training and applies causal masking only during inference"
+          ],
+          answer: 2,
+          explanation: "Training runs one parallel matrix multiply for QKᵀ and sets entries with j > i to −∞ before softmax (forcing exp(−∞) = 0). By contrast, autoregressive inference must generate new tokens one step at a time, whereas training is fully parallel."
         }
       ]
     });

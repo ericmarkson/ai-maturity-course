@@ -40,14 +40,52 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Why evals matter more for LLMs — open-ended, non-deterministic outputs vs. fixed-label classification</li>
-        <li>Reference-based metrics (exact match, similarity to a gold answer) vs. rubric/criteria-based grading</li>
-        <li>Building a small eval set: representative test cases plus deliberately tricky edge cases</li>
-        <li>Automated eval runs as regression tests — catching quality drops when a prompt or model changes</li>
+        <li>
+          <strong>Three Grading Tiers:</strong> (1) <strong>Deterministic checks</strong> validate syntax, JSON Schema,
+          regex patterns, or unit tests with zero ambiguity; (2) <strong>Reference-based metrics</strong> (exact match,
+          ROUGE, semantic similarity) compare outputs against a gold answer when one exists; (3) <strong>Rubric /
+          LLM-as-Judge grading</strong> evaluates open-ended quality along explicit criteria (groundedness, tone,
+          completeness, brevity).
+        </li>
+        <li>
+          <strong>Handling Non-Determinism (<code>pass@k</code> vs. <code>pass^k</code>):</strong> When sampling with
+          <code>temperature &gt; 0</code>, a single pass/fail run can mislead. Teams track <strong><code>pass@k</code></strong>
+          (probability that at least 1 of <code>k</code> independent attempts passes—useful for coding agents with
+          verifiers) alongside <strong><code>pass^k</code></strong> (probability that <em>all</em> <code>k</code> trials
+          pass—critical for customer-facing consistency).
+        </li>
+        <li>
+          <strong>Baseline Pinning &amp; Regression Gating:</strong> Saving a versioned eval score as a baseline turns
+          your eval suite into an automated CI gate: any prompt edit, model swap, or RAG chunk tweak that lowers the
+          pass rate triggers a <strong>regression</strong> alert before users see it.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose a 6-case product-review summarization suite enforces four rubric checks per output:
+        <code>product name</code>, <code>sentiment</code>, <code>star rating</code>, and <code>single sentence</code>.
+      </p>
+      <ul>
+        <li><strong>Prompt v1 (baseline):</strong> <em>"Summarize this product review including product name, sentiment, and star rating in one sentence."</em> → Passes 6/6 cases (<strong>100%</strong> baseline).</li>
+        <li><strong>Prompt v2 (edited):</strong> Someone adds <em>"Explain in detail"</em> to sound richer. Outputs grow to multiple sentences, failing the <code>single sentence</code> check across all 6 cases (<strong>0%</strong>) — a clear caught regression relative to the 100% baseline.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Happy-path bias and test-set leakage into few-shot prompts.</strong> Building an eval suite exclusively
+        from clean, short examples hides real failure modes (mixed sentiment, negation, missing metadata, adversarial
+        formatting). Even worse, copying failing eval examples directly into your prompt's few-shot section causes the
+        model to memorize the benchmark while generalizing poorly to unseen traffic—always split held-out regression
+        cases from prompt development examples.
+      </p>
     </section>
   </div>
 
@@ -401,48 +439,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why do LLM systems typically need more than a single 'accuracy' number, unlike a fixed-label classifier?",
+          q: "Why does exact-match string comparison against a single reference summary fail as the sole metric for open-ended LLM tasks?",
           options: [
-            "LLM outputs are open-ended and non-deterministic, so exact-match scoring misses many valid answers",
-            "LLMs never produce incorrect output",
-            "Accuracy cannot be computed for any software system",
-            "LLMs only ever produce numeric outputs"
-          ],
-          answer: 0,
-          explanation: "Open-ended generation means many different phrasings can all be correct, so evals usually need rubric/criteria-based grading in addition to (or instead of) exact match."
-        },
-        {
-          q: "What does 'regression' mean in the context of an eval suite?",
-          options: [
-            "A statistical model used to predict future eval scores",
-            "A drop in measured performance after a change to the prompt, model, or system",
-            "A test case that uses numeric inputs only",
-            "The process of rebuilding an eval set from nothing"
+            "Because exact-match scoring cannot detect deterministic formatting bugs like invalid JSON",
+            "Because many distinct phrasings satisfy all task constraints equally well, so exact-match unfairly penalizes valid paraphrases",
+            "Because exact-match accuracy always produces 0% unless temperature is set above 1.0",
+            "Because reference answers cannot be stored for multi-sentence outputs"
           ],
           answer: 1,
-          explanation: "Re-running the same eval suite after a change lets you catch a regression — a quality drop you might otherwise ship unnoticed."
+          explanation: "Open-ended generation admits many valid wordings; exact match rejects accurate paraphrases and fails to distinguish minor wording differences from severe factual or constraint violations, which is why multi-criterion rubrics and deterministic structural checks are paired together."
         },
         {
-          q: "In the exercise, if you loosen the prompt so it no longer asks the model to state the sentiment, and the rubric still requires stating sentiment, what happens to the pass rate on that criterion?",
+          q: "You tweak a summarization prompt to fix a tone issue on two tricky reviews, and re-running your pinned 50-case eval suite drops the overall pass rate from 90% to 76%. What does this signal, and what is the right engineering response?",
           options: [
-            "It increases, because the model has more freedom",
-            "It decreases, because the simulated output will stop mentioning sentiment",
-            "It stays exactly the same regardless of the prompt",
-            "The rubric automatically removes that criterion"
+            "Ship the new prompt anyway because the two tricky examples improved and 76% is still above 70%",
+            "Remove the failing cases from the baseline suite so the remaining subset stays at 90%",
+            "A regression occurred—block the change, inspect which baseline criteria broke, and refine the prompt until both old and new cases pass",
+            "Switch from rubric grading to ROUGE-1 overlap so the score fluctuates less across prompt edits"
+          ],
+          answer: 2,
+          explanation: "A regression means a change improved one slice at the expense of previously passing behavior. Removing failing tests hides real bugs; blocking release and inspecting the failing rubric criteria resolves the conflict cleanly."
+        },
+        {
+          q: "A customer-facing support bot must follow policy correctly on every single conversation, whereas an offline code-patching agent can run up to 5 attempts and pick whichever passes the test suite. Which metrics match each system best?",
+          options: [
+            "pass@5 for the customer-facing bot; pass^5 for the code-patching agent",
+            "pass^k (all k runs succeed) for the customer-facing bot; pass@k (at least 1 of k runs passes the verifier) for the code-patching agent",
+            "Exact-match accuracy for both systems, since k = 5 only applies to classifier ensembles",
+            "Neither metric applies when model temperature is greater than zero"
           ],
           answer: 1,
-          explanation: "The simulated output only includes sentiment wording when the prompt asks for it, so removing that instruction makes the sentiment criterion fail more often."
+          explanation: "pass@k measures whether a verifier-backed agent finds at least one valid solution in k tries—ideal for code generation with unit tests. Customer-facing workflows get one shot per user turn, so consistency (pass^k, all trials passing) is what matters."
         },
         {
-          q: "Which of the following are good properties of a hands-on eval set? (Select all that apply.)",
+          q: "Which practices make an LLM eval suite trustworthy in production? (Select all that apply.)",
           options: [
-            "It includes edge cases, not just easy examples",
-            "It contains at least one test case, total",
-            "Each test case has a clear, explicit criterion for what counts as passing",
-            "It can be re-run automatically to catch regressions when something changes"
+            "Combining representative real traffic with deliberately tricky edge cases (negations, missing fields, long inputs)",
+            "Keeping the eval test set separate from few-shot examples inside the prompt itself",
+            "Pinning explicit pass/fail rubric criteria per test case and gating deployments against a saved baseline",
+            "Updating the prompt's few-shot block with all failing eval examples right before reporting the final benchmark score"
           ],
-          answer: [0, 2, 3],
-          explanation: "A useful eval set is small but representative, includes tricky edge cases, has explicit pass criteria per case, and is cheap enough to automate and re-run — a single easy test case is not sufficient."
+          answer: [0, 1, 2],
+          explanation: "Edge-case coverage, explicit rubrics, and baseline regression gating make evals reliable. Copying eval cases directly into the prompt leaks the test set and creates illusory improvements that fail on new inputs."
         }
       ]
     });

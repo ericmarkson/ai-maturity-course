@@ -49,14 +49,53 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Numeric precision basics (FP32/FP16/INT8/INT4) and why lower precision saves memory and compute</li>
-        <li>Post-training quantization vs. quantization-aware training</li>
-        <li>Knowledge distillation — teacher/student training and soft labels</li>
-        <li>The accuracy vs. latency vs. cost tradeoff curve</li>
+        <li>
+          <strong>Weight Precision &amp; Memory Bandwidth:</strong> Representing a 7B-parameter model in FP32 uses
+          <code>28 GB</code> (4 bytes/param); BF16/FP16 halves that to <code>14 GB</code>; INT8 uses <code>7 GB</code>;
+          and INT4 uses <code>~3.5 GB</code>. Because autoregressive decoding streams weights from GPU VRAM for every
+          generated token (<strong>memory-bandwidth bound</strong>), shrinking bit width accelerates generation speed
+          directly alongside memory savings.
+        </li>
+        <li>
+          <strong>PTQ vs. QAT &amp; Activation Outliers:</strong> <strong>Post-Training Quantization (PTQ)</strong>
+          calibrates scale factors (<code>q = round(w / s) + z</code>) on a small dataset after training;
+          <strong>Quantization-Aware Training (QAT)</strong> simulates rounding noise during training so weights adapt.
+          LLM quantizers like <strong>AWQ</strong> and <strong>SmoothQuant</strong> isolate high-magnitude
+          <em>activation outlier</em> channels so 4-bit rounding doesn't wipe out sensitive features.
+        </li>
+        <li>
+          <strong>Knowledge Distillation (KL Loss on Teacher Logits):</strong> Trains a compact student model
+          <code>S</code> to minimize KL divergence <code>D<sub>KL</sub>(p<sub>T</sub>(·|x; τ) || p<sub>S</sub>(·|x; τ))</code>
+          against a larger teacher <code>T</code>'s temperature-softened output probabilities. Soft logits reveal
+          relative probabilities across plausible runner-up tokens ("dark knowledge") that hard one-hot ground-truth
+          labels discard.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Track combined compression starting from a <code>7B</code> FP32 teacher (<code>28 GB</code>, <code>20 tok/s</code>):
+      </p>
+      <ul>
+        <li><strong>Step 1 — Distill to 50% student (<code>3.5B</code>):</strong> Halving parameters cuts FP32 size to <code>14 GB</code> (<code>7 GB</code> in FP16) and doubles theoretical throughput.</li>
+        <li><strong>Step 2 — Quantize student to INT4 (<code>0.5 bytes/param</code>):</strong> Footprint shrinks to <code>3.5B × 0.5 = 1.75 GB</code>—a <strong>16× reduction</strong> from <code>28 GB</code> that comfortably fits on laptops or mobile NPUs while retaining strong fluency.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Naive min-max clipping on outliers and trusting perplexity alone.</strong> If one extreme outlier value
+        (<code>+14.0</code> vs. normal weights in <code>[−0.3, +0.3]</code>) stretches an INT4 tensor's min-max range,
+        ordinary weights collapse into just 1–2 integer bins, ruining model quality. Furthermore, INT4 models can
+        retain near-identical WikiText perplexity while silently breaking on multi-step math, code generation, or strict
+        JSON tool calling—always run downstream task evals after quantizing!
+      </p>
     </section>
 
   </div>
@@ -226,48 +265,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why does reducing precision from FP16 to INT8 shrink a model's size?",
+          q: "Why does quantizing an LLM's weights from FP16 (2 bytes/param) to INT4 (0.5 bytes/param) significantly speed up single-user token generation, even before specialized INT4 tensor-core FLOPs kick in?",
           options: [
-            "INT8 stores each weight using fewer bits than FP16, so the same number of parameters takes less memory",
-            "INT8 deletes half of the model's parameters",
-            "INT8 requires a completely different network architecture",
-            "It doesn't actually shrink size — it only affects speed"
+            "Because INT4 quantization removes 75% of the transformer's attention heads",
+            "Because autoregressive decoding at low batch size is memory-bandwidth bound, so reading 4× fewer bytes from VRAM per token accelerates each step",
+            "Because INT4 increases the context window limit by 4× without changing KV cache size",
+            "Because INT4 bypasses softmax normalization on the output vocabulary"
           ],
-          answer: 0,
-          explanation: "Quantization keeps the same parameter count but represents each one with fewer bits (e.g. 8 instead of 16), directly cutting memory footprint."
+          answer: 1,
+          explanation: "Generating one token at small batch size requires streaming all model weights from GPU HBM/VRAM to compute units. Cutting weight memory traffic by 4× (FP16 → INT4) directly relieves that bandwidth bottleneck."
         },
         {
-          q: "What's the difference between post-training quantization (PTQ) and quantization-aware training (QAT)?",
+          q: "When applying Post-Training Quantization (PTQ) to a large transformer, why do naive min-max per-tensor INT4 schemes often degrade accuracy sharply compared to group-wise or activation-aware methods (like AWQ/SmoothQuant)?",
           options: [
-            "PTQ quantizes an already-trained model's weights; QAT simulates quantization effects during training so the model adapts to lower precision",
-            "They are exactly the same technique with different names",
-            "PTQ only applies to image models, QAT only to text models",
-            "QAT means training a model with no quantization involved at all"
+            "Rare high-magnitude outlier channels stretch the quantization scale, forcing 99% of normal weights into a tiny handful of discrete integer bins",
+            "PTQ cannot quantize weights unless the model was originally trained with KL distillation",
+            "Min-max scaling converts integer weights back into FP32 before storing them on disk",
+            "Outlier channels only occur in tokenizer embedding tables and never affect attention blocks"
           ],
           answer: 0,
-          explanation: "PTQ is applied after training as a separate step; QAT bakes quantization-awareness into the training loop itself, typically preserving more accuracy at low bit-widths."
+          explanation: "Extreme outlier magnitudes dictate the tensor's scale factor s = (max - min) / 15 in INT4, compressing ordinary weights into almost no resolution. Group-wise scaling and outlier-preserving methods protect precision across typical weights."
         },
         {
-          q: "In knowledge distillation, what is the student model trained to do?",
+          q: "In knowledge distillation, why does minimizing KL divergence against the teacher's temperature-softened logits outperform training the smaller student solely on hard one-hot ground-truth tokens?",
           options: [
-            "Mimic the teacher model's outputs, often using soft labels/probabilities rather than only hard labels",
-            "Memorize the teacher's exact weight values byte-for-byte",
-            "Train the teacher model in reverse",
-            "Run exclusively on CPU hardware"
+            "Soft logits always reduce the student's parameter count below the teacher's during training",
+            "Soft logits expose the teacher's relative probability ranking across plausible alternatives ('dark knowledge'), giving richer gradient supervision per token",
+            "KL divergence eliminates the need for backpropagation through the student's attention layers",
+            "Hard one-hot labels cannot be computed for text generation tasks"
           ],
-          answer: 0,
-          explanation: "Distillation trains a smaller student to reproduce the teacher's output distribution (soft labels carry more information than a single hard label), transferring much of its behavior into a cheaper model."
+          answer: 1,
+          explanation: "A hard label only marks the single ground-truth token as 1 and all others as 0. Softened teacher distributions convey which synonyms or continuations are nearly as plausible versus completely implausible, smoothing optimization for a smaller student."
         },
         {
-          q: "Which of these are real tradeoffs illustrated by the quantization/distillation exercise? (select all that apply)",
+          q: "A team quantizes an instruction-tuned 13B model from BF16 to INT4 PTQ and sees WikiText perplexity rise by only 0.15 points—yet decides to run extra evals before shipping. What risk are they wisely guarding against? (Select all that apply.)",
           options: [
-            "Lower bit-width generally reduces memory and compute cost",
-            "Lower bit-width and more aggressive distillation typically risk some accuracy loss",
-            "Quantization always improves accuracy with zero downside",
-            "A smaller distilled model is typically cheaper and faster to serve"
+            "Perplexity underestimates INT4 quality because quantization artificially inflates token count",
+            "Aggregate perplexity can look stable while multi-step reasoning, arithmetic, or strict tool-call JSON accuracy drops sharply",
+            "Quantization noise can disproportionately hurt sensitive edge behaviors like long-context retrieval or safety refusals",
+            "If PTQ accuracy drops too far on critical tasks, switching to QAT or distilling from a larger teacher may be necessary"
           ],
-          answer: [0, 1, 3],
-          explanation: "Precision reduction and distillation both save resources but generally cost some accuracy — there's no free lunch, so \"zero downside\" is false."
+          answer: [1, 2, 3],
+          explanation: "Perplexity averages across easy common tokens and frequently masks sharp regressions in coding, math, structured tool outputs, or long-context recall. Task-specific evals catch those drops so teams can calibrate PTQ or use QAT/distillation."
         }
       ]
     });

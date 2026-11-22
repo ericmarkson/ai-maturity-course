@@ -3,27 +3,166 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Advanced Prompting: Few-Shot and Chain-of-Thought — AI Maturity Course</title>
-<meta name="description" content="How showing examples and asking for step-by-step reasoning reliably improves LLM output quality without changing the model.">
+<title>Structured Outputs, Constrained Decoding &amp; Tool Protocols (MCP) — AI Maturity Course</title>
+<meta name="description" content="How constrained decoding enforces JSON Schema grammars via logit masking, and how the Model Context Protocol (MCP) standardizes tool, resource, and prompt exchange.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "6-2";
 </script>
 <style>
-  .lab-toggles { display: flex; gap: var(--space-5); flex-wrap: wrap; margin-bottom: var(--space-4); }
-  .lab-toggle { display: flex; align-items: center; gap: var(--space-2); background: var(--color-bg-inset); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
-  .lab-toggle input { width: 1.15em; height: 1.15em; }
-  .lab-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-  @media (max-width: 700px) { .lab-columns { grid-template-columns: 1fr; } }
-  .lab-panel { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
-  .lab-panel h4 { margin-bottom: var(--space-2); }
-  .lab-prompt { white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.85rem; background: var(--color-bg-inset); padding: var(--space-3); border-radius: var(--radius-sm); }
-  .lab-answer { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); font-size: 0.95rem; }
-  .lab-answer.good { background: var(--color-success-bg); color: var(--color-success); }
-  .lab-answer.bad { background: var(--color-error-bg); color: var(--color-error); }
-  .lab-answer.mid { background: var(--color-warning-bg); color: #7a5b00; }
-  .lab-verdict { font-weight: 700; margin-top: var(--space-2); }
+  .mcp-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: flex-end;
+    margin-bottom: var(--space-4);
+  }
+  .mcp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 220px;
+  }
+  .mcp-field label {
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+  .mcp-field select {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+  .mcp-toggle-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+  .mcp-toggle-box input {
+    width: 1.1em;
+    height: 1.1em;
+  }
+  .mcp-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .mcp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  @media (max-width: 760px) {
+    .mcp-grid { grid-template-columns: 1fr; }
+  }
+  .mcp-panel {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .mcp-panel h4 {
+    margin: 0 0 var(--space-2) 0;
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+  .mcp-textarea {
+    width: 100%;
+    min-height: 165px;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    resize: vertical;
+  }
+  .mcp-pre {
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-inset);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .mcp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .mcp-banner {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    margin-bottom: var(--space-4);
+    border: 1px solid transparent;
+  }
+  .mcp-banner.pass {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+    border-color: var(--color-success);
+  }
+  .mcp-banner.fail {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+    border-color: var(--color-error);
+  }
+  .mcp-banner.warn {
+    background: var(--color-warning-bg);
+    color: #7a4c00;
+    border-color: #d97706;
+  }
+  .mcp-mask-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .mcp-mask-step {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-alt);
+    font-size: var(--font-size-sm);
+  }
+  .mcp-mask-step.is-blocked {
+    border-left: 4px solid var(--color-error);
+    background: var(--color-error-bg);
+  }
+  .mcp-mask-step.is-ok {
+    border-left: 4px solid var(--color-accent);
+  }
+  .mcp-token-row {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    margin-top: 4px;
+    color: var(--color-text-muted);
+  }
 </style>
 </head>
 <body>
@@ -33,34 +172,94 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 6 — Advanced</p>
-  <h1>Advanced Prompting: Few-Shot and Chain-of-Thought</h1>
+  <h1>Structured Outputs, Constrained Decoding &amp; Tool Protocols (MCP)</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can rewrite a poorly-performing zero-shot prompt into a
-      few-shot and/or chain-of-thought version, and predict which technique is likely to help for a given
-      task type (e.g., arithmetic reasoning vs. simple classification).
+      <strong>Learning objective:</strong> Learner can explain how grammar-based logit masking guarantees
+      JSON Schema compliance during decoding, apply strict schema rules (<code>required</code>, <code>enum</code>,
+      <code>additionalProperties: false</code>), and trace a Model Context Protocol (MCP) <code>tools/call</code>
+      exchange while distinguishing syntactic compliance from semantic correctness.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Advanced prompting techniques are structured ways of writing prompts — showing examples or asking the
-          model to "think step by step" — that reliably improve output quality without changing the model itself.
+          <strong>Structured outputs</strong> guarantee that an LLM emits data conforming to a machine-readable
+          schema (typically JSON Schema) rather than unpredictable prose. <strong>Constrained decoding</strong>
+          enforces that guarantee at inference time by masking illegal next tokens before sampling, while the
+          <strong>Model Context Protocol (MCP)</strong> standardizes how AI applications discover and invoke
+          external tools, data resources, and prompt templates over JSON-RPC 2.0.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Standard autoregressive generation picks the next token from the model's entire vocabulary <code>V</code> via
+        <code>softmax(z / T)</code>. Even with <code>temperature = 0</code> and instructions like "output raw JSON only,"
+        an unconstrained model often emits markdown fences (<code>```json</code>), conversational preambles, missing
+        commas, or unrequested keys because those sequences carry high prior probability in pretraining data.
+      </p>
       <ul>
-        <li>Zero-shot vs. few-shot prompting (providing example input/output pairs)</li>
-        <li>Chain-of-thought prompting (asking for reasoning steps before the final answer)</li>
-        <li>Prompt structure: system/instruction vs. context vs. examples vs. query</li>
-        <li>Self-consistency and other reasoning-boosting variants</li>
+        <li>
+          <strong>Regex &amp; CFG logit masking:</strong> Before decoding starts, the inference engine compiles a
+          regex or JSON Schema into a deterministic finite automaton (DFA) or context-free grammar (CFG). At
+          every generation step, the engine queries the active parser state to find the subset of vocabulary tokens
+          that keep the prefix valid, sets all other token logits to <code>−∞</code> (probability <code>0</code>),
+          and samples only from the legal remainder.
+        </li>
+        <li>
+          <strong>Strict schema discipline:</strong> Production structured-output modes require every object schema
+          to declare explicit <code>type</code>, <code>required</code> fields, constrained <code>enum</code>s or
+          <code>pattern</code>s, and <code>additionalProperties: false</code>. Without <code>additionalProperties: false</code>,
+          the grammar permits arbitrary extra keys—letting the model invent fields downstream code never reads.
+        </li>
+        <li>
+          <strong>MCP client-server architecture:</strong> Rather than writing custom glue code for every LLM host
+          and external service, an MCP Host (e.g., an IDE or agent runtime) runs MCP Clients that connect over
+          stdio or HTTP/SSE using JSON-RPC 2.0 to MCP Servers. Each server exposes three primitives:
+          <strong>Tools</strong> (model-controlled executable actions with a JSON Schema <code>inputSchema</code>),
+          <strong>Resources</strong> (application- or user-selected read-only context such as <code>db://schema</code>),
+          and <strong>Prompts</strong> (user-triggered workflow templates).
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Suppose tool <code>search_orders</code> enforces <code>required: ["customer_id", "status"]</code>,
+        <code>status</code> enum <code>["open", "shipped", "refunded", "all"]</code>, and
+        <code>additionalProperties: false</code>. After generating the prefix <code>{"customer_id": "cust_104", "status": "</code>,
+        the CFG parser allows only tokens spelling <code>open"</code>, <code>shipped"</code>, <code>refunded"</code>, or
+        <code>all"</code>; tokens like <code>pending"</code> or <code>}</code> receive <code>−∞</code> logits. Once valid
+        arguments are decoded, the MCP client sends a JSON-RPC request and receives a typed server result:
+      </p>
+      <pre class="code-block"><code>// Client -&gt; MCP Server (tools/call)
+{"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+ "params": {"name": "search_orders",
+            "arguments": {"customer_id": "cust_104", "status": "open", "limit": 5}}}
+
+// MCP Server -&gt; Client (tool result)
+{"jsonrpc": "2.0", "id": 7,
+ "result": {"content": [{"type": "text", "text": "[{\"order_id\":\"ord_4821\",\"total\":89.50}]"}],
+            "isError": false}}</code></pre>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Valid syntax is not semantic accuracy.</strong> Constrained decoding guarantees that
+        <code>customer_id</code> is a well-formed string and <code>status</code> is in the enum, <em>not</em>
+        that <code>cust_999</code> exists in production or matches the user's intent. Worse, rigid schemas without an
+        escape hatch (such as an <code>"unknown"</code> enum option or nullable field) can pressure a model into
+        fabricating plausible-looking IDs or SQL queries just to satisfy the grammar—so MCP servers must still
+        run semantic validation, authorization checks, and safe error reporting (<code>isError: true</code>).
+      </p>
     </section>
 
   </div>
@@ -90,117 +289,586 @@
   (function () {
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
-    var QUESTION = "A store had 23 apples. They sold 8 apples, then received a shipment of 15 more. How many apples does the store have now?";
+    var TOOLS = {
+      search_orders: {
+        name: "search_orders",
+        description: "Look up recent customer orders filtered by status.",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["customer_id", "status"],
+          properties: {
+            customer_id: { type: "string", pattern: "^cust_[0-9]{3,}$" },
+            status: { type: "string", enum: ["open", "shipped", "refunded", "all"] },
+            limit: { type: "integer", minimum: 1, maximum: 50 }
+          }
+        },
+        validFix: { customer_id: "cust_104", status: "open", limit: 5 },
+        presets: [
+          {
+            id: "valid",
+            label: "Valid payload",
+            text: JSON.stringify({ customer_id: "cust_104", status: "open", limit: 5 }, null, 2)
+          },
+          {
+            id: "prose",
+            label: "Prose + markdown leak",
+            text: "Sure! Here is the tool call:\n```json\n{\n  \"customer_id\": \"cust_104\",\n  \"status\": \"open\"\n}\n```"
+          },
+          {
+            id: "extra_enum",
+            label: "Extra key + bad enum",
+            text: JSON.stringify({ customer_id: "cust_104", status: "pending", currency: "USD" }, null, 2)
+          },
+          {
+            id: "missing_type",
+            label: "Missing required + bad type",
+            text: JSON.stringify({ customer_id: "cust_104", limit: "five" }, null, 2)
+          },
+          {
+            id: "semantic",
+            label: "Valid schema, bad semantics",
+            text: JSON.stringify({ customer_id: "cust_999", status: "open", limit: 5 }, null, 2)
+          }
+        ],
+        executeMcp: function (args) {
+          var db = {
+            cust_104: [
+              { order_id: "ord_4821", status: "open", total_usd: 89.50 },
+              { order_id: "ord_4790", status: "shipped", total_usd: 42.00 }
+            ],
+            cust_205: [
+              { order_id: "ord_5102", status: "refunded", total_usd: 119.00 }
+            ]
+          };
+          var rows = db[args.customer_id];
+          if (!rows) {
+            return {
+              isError: true,
+              code: "NOT_FOUND",
+              detail: "Customer '" + args.customer_id + "' does not exist in CRM (schema was valid, entity hallucinated)."
+            };
+          }
+          var filtered = args.status === "all"
+            ? rows
+            : rows.filter(function (r) { return r.status === args.status; });
+          var lim = typeof args.limit === "number" ? args.limit : 10;
+          return {
+            isError: false,
+            data: filtered.slice(0, lim)
+          };
+        }
+      },
+      create_ticket: {
+        name: "create_ticket",
+        description: "Open a customer support ticket and optionally link an order.",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "priority", "escalate"],
+          properties: {
+            title: { type: "string", minLength: 5 },
+            priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+            order_id: { type: "string", pattern: "^ord_[0-9]{4,}$" },
+            escalate: { type: "boolean" }
+          }
+        },
+        validFix: { title: "Package damaged on arrival", priority: "high", order_id: "ord_4821", escalate: true },
+        presets: [
+          {
+            id: "valid",
+            label: "Valid payload",
+            text: JSON.stringify({ title: "Package damaged on arrival", priority: "high", order_id: "ord_4821", escalate: true }, null, 2)
+          },
+          {
+            id: "prose",
+            label: "Prose + markdown leak",
+            text: "Creating ticket now:\n```json\n{\"title\": \"Missing item\", \"priority\": \"high\", \"escalate\": false}\n```"
+          },
+          {
+            id: "extra_enum",
+            label: "Extra key + bad enum",
+            text: JSON.stringify({ title: "Broken zipper", priority: "urgent", escalate: true, assignee: "tier2" }, null, 2)
+          },
+          {
+            id: "missing_type",
+            label: "Missing required + bad type",
+            text: JSON.stringify({ title: "Hi", priority: "medium", escalate: "yes" }, null, 2)
+          },
+          {
+            id: "semantic",
+            label: "Valid schema, bad semantics",
+            text: JSON.stringify({ title: "Test", priority: "low", order_id: "ord_0000", escalate: true }, null, 2)
+          }
+        ],
+        executeMcp: function (args) {
+          if (args.order_id && args.order_id !== "ord_4821" && args.order_id !== "ord_5102") {
+            return {
+              isError: true,
+              code: "INVALID_REFERENCE",
+              detail: "Order '" + args.order_id + "' not found; ticket rejected to prevent orphan escalation."
+            };
+          }
+          return {
+            isError: false,
+            data: { ticket_id: "tkt_8831", status: "created", priority: args.priority, escalated: args.escalate }
+          };
+        }
+      },
+      run_sql_readonly: {
+        name: "run_sql_readonly",
+        description: "Run a read-only SELECT query against an approved analytics view.",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["query", "dataset"],
+          properties: {
+            query: { type: "string", pattern: "^SELECT\\s+.+" },
+            dataset: { type: "string", enum: ["orders_ro", "billing_ro", "tickets_ro"] },
+            max_rows: { type: "integer", minimum: 1, maximum: 100 }
+          }
+        },
+        validFix: { query: "SELECT order_id, total_usd FROM orders_ro LIMIT 10", dataset: "orders_ro", max_rows: 10 },
+        presets: [
+          {
+            id: "valid",
+            label: "Valid payload",
+            text: JSON.stringify({ query: "SELECT order_id, total_usd FROM orders_ro LIMIT 10", dataset: "orders_ro", max_rows: 10 }, null, 2)
+          },
+          {
+            id: "prose",
+            label: "Prose + markdown leak",
+            text: "Query:\n```json\n{\"query\": \"SELECT count(*) FROM orders_ro\", \"dataset\": \"orders_ro\"}\n```"
+          },
+          {
+            id: "extra_enum",
+            label: "Extra key + bad enum",
+            text: JSON.stringify({ query: "SELECT * FROM users", dataset: "prod_rw", write_mode: false }, null, 2)
+          },
+          {
+            id: "missing_type",
+            label: "Bad regex + bad type",
+            text: JSON.stringify({ query: "DELETE FROM orders_ro", max_rows: "50" }, null, 2)
+          },
+          {
+            id: "semantic",
+            label: "Valid schema, bad semantics",
+            text: JSON.stringify({ query: "SELECT * FROM orders_ro; DROP TABLE orders_ro;", dataset: "orders_ro", max_rows: 20 }, null, 2)
+          }
+        ],
+        executeMcp: function (args) {
+          var qUpper = args.query.toUpperCase();
+          if (qUpper.indexOf(";") !== -1 || /\b(DROP|DELETE|UPDATE|INSERT|ALTER)\b/.test(qUpper)) {
+            return {
+              isError: true,
+              code: "POLICY_VIOLATION",
+              detail: "SQL AST guard blocked stacked statement or DDL/DML keyword inside a string that matched ^SELECT\\s+.+"
+            };
+          }
+          return {
+            isError: false,
+            data: { dataset: args.dataset, rows_returned: 2, sample: [{ order_id: "ord_4821", total_usd: 89.50 }] }
+          };
+        }
+      }
+    };
 
-    var FEWSHOT_EXAMPLES =
-      "Example 1:\nQ: A bakery had 10 loaves. It sold 4, then baked 6 more. How many loaves now?\nA: 10 - 4 + 6 = 12\n\n" +
-      "Example 2:\nQ: A garage had 30 tires. It used 12, then received 5 more. How many tires now?\nA: 30 - 12 + 5 = 23\n\n";
+    function validateAgainstSchema(rawText, schema) {
+      var trimmed = rawText.trim();
+      var syntaxError = null;
+      var parsed = null;
+      var steps = [];
 
-    var COT_INSTRUCTION = "Think through this step by step before giving the final answer.\n\n";
+      // Step 1: Opening token check
+      var startsWithBrace = trimmed.charAt(0) === "{";
+      steps.push({
+        stage: "Step 1 — Root Object Token",
+        allowed: "'{'",
+        masked: "prose ('Sure', 'Here'), markdown fences ('```'), '['",
+        ok: startsWithBrace,
+        note: startsWithBrace ? "Valid opening '{' token." : "Output began with '" + (trimmed.slice(0, 12) || "(empty)") + "' instead of '{'."
+      });
+
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (e) {
+        syntaxError = e.message;
+      }
+
+      if (syntaxError || typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        if (startsWithBrace) {
+          steps.push({
+            stage: "Step 2 — JSON Grammar Parse",
+            allowed: "balanced quotes, ':' separators, valid JSON object",
+            masked: "unclosed braces, trailing commas, non-object JSON",
+            ok: false,
+            note: syntaxError ? "JSON syntax error: " + syntaxError : "Root value must be a JSON object, not " + (Array.isArray(parsed) ? "array" : typeof parsed) + "."
+          });
+        }
+        return {
+          syntaxOk: false,
+          schemaOk: false,
+          parsed: null,
+          errors: [syntaxError ? "JSON.parse failed: " + syntaxError : "Root payload must be a JSON object."],
+          steps: steps
+        };
+      }
+
+      var errors = [];
+      var keys = Object.keys(parsed);
+      var allowedKeys = Object.keys(schema.properties);
+
+      // Step 2: Key vocabulary & additionalProperties: false
+      var extraKeys = keys.filter(function (k) { return allowedKeys.indexOf(k) === -1; });
+      if (schema.additionalProperties === false && extraKeys.length > 0) {
+        extraKeys.forEach(function (k) {
+          errors.push("Disallowed property '" + k + "' (additionalProperties: false).");
+        });
+      }
+      steps.push({
+        stage: "Step 2 — Object Keys (additionalProperties: false)",
+        allowed: allowedKeys.map(function (k) { return '"' + k + '"'; }).join(", "),
+        masked: "any undeclared key (e.g. " + (extraKeys.length ? extraKeys.map(function (k) { return '"' + k + '"'; }).join(", ") : '"notes", "assignee"') + ")",
+        ok: extraKeys.length === 0,
+        note: extraKeys.length === 0
+          ? "All emitted keys belong to schema.properties."
+          : "Blocked undeclared key(s): " + extraKeys.join(", ") + "."
+      });
+
+      // Step 3: Property types, enums, patterns, bounds
+      var propIssues = [];
+      keys.forEach(function (k) {
+        var rule = schema.properties[k];
+        if (!rule) return;
+        var val = parsed[k];
+        if (rule.type === "string") {
+          if (typeof val !== "string") {
+            propIssues.push("'" + k + "' must be string, got " + typeof val + ".");
+          } else {
+            if (rule.minLength && val.length < rule.minLength) {
+              propIssues.push("'" + k + "' length " + val.length + " < minLength " + rule.minLength + ".");
+            }
+            if (rule.enum && rule.enum.indexOf(val) === -1) {
+              propIssues.push("'" + k + "' value '" + val + "' not in enum [" + rule.enum.join(", ") + "].");
+            }
+            if (rule.pattern && !(new RegExp(rule.pattern)).test(val)) {
+              propIssues.push("'" + k + "' value '" + val + "' fails pattern /" + rule.pattern + "/.");
+            }
+          }
+        } else if (rule.type === "integer") {
+          if (typeof val !== "number" || Math.floor(val) !== val) {
+            propIssues.push("'" + k + "' must be integer, got " + JSON.stringify(val) + ".");
+          } else {
+            if (typeof rule.minimum === "number" && val < rule.minimum) {
+              propIssues.push("'" + k + "' (" + val + ") < minimum " + rule.minimum + ".");
+            }
+            if (typeof rule.maximum === "number" && val > rule.maximum) {
+              propIssues.push("'" + k + "' (" + val + ") > maximum " + rule.maximum + ".");
+            }
+          }
+        } else if (rule.type === "boolean") {
+          if (typeof val !== "boolean") {
+            propIssues.push("'" + k + "' must be boolean, got " + typeof val + ".");
+          }
+        }
+      });
+      errors = errors.concat(propIssues);
+      steps.push({
+        stage: "Step 3 — Value Types, Enums & Regex Patterns",
+        allowed: allowedKeys.map(function (k) {
+          var r = schema.properties[k];
+          if (r.enum) return k + ": " + r.enum.join("|");
+          if (r.pattern) return k + ": /" + r.pattern + "/";
+          return k + ": " + r.type;
+        }).join(" ; "),
+        masked: "wrong types (e.g. \"5\"), out-of-enum strings, pattern mismatches",
+        ok: propIssues.length === 0,
+        note: propIssues.length === 0
+          ? "All present property values match type, enum, and regex constraints."
+          : propIssues.join(" ")
+      });
+
+      // Step 4: Required fields before closing '}'
+      var missingReq = (schema.required || []).filter(function (reqKey) {
+        return !Object.prototype.hasOwnProperty.call(parsed, reqKey);
+      });
+      missingReq.forEach(function (reqKey) {
+        errors.push("Missing required field '" + reqKey + "'.");
+      });
+      steps.push({
+        stage: "Step 4 — Closing '}' & Required Keys",
+        allowed: missingReq.length === 0 ? "'}' (object complete)" : "',' followed by missing required key(s): " + missingReq.join(", "),
+        masked: missingReq.length === 0 ? "trailing tokens after '}'" : "'}' (cannot close object before required keys appear)",
+        ok: missingReq.length === 0,
+        note: missingReq.length === 0
+          ? "All required keys present before '}'."
+          : "Missing required field(s): " + missingReq.join(", ") + "."
+      });
+
+      return {
+        syntaxOk: true,
+        schemaOk: errors.length === 0,
+        parsed: parsed,
+        errors: errors,
+        steps: steps
+      };
+    }
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Prompt lab: few-shot vs. chain-of-thought",
+      title: "Structured Outputs & MCP Tool-Call Validator",
       instructions:
-        "The question below is fixed. Toggle \"Add examples (few-shot)\" and \"Ask for step-by-step reasoning " +
-        "(chain-of-thought)\" and watch the assembled prompt and a rule-based mock model's answer update live. " +
-        "This is a canned JS response keyed to which techniques are on — not a real model call.",
+        "Choose an MCP tool, toggle Constrained Decoding ON vs. OFF, and test preset edge cases or edit the " +
+        "JSON arguments directly. Watch how grammar logit-masking catches syntax/schema violations at token-generation " +
+        "time, while semantic errors still pass the schema and must be caught by the MCP server.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
         var wrap = document.createElement("div");
 
-        var toggles = document.createElement("div");
-        toggles.className = "lab-toggles";
+        // Top controls
+        var controls = document.createElement("div");
+        controls.className = "mcp-controls";
 
-        var fewShotLabel = document.createElement("label");
-        fewShotLabel.className = "lab-toggle";
-        var fewShotBox = document.createElement("input");
-        fewShotBox.type = "checkbox";
-        fewShotBox.id = "toggle-fewshot";
-        fewShotLabel.appendChild(fewShotBox);
-        fewShotLabel.appendChild(document.createTextNode("Add examples (few-shot)"));
-        toggles.appendChild(fewShotLabel);
+        var toolField = document.createElement("div");
+        toolField.className = "mcp-field";
+        var toolLabel = document.createElement("label");
+        toolLabel.setAttribute("for", "mcp-tool-select");
+        toolLabel.textContent = "MCP Tool (tools/call target)";
+        var toolSelect = document.createElement("select");
+        toolSelect.id = "mcp-tool-select";
+        Object.keys(TOOLS).forEach(function (key) {
+          var opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = TOOLS[key].name + " — " + TOOLS[key].description;
+          toolSelect.appendChild(opt);
+        });
+        toolField.appendChild(toolLabel);
+        toolField.appendChild(toolSelect);
+        controls.appendChild(toolField);
 
-        var cotLabel = document.createElement("label");
-        cotLabel.className = "lab-toggle";
-        var cotBox = document.createElement("input");
-        cotBox.type = "checkbox";
-        cotBox.id = "toggle-cot";
-        cotLabel.appendChild(cotBox);
-        cotLabel.appendChild(document.createTextNode("Ask for step-by-step reasoning (chain-of-thought)"));
-        toggles.appendChild(cotLabel);
+        var cdLabel = document.createElement("label");
+        cdLabel.className = "mcp-toggle-box";
+        cdLabel.setAttribute("for", "mcp-constrained-toggle");
+        var cdToggle = document.createElement("input");
+        cdToggle.type = "checkbox";
+        cdToggle.id = "mcp-constrained-toggle";
+        cdToggle.checked = true;
+        cdLabel.appendChild(cdToggle);
+        cdLabel.appendChild(document.createTextNode("Constrained Decoding ON (strict JSON Schema + CFG logit mask)"));
+        controls.appendChild(cdLabel);
 
-        wrap.appendChild(toggles);
+        wrap.appendChild(controls);
 
-        var columns = document.createElement("div");
-        columns.className = "lab-columns";
+        // Preset buttons
+        var presetLabel = document.createElement("div");
+        presetLabel.style.fontWeight = "700";
+        presetLabel.style.fontSize = "var(--font-size-sm)";
+        presetLabel.style.marginBottom = "var(--space-2)";
+        presetLabel.textContent = "Test candidate payload presets:";
+        wrap.appendChild(presetLabel);
 
-        var promptPanel = document.createElement("div");
-        promptPanel.className = "lab-panel";
-        promptPanel.innerHTML = "<h4>Assembled prompt</h4>";
-        var promptPre = document.createElement("div");
-        promptPre.className = "lab-prompt";
-        promptPanel.appendChild(promptPre);
-        columns.appendChild(promptPanel);
+        var presetBar = document.createElement("div");
+        presetBar.className = "mcp-presets";
+        wrap.appendChild(presetBar);
 
-        var answerPanel = document.createElement("div");
-        answerPanel.className = "lab-panel";
-        answerPanel.innerHTML = "<h4>Mock model output</h4>";
-        var answerBox = document.createElement("div");
-        answerPanel.appendChild(answerBox);
-        columns.appendChild(answerPanel);
+        // Verdict banner
+        var banner = document.createElement("div");
+        banner.className = "mcp-banner";
+        banner.setAttribute("role", "status");
+        wrap.appendChild(banner);
 
-        wrap.appendChild(columns);
+        // Two-column editor + schema
+        var topGrid = document.createElement("div");
+        topGrid.className = "mcp-grid";
+
+        var editorPanel = document.createElement("div");
+        editorPanel.className = "mcp-panel";
+        var edHeading = document.createElement("h4");
+        edHeading.textContent = "Candidate Tool-Call Arguments (editable)";
+        editorPanel.appendChild(edHeading);
+        var editorLabel = document.createElement("label");
+        editorLabel.setAttribute("for", "mcp-payload-editor");
+        editorLabel.className = "visually-hidden";
+        editorLabel.textContent = "Candidate JSON tool-call arguments";
+        editorPanel.appendChild(editorLabel);
+        var textarea = document.createElement("textarea");
+        textarea.id = "mcp-payload-editor";
+        textarea.className = "mcp-textarea";
+        editorPanel.appendChild(textarea);
+
+        var actionsRow = document.createElement("div");
+        actionsRow.className = "mcp-actions";
+        var validateBtn = document.createElement("button");
+        validateBtn.type = "button";
+        validateBtn.className = "btn btn-primary btn-sm";
+        validateBtn.textContent = "Validate & Dispatch MCP Call";
+        var repairBtn = document.createElement("button");
+        repairBtn.type = "button";
+        repairBtn.className = "btn btn-secondary btn-sm";
+        repairBtn.textContent = "Apply Grammar-Masked Repair";
+        actionsRow.appendChild(validateBtn);
+        actionsRow.appendChild(repairBtn);
+        editorPanel.appendChild(actionsRow);
+        topGrid.appendChild(editorPanel);
+
+        var schemaPanel = document.createElement("div");
+        schemaPanel.className = "mcp-panel";
+        schemaPanel.innerHTML = "<h4>MCP Tool inputSchema (strict mode)</h4>";
+        var schemaPre = document.createElement("pre");
+        schemaPre.className = "mcp-pre";
+        schemaPanel.appendChild(schemaPre);
+        topGrid.appendChild(schemaPanel);
+
+        wrap.appendChild(topGrid);
+
+        // Bottom two-column mask trace + MCP execution trace
+        var bottomGrid = document.createElement("div");
+        bottomGrid.className = "mcp-grid";
+
+        var maskPanel = document.createElement("div");
+        maskPanel.className = "mcp-panel";
+        maskPanel.innerHTML = "<h4>Token-Mask Constraint &amp; Schema Steps</h4>";
+        var maskList = document.createElement("ul");
+        maskList.className = "mcp-mask-list";
+        maskPanel.appendChild(maskList);
+        bottomGrid.appendChild(maskPanel);
+
+        var tracePanel = document.createElement("div");
+        tracePanel.className = "mcp-panel";
+        tracePanel.innerHTML = "<h4>MCP JSON-RPC 2.0 Execution Trace</h4>";
+        var tracePre = document.createElement("pre");
+        tracePre.className = "mcp-pre";
+        tracePanel.appendChild(tracePre);
+        bottomGrid.appendChild(tracePanel);
+
+        wrap.appendChild(bottomGrid);
         root.appendChild(wrap);
 
-        function render() {
-          var fewShot = fewShotBox.checked;
-          var cot = cotBox.checked;
-
-          var prompt = "";
-          if (fewShot) prompt += FEWSHOT_EXAMPLES;
-          if (cot) prompt += COT_INSTRUCTION;
-          prompt += "Q: " + QUESTION + "\nA:";
-          promptPre.textContent = prompt;
-
-          // Rule-based mock "model": canned answers keyed to which
-          // techniques are enabled, illustrating the typical effect of
-          // each without calling a real LLM.
-          var html = "";
-          var verdictClass, verdictText, answerText;
-
-          if (!fewShot && !cot) {
-            answerText = "38";
-            verdictClass = "bad";
-            verdictText = "Wrong — terse zero-shot guess, arithmetic slip (added instead of tracking order correctly).";
-          } else if (fewShot && !cot) {
-            answerText = "23 - 8 + 15 = 30";
-            verdictClass = "mid";
-            verdictText = "Correct final number and cleaner format (learned from the examples), but no visible reasoning trail.";
-          } else if (!fewShot && cot) {
-            answerText = "Start: 23 apples.\nSell 8: 23 - 8 = 15.\nReceive 15 more: 15 + 15 = 30.\nFinal answer: 30";
-            verdictClass = "good";
-            verdictText = "Correct, with an explicit reasoning trail — chain-of-thought helps most on multi-step arithmetic like this.";
-          } else {
-            answerText = "Following the example format:\nStart: 23. Sold 8 -> 23 - 8 = 15. Received 15 -> 15 + 15 = 30.\nA: 30";
-            verdictClass = "good";
-            verdictText = "Correct, well-formatted, and shows its work — the two techniques combine well here.";
-          }
-
-          answerBox.innerHTML = "";
-          var ans = document.createElement("div");
-          ans.className = "lab-answer " + verdictClass;
-          ans.style.whiteSpace = "pre-wrap";
-          ans.textContent = answerText;
-          var verdict = document.createElement("div");
-          verdict.className = "lab-verdict";
-          verdict.textContent = verdictText;
-          answerBox.appendChild(ans);
-          answerBox.appendChild(verdict);
+        function currentTool() {
+          return TOOLS[toolSelect.value] || TOOLS.search_orders;
         }
 
-        fewShotBox.addEventListener("change", render);
-        cotBox.addEventListener("change", render);
-        render();
+        function renderPresets() {
+          var tool = currentTool();
+          presetBar.innerHTML = "";
+          tool.presets.forEach(function (p) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-secondary btn-sm";
+            btn.textContent = p.label;
+            btn.addEventListener("click", function () {
+              textarea.value = p.text;
+              evaluate();
+            });
+            presetBar.appendChild(btn);
+          });
+        }
+
+        function evaluate() {
+          var tool = currentTool();
+          var constrained = cdToggle.checked;
+          schemaPre.textContent = JSON.stringify(tool.schema, null, 2);
+
+          var val = validateAgainstSchema(textarea.value, tool.schema);
+
+          // Render token-mask steps
+          maskList.innerHTML = "";
+          val.steps.forEach(function (st) {
+            var li = document.createElement("li");
+            li.className = "mcp-mask-step " + (st.ok ? "is-ok" : "is-blocked");
+            li.innerHTML =
+              "<div><strong>" + st.stage + "</strong> — " + (st.ok ? "PASS" : (constrained ? "BLOCKED BY LOGIT MASK (-∞)" : "VIOLATION")) + "</div>" +
+              "<div>" + st.note + "</div>" +
+              "<div class=\"mcp-token-row\">Allowed: " + st.allowed + " | Masked (-∞): " + st.masked + "</div>";
+            maskList.appendChild(li);
+          });
+
+          // Render MCP execution & banner
+          if (!val.schemaOk) {
+            if (constrained) {
+              banner.className = "mcp-banner warn";
+              banner.textContent =
+                "GRAMMAR MASK INTERCEPT: Under Constrained Decoding ON, the invalid token sequence (" +
+                val.errors[0] + ") receives -∞ logit and cannot be sampled. Click \"Apply Grammar-Masked Repair\" or edit the JSON to continue.";
+              tracePre.textContent = JSON.stringify({
+                status: "DECODE_GUARD_PREVENTED_CALL",
+                note: "Invalid candidate was blocked by token logit masking before any MCP tools/call RPC could be dispatched.",
+                schemaErrors: val.errors
+              }, null, 2);
+            } else {
+              banner.className = "mcp-banner fail";
+              banner.textContent =
+                "SCHEMA FAIL (Unconstrained OFF): Model emitted an invalid payload (" +
+                val.errors.length + " error(s)). Client JSON validation rejected it before MCP execution.";
+              tracePre.textContent = JSON.stringify({
+                jsonrpc: "2.0",
+                id: 11,
+                clientError: {
+                  code: -32602,
+                  message: "Invalid params — unconstrained output failed schema validation",
+                  errors: val.errors
+                }
+              }, null, 2);
+            }
+            return;
+          }
+
+          // Schema passed — now dispatch to simulated MCP server!
+          var rpcReq = {
+            jsonrpc: "2.0",
+            id: 11,
+            method: "tools/call",
+            params: {
+              name: tool.name,
+              arguments: val.parsed
+            }
+          };
+          var serverResult = tool.executeMcp(val.parsed);
+          var rpcRes = {
+            jsonrpc: "2.0",
+            id: 11,
+            result: {
+              isError: serverResult.isError,
+              content: [{
+                type: "text",
+                text: JSON.stringify(serverResult.isError ? { error: serverResult.code, detail: serverResult.detail } : serverResult.data)
+              }]
+            }
+          };
+
+          if (serverResult.isError) {
+            banner.className = "mcp-banner warn";
+            banner.textContent =
+              "SCHEMA PASS / SEMANTIC FAILURE: Grammar & JSON Schema passed 100%, but the MCP server rejected the call (" +
+              serverResult.code + "). Valid syntax ≠ semantic correctness!";
+          } else {
+            banner.className = "mcp-banner pass";
+            banner.textContent =
+              "PASS: Strict JSON Schema validated (" + (constrained ? "constrained" : "unconstrained") +
+              ") and MCP tools/call succeeded with isError: false.";
+          }
+
+          tracePre.textContent =
+            "// Request (Client -> MCP Server)\n" + JSON.stringify(rpcReq, null, 2) +
+            "\n\n// Response (MCP Server -> Client)\n" + JSON.stringify(rpcRes, null, 2);
+        }
+
+        toolSelect.addEventListener("change", function () {
+          var tool = currentTool();
+          renderPresets();
+          textarea.value = tool.presets[0].text;
+          evaluate();
+        });
+        cdToggle.addEventListener("change", evaluate);
+        validateBtn.addEventListener("click", evaluate);
+        repairBtn.addEventListener("click", function () {
+          textarea.value = JSON.stringify(currentTool().validFix, null, 2);
+          evaluate();
+        });
+        textarea.addEventListener("input", evaluate);
+
+        renderPresets();
+        textarea.value = currentTool().presets[0].text;
+        evaluate();
       }
     });
 
@@ -209,48 +877,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What does few-shot prompting add to a prompt that zero-shot prompting doesn't have?",
+          q: "During constrained decoding against a JSON Schema, how does the inference engine guarantee that the output never breaks JSON syntax or violates an enum?",
           options: [
-            "A larger model",
-            "One or more example input/output pairs demonstrating the desired pattern",
-            "A longer context window",
-            "A fine-tuned checkpoint"
+            "It sets temperature to 0.0 and appends 'Output raw JSON only' to the system prompt",
+            "It compiles the schema into a finite-state machine/CFG and masks disallowed next-token logits to -∞ before sampling",
+            "It generates the full response freely and retries the API call until JSON.parse succeeds",
+            "It fine-tunes the model's weights on the JSON Schema at request time"
           ],
           answer: 1,
-          explanation: "Few-shot prompting shows the model worked examples of the task before asking it to solve a new instance, without changing the model's weights."
+          explanation: "Grammar-guided decoding compiles the schema into a state machine and applies -∞ logit masks to illegal tokens at every step, making invalid syntax mathematically unsampleable. Temperature=0 and prompt rules only nudge probabilities, and retry loops add latency without single-pass guarantees."
         },
         {
-          q: "For which type of task does chain-of-thought prompting tend to help the most?",
+          q: "Why do strict structured-output APIs require setting additionalProperties: false on every object schema?",
           options: [
-            "Simple binary classification (e.g. spam vs. not spam)",
-            "Multi-step arithmetic or logical reasoning problems",
-            "Looking up a single fact",
-            "Formatting text as uppercase"
+            "Because JSON parsers cannot deserialize objects with more than three keys",
+            "To forbid the grammar from allowing undeclared, hallucinated keys that downstream code does not expect",
+            "To automatically convert optional fields into required fields",
+            "To disable regex pattern matching on string values"
           ],
           answer: 1,
-          explanation: "CoT prompting shines on tasks that benefit from working through intermediate steps, like multi-step math or logic — it adds little for tasks with no real reasoning chain."
+          explanation: "Without additionalProperties: false, JSON Schema defaults to allowing arbitrary extra keys—so a constrained decoder can still emit unexpected fields. Setting it to false closes the object key set to schema.properties only (while required controls which keys must appear)."
         },
         {
-          q: "In the prompt lab widget, what is used to generate the model's response?",
+          q: "In the Model Context Protocol (MCP), which primitive maps correctly to model-controlled executable actions vs. application-controlled read-only context?",
           options: [
-            "A live call to a real LLM API",
-            "Canned answers selected by simple JS rules keyed to which toggles are on",
-            "A random number generator",
-            "A call to a search engine"
+            "Resources are executable actions invoked by the model; Tools are static text files",
+            "Prompts are invoked autonomously by the model; Tools are manually pasted by the user",
+            "Tools are model-controlled executable functions with JSON Schemas; Resources are read-only context URIs managed by the host/client",
+            "Tools and Resources are aliases for the same JSON-RPC method"
           ],
-          answer: 1,
-          explanation: "The widget makes no network calls — it's a rule-based mock model, illustrating the typical qualitative effect of each technique without needing a real API key."
+          answer: 2,
+          explanation: "MCP distinguishes three primitives by control model: Tools are model-controlled actions (tools/call), Resources are host/application-selected read-only data (resources/read), and Prompts are user-triggered workflow templates."
         },
         {
-          q: "In the prompt structure, what does the \"examples\" section typically represent, as distinct from the system/instruction section?",
+          q: "A customer support agent uses strict constrained decoding with schema {action: 'refund'|'replace', order_id: '^ord_[0-9]{4}$'}. When a user asks 'Why is my shipment late?', the model emits {'action': 'refund', 'order_id': 'ord_0000'}. What went wrong?",
           options: [
-            "The model's internal weights",
-            "Demonstrations of desired input/output behavior, separate from the general task instruction",
-            "A log of past API errors",
-            "The user's account settings"
+            "The constrained decoder failed to apply the regex mask to order_id",
+            "The MCP server forgot to include additionalProperties: false on the response",
+            "The payload is 100% syntactically schema-valid, but semantically wrong—schema pressure forced a fabricated ID and wrong action",
+            "JSON-RPC 2.0 does not support underscores in string field values"
           ],
-          answer: 1,
-          explanation: "System/instruction sets overall behavior; examples show concrete input/output pairs; context supplies background data; the query is the actual question being asked."
+          answer: 2,
+          explanation: "'ord_0000' matches ^ord_[0-9]{4}$ and 'refund' is in the enum, so constrained decoding succeeded syntactically. However, syntax guarantees cannot stop semantic hallucination or wrong intent—servers must validate entity existence and schemas should include safe fallback options."
         }
       ]
     });

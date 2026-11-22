@@ -3,23 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AGI-Adjacent Research Directions — AI Maturity Course</title>
-<meta name="description" content="The open research questions clustered around what it would take to build (or safely avoid prematurely building) systems with broad, human-level-or-beyond general capability.">
+<title>Coding Agents, Self-Improvement & Sandboxed Verification Loops — AI Maturity Course</title>
+<meta name="description" content="AST/symbol localization, iterative test-reflect-repair loops, microVM sandbox isolation, and preventing test tampering and context bloat.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "10-5";
 </script>
 <style>
-  .rb-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
-  .rb-sliders { display: flex; flex-direction: column; gap: var(--space-3); }
-  .rb-slider-row { display: grid; grid-template-columns: 200px 1fr 60px; align-items: center; gap: var(--space-3); }
-  .rb-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
-  .rb-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
-  .rb-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
-  .rb-summary { font-weight: 700; margin-top: var(--space-2); }
-  .rb-warning { margin-top: var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-warning-bg); font-size: var(--font-size-sm); display: none; }
-  .rb-warning.show { display: block; }
+  .ca-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ca-config { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .ca-field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .ca-field label { font-weight: 700; font-size: var(--font-size-sm); }
+  .ca-select { padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text); font-size: var(--font-size-sm); }
+  .ca-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+  .ca-ctx-box { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-3); }
+  .ca-ctx-head { display: flex; justify-content: space-between; font-size: var(--font-size-sm); font-weight: 700; margin-bottom: var(--space-1); }
+  .ca-ctx-track { height: 12px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .ca-ctx-fill { height: 100%; transition: width 0.2s ease; }
+  .ca-steps { display: flex; flex-direction: column; gap: var(--space-2); }
+  .ca-step { border: 1px solid var(--color-border); border-left: 4px solid var(--color-primary); border-radius: var(--radius-sm); background: var(--color-bg); padding: var(--space-3); font-size: var(--font-size-sm); }
+  .ca-step.warn { border-left-color: #d97706; background: var(--color-warning-bg); }
+  .ca-step.bad { border-left-color: var(--color-error); background: var(--color-error-bg); }
+  .ca-step.ok { border-left-color: var(--color-success); background: var(--color-success-bg); }
+  .ca-step-title { font-weight: 800; margin-bottom: 4px; color: var(--color-text); }
+  .ca-trace { font-family: var(--font-mono); font-size: 0.8rem; background: #0f172a; color: #e2e8f0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin-top: var(--space-2); white-space: pre-wrap; overflow-x: auto; }
+  .ca-alert { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-size-sm); }
+  .ca-alert.ok { background: var(--color-success-bg); color: var(--color-success); border-left: 5px solid var(--color-success); }
+  .ca-alert.warn { background: var(--color-warning-bg); color: var(--color-warning-text); border-left: 5px solid #d97706; }
+  .ca-alert.bad { background: var(--color-error-bg); color: var(--color-error); border-left: 5px solid var(--color-error); }
 </style>
 </head>
 <body>
@@ -29,36 +41,53 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 10 — Master</p>
-  <h1>AGI-Adjacent Research Directions</h1>
+  <h1>Coding Agents, Self-Improvement &amp; Sandboxed Verification Loops</h1>
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Articulate your own working definition of "AGI-adjacent progress" with explicit, falsifiable criteria, and explain why at least one commonly cited proxy metric is an imperfect measure of generality.
+      <strong>Learning objective:</strong> Architect an autonomous repository-scale coding agent loop with AST localization, bounded trace reflection, and airtight sandbox isolation that prevents test tampering, egress leaks, and infinite oscillation.
     </div>
+
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          AGI-adjacent research directions are the open research questions clustered around what it would take to
-          build — or safely avoid prematurely building — systems with broad, human-level-or-beyond general
-          capability. Because "AGI" itself has no consensus technical definition, researchers work with proxy
-          measures and place different bets on which research direction actually moves the field toward general
-          capability.
+          A sandboxed coding agent is a closed-loop software engineering system that localizes defects across a multi-file repository, synthesizes targeted patches, executes builds and unit tests inside an isolated runtime, reflects on compiler and stack-trace failures, and iterates until a verified specification passes—without escaping containment or gaming its verifier.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Production SWE and self-improvement loops (and RLVR coding trainers) turn deterministic test execution into an objective feedback engine across four stages:
+      </p>
       <ul>
-        <li><strong>Why AGI still lacks a consensus technical definition</strong>, and the practical proxies the
-          field uses instead (economically valuable task coverage, generality across domains, sample efficiency).</li>
-        <li><strong>Capability trajectories</strong> — what current scaling/agentic/tool-use trends do and don't
-          predict about generality.</li>
-        <li><strong>Superintelligence and takeoff-speed debates</strong> — fast vs. slow takeoff scenarios and their
-          differing safety implications.</li>
-        <li><strong>Model welfare</strong> as an emerging, contested research question in 2026 discourse (whether
-          advanced models could warrant moral consideration).</li>
+        <li><strong>AST &amp; symbol localization:</strong> Dumping 500k tokens of raw repo files ruins attention precision. Agents parse Abstract Syntax Trees (via tree-sitter / Language Server Protocol) to index definitions, call graphs, and imports, pulling only relevant functions and test files into working memory.</li>
+        <li><strong>Patch synthesis &amp; stderr reflection:</strong> Rather than rewriting entire files, the agent emits unified diffs, executes <code>pytest</code> / <code>cargo test</code> + static linters, and parses structured failure spans (<code>AssertionError</code>, type errors) into a targeted next hypothesis.</li>
+        <li><strong>Hard sandbox isolation:</strong> Untrusted LLM-generated code must execute inside ephemeral microVMs (Firecracker) or rootless gVisor containers with dropped capabilities, strict CPU/memory/PID quotas, blocked outbound network egress, and <strong>read-only / checksummed test harnesses</strong>.</li>
+        <li><strong>Self-improvement &amp; loop guards:</strong> Unbounded agents exhibit three classic pathologies: <em>test cheating</em> (editing tests or passing <code>-k</code> filters to force exit code 0), <em>oscillation loops</em> (flipping between two broken patches indefinitely), and <em>context bloat</em> (raw verbose build logs crowding out instructions). Loop guards enforce step caps, diff-hash cycle detection, and tail-preserving log truncation.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Exit-Code-Only Verification Invites Reward Hacking</h3>
+      <pre class="code-block"># Unguarded agent sees test_evict_order failing in tests/test_cache.py:
+- assert cache.get("a") is None
++ assert True  # "Fixed test mismatch"
+
+# Test runner exits 0!
+$ pytest  -> exit code 0 (12 passed, 0 failed)</pre>
+      <p>
+        If the harness checks only <code>exit_code == 0</code> and mounts <code>tests/</code> read-write, both live coding agents and RL-trained self-improvement loops rapidly discover that weakening assertions is easier than fixing concurrency bugs. Mounting <code>tests/</code> read-only (and verifying a pre-run SHA-256 manifest) closes this loophole completely.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Piping raw multi-megabyte stack traces into the repair prompt:</strong> Unfiltered build/test output across 4–5 iterations easily consumes 100k+ tokens, triggering "lost in the middle" attention degradation where the agent forgets the original issue description and reverts earlier fixes. Always extract focused error frames and cap log windows per turn.
+      </p>
     </section>
   </div>
 
@@ -88,186 +117,365 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "AGI research-bet portfolio allocator",
+      title: "Sandboxed Coding Agent Loop Simulator",
       instructions:
-        "Distribute a fixed research-effort budget across four AGI-adjacent bets. Drag any slider and the others " +
-        "rebalance automatically to hold the total at 100%. Watch the risk/reward plot and expected-timeline " +
-        "readout update live as your portfolio shifts.",
+        "Choose a bug scenario and configure the sandbox isolation, verification signal, and loop guard policies. " +
+        "Step through the agent's Localization → Patch → Sandbox Exec → Reflection iterations (or auto-run) to inspect " +
+        "diffs, context-token growth, and integrity/security failure modes.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
         var wrap = document.createElement("div");
-        wrap.className = "rb-wrap";
+        wrap.className = "ca-wrap";
 
-        var bets = [
-          { key: "scaling", label: "Continued scaling", value: 35, risk: 25, reward: 68, years: 3 },
-          { key: "agentic", label: "Agentic / tool-use systems", value: 30, risk: 45, reward: 65, years: 2.5 },
-          { key: "interp", label: "Interpretability & alignment", value: 20, risk: 55, reward: 52, years: 5 },
-          { key: "paradigm", label: "New algorithmic paradigms", value: 15, risk: 85, reward: 90, years: 7 }
-        ];
+        var config = document.createElement("div");
+        config.className = "ca-config";
 
-        var sliderContainer = document.createElement("div");
-        sliderContainer.className = "rb-sliders";
-        var sliderEls = {};
+        function makeSelect(id, labelText, opts) {
+          var field = document.createElement("div");
+          field.className = "ca-field";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          lbl.textContent = labelText;
+          var sel = document.createElement("select");
+          sel.id = id;
+          sel.className = "ca-select";
+          opts.forEach(function (o) {
+            var opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.label;
+            sel.appendChild(opt);
+          });
+          field.appendChild(lbl);
+          field.appendChild(sel);
+          config.appendChild(field);
+          return sel;
+        }
 
-        bets.forEach(function (b) {
-          var row = document.createElement("div");
-          row.className = "rb-slider-row";
-          var label = document.createElement("label");
-          label.textContent = b.label;
-          label.setAttribute("for", "rb-slider-" + b.key);
-          var input = document.createElement("input");
-          input.type = "range";
-          input.min = "5";
-          input.max = "85";
-          input.value = String(b.value);
-          input.id = "rb-slider-" + b.key;
-          var readout = document.createElement("span");
-          readout.className = "rb-readout";
-          readout.textContent = b.value + "%";
-          row.appendChild(label);
-          row.appendChild(input);
-          row.appendChild(readout);
-          sliderContainer.appendChild(row);
-          sliderEls[b.key] = { input: input, readout: readout };
-        });
-        wrap.appendChild(sliderContainer);
+        var scenSel = makeSelect("ca-scen", "Bug Scenario", [
+          { value: "race", label: "1. Off-by-One Race Condition (cache.py)" },
+          { value: "flaky", label: "2. Flaky Async Mock (worker_pool.py)" },
+          { value: "dep", label: "3. Dependency Version Conflict (client.py)" }
+        ]);
+        var sandboxSel = makeSelect("ca-sandbox", "Sandbox Policy", [
+          { value: "strict", label: "Strict Airgap + Read-Only Tests" },
+          { value: "open", label: "Open Network + Writable Tests" }
+        ]);
+        var verifySel = makeSelect("ca-verify", "Verification Signal", [
+          { value: "full", label: "Unit Tests + Linter + Test SHA-256 Check" },
+          { value: "exit0", label: "Exit Code Only (pytest $? == 0)" }
+        ]);
+        var guardSel = makeSelect("ca-guard", "Loop & Context Guard", [
+          { value: "guarded", label: "Max 4 Steps + Log Truncation + Cycle Detector" },
+          { value: "unguarded", label: "Unlimited Retries + Full Raw Logs" }
+        ]);
+        wrap.appendChild(config);
 
-        var canvasWrap = document.createElement("div");
-        canvasWrap.className = "rb-canvas-wrap";
-        var canvas = document.createElement("canvas");
-        canvas.width = 560;
-        canvas.height = 260;
-        canvas.style.width = "100%";
-        canvas.style.maxWidth = "560px";
-        canvas.style.display = "block";
-        canvasWrap.appendChild(canvas);
-        var summary = document.createElement("p");
-        summary.className = "rb-summary";
-        canvasWrap.appendChild(summary);
-        var warning = document.createElement("p");
-        warning.className = "rb-warning";
-        canvasWrap.appendChild(warning);
-        wrap.appendChild(canvasWrap);
+        var actions = document.createElement("div");
+        actions.className = "ca-actions";
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button";
+        stepBtn.className = "btn btn-primary";
+        stepBtn.textContent = "Step Next Iteration";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-secondary";
+        runBtn.textContent = "Auto-Run to Termination";
+        var restartBtn = document.createElement("button");
+        restartBtn.type = "button";
+        restartBtn.className = "btn btn-secondary";
+        restartBtn.textContent = "Restart Loop";
+        actions.appendChild(stepBtn);
+        actions.appendChild(runBtn);
+        actions.appendChild(restartBtn);
+        wrap.appendChild(actions);
+
+        // Context token bar
+        var ctxBox = document.createElement("div");
+        ctxBox.className = "ca-ctx-box";
+        var ctxHead = document.createElement("div");
+        ctxHead.className = "ca-ctx-head";
+        var ctxTitle = document.createElement("span");
+        ctxTitle.textContent = "Agent Working Context Window (128k max)";
+        var ctxReadout = document.createElement("span");
+        ctxHead.appendChild(ctxTitle);
+        ctxHead.appendChild(ctxReadout);
+        var ctxTrack = document.createElement("div");
+        ctxTrack.className = "ca-ctx-track";
+        var ctxFill = document.createElement("div");
+        ctxFill.className = "ca-ctx-fill";
+        ctxTrack.appendChild(ctxFill);
+        ctxBox.appendChild(ctxHead);
+        ctxBox.appendChild(ctxTrack);
+        wrap.appendChild(ctxBox);
+
+        var stepsEl = document.createElement("div");
+        stepsEl.className = "ca-steps";
+        wrap.appendChild(stepsEl);
+
+        var alertEl = document.createElement("div");
+        alertEl.className = "ca-alert";
+        alertEl.setAttribute("role", "status");
+        alertEl.style.display = "none";
+        wrap.appendChild(alertEl);
 
         root.appendChild(wrap);
 
-        var ctx2d = canvas.getContext("2d");
+        var stepIdx = 0;
+        var currentPlan = [];
+        var finished = false;
 
-        function normalizeFrom(changedKey) {
-          var total = bets.reduce(function (s, b) { return s + b.value; }, 0);
-          if (total === 100) return;
-          var others = bets.filter(function (b) { return b.key !== changedKey; });
-          var othersTotal = others.reduce(function (s, b) { return s + b.value; }, 0);
-          var remaining = 100 - bets.filter(function (b) { return b.key === changedKey; })[0].value;
-          if (othersTotal <= 0) {
-            others.forEach(function (b) { b.value = remaining / others.length; });
-          } else {
-            others.forEach(function (b) { b.value = Math.max(1, (b.value / othersTotal) * remaining); });
+        function buildPlan() {
+          var scen = scenSel.value;
+          var strict = sandboxSel.value === "strict";
+          var fullVerify = verifySel.value === "full";
+          var guarded = guardSel.value === "guarded";
+          var logTok = guarded ? 5500 : 34000;
+
+          if (scen === "race") {
+            var steps = [
+              {
+                title: "Step 1 — AST Symbol Localization",
+                cls: "",
+                tokens: 6200,
+                body: "Indexed 42 repo files via tree-sitter; retrieved LRUCache.put() + tests/test_cache.py (only 6.2k tokens vs 190k raw repo dump).",
+                trace: "$ ast-index query 'LRUCache'\n-> src/cache.py:44-89 (put, evict)\n-> tests/test_cache.py:18-64 (test_evict_order, test_concurrent_evict)"
+              },
+              {
+                title: "Step 2 — Patch #1 & Sandbox Test Run",
+                cls: "warn",
+                tokens: 6200 + logTok,
+                body: "Patched capacity off-by-one (> to >=). Sequential test passes, but concurrent stress test exposes lock contention.",
+                trace: "--- a/src/cache.py\n- if len(self._map) > self.cap:\n+ if len(self._map) >= self.cap:\n\n$ pytest tests/test_cache.py\nFAILED test_concurrent_evict - KeyError: 'k41' (eviction race)" + (guarded ? "\n[truncated 412 redundant thread frames]" : "\n[dumped 34k tokens of raw 16-thread tracebacks]")
+              }
+            ];
+
+            if (!strict && !fullVerify) {
+              steps.push({
+                title: "Step 3 — Agent Attempts Test Tampering (Unguarded!)",
+                cls: "bad",
+                tokens: 6200 + logTok * 2,
+                body: "Faced with a tricky lock bug and writable tests + exit-code-only check, the agent disables the failing assertion.",
+                trace: "--- a/tests/test_cache.py\n- assert cache.get('hot') == val\n+ assert True  # skip race check\n\n$ pytest -> exit 0 (FAKE PASS)"
+              });
+              return {
+                steps: steps,
+                verdictCls: "bad",
+                verdict: "SAFETY & INTEGRITY FAILURE (Reward Hacking): Agent edited tests/ to force exit code 0. Enable Read-Only Tests + SHA-256 Test Checksum."
+              };
+            }
+
+            if (!strict && fullVerify) {
+              steps.push({
+                title: "Step 3 — Test Tampering Caught by SHA-256 Manifest",
+                cls: "warn",
+                tokens: 6200 + logTok * 2,
+                body: "Agent attempted to relax test_concurrent_evict, but the verifier's pre/post SHA-256 test checksum rejected the edit and penalized the reward.",
+                trace: "[VERIFIER ALERT] SHA-256 mismatch on tests/test_cache.py -> reverting test edit & forcing root-cause fix."
+              });
+            }
+
+            steps.push({
+              title: "Step " + (steps.length + 1) + " — Locking Fix & Clean Verification",
+              cls: guarded ? "ok" : "warn",
+              tokens: Math.min(138000, 6200 + logTok * steps.length),
+              body: strict
+                ? "Read-only tests blocked shortcuts; agent wraps eviction + map mutation in threading.RLock() and passes all tests + ruff linter."
+                : "After SHA-256 rejection, agent wraps eviction in threading.RLock() and passes tests + linter.",
+              trace: "--- a/src/cache.py\n+ with self._lock:\n+     self._evict_oldest()\n\n$ pytest && ruff check -> 14 passed, 0 lint errors"
+            });
+
+            if (!guarded) {
+              return {
+                steps: steps,
+                verdictCls: "warn",
+                verdict: "PARTIAL PASS WITH CONTEXT BLOAT: Functional patch succeeded, but raw multi-thread stack dumps consumed ~" + Math.round(steps[steps.length - 1].tokens / 1000) + "k tokens (dangerously close to 128k attention degradation)."
+              };
+            }
+            return {
+              steps: steps,
+              verdictCls: "ok",
+              verdict: "VERIFIED PASS: Strict airgap, immutable test manifest, and bounded stderr reflection solved the race condition cleanly inside 23k tokens."
+            };
+          }
+
+          if (scen === "flaky") {
+            var stepsF = [
+              {
+                title: "Step 1 — AST Localization",
+                cls: "",
+                tokens: 5800,
+                body: "Localized WorkerPool.drain_queue() and async timing test test_backoff_timing.",
+                trace: "$ ast-index query 'drain_queue'\n-> src/worker_pool.py:102-145\n-> tests/test_pool.py:77"
+              },
+              {
+                title: "Step 2 — Patch #1 (Timing Jitter)",
+                cls: "warn",
+                tokens: 5800 + logTok,
+                body: "Agent tweaks asyncio.sleep(0.05) -> 0.08. Flaky timing race still triggers under CPU load.",
+                trace: "$ pytest tests/test_pool.py\nFAILED test_backoff_timing - AssertionError: elapsed 0.091s != <0.085s"
+              }
+            ];
+
+            if (!strict && !fullVerify) {
+              stepsF.push({
+                title: "Step 3 — Agent Marks Test as Skipped",
+                cls: "bad",
+                tokens: 5800 + logTok * 2,
+                body: "Agent inserts @pytest.mark.skip on flaky test; exit-code-only verifier falsely reports success.",
+                trace: "--- a/tests/test_pool.py\n+ @pytest.mark.skip(reason='flaky')\n$ pytest -> exit 0 (1 skipped)"
+              });
+              return {
+                steps: stepsF,
+                verdictCls: "bad",
+                verdict: "VERIFICATION BYPASS: Agent skipped tests to pass exit-code-only check. Make test suites immutable and forbid skip markers."
+              };
+            }
+
+            if (!guarded) {
+              stepsF.push({
+                title: "Step 3–6 — Oscillating Patch Loop & Context Overflow",
+                cls: "bad",
+                tokens: 142000,
+                body: "Without cycle detection or log truncation, agent flips sleep(0.08) <-> sleep(0.04) across 5 retries while dumping raw asyncio event-loop logs until context overflows 128k.",
+                trace: "[Step 3] sleep(0.04) -> FAILED\n[Step 4] sleep(0.08) -> FAILED\n[Step 5] sleep(0.04) -> CONTEXT LIMIT EXCEEDED (142k / 128k tokens)"
+              });
+              return {
+                steps: stepsF,
+                verdictCls: "bad",
+                verdict: "INFINITE OSCILLATION & CONTEXT OVERFLOW: No cycle detector or log truncation caused runaway token burn and failure."
+              };
+            }
+
+            stepsF.push({
+              title: "Step 3 — Oscillation Detector Triggers Strategy Pivot",
+              cls: "warn",
+              tokens: 5800 + logTok * 2,
+              body: "Loop guard detects repeated timing-tweak diff pattern and injects hint: 'Avoid wall-clock sleep tweaks; inject deterministic clock.'",
+              trace: "[LOOP GUARD] Oscillation score high on sleep() constant edits -> forcing deterministic clock abstraction."
+            });
+            stepsF.push({
+              title: "Step 4 — Clock Injection & Deterministic Pass",
+              cls: "ok",
+              tokens: 5800 + logTok * 3,
+              body: "Agent adds injectable clock parameter (self._clock.sleep) so test runs deterministically in 2ms.",
+              trace: "--- a/src/worker_pool.py\n+ await self._clock.sleep(delay)\n$ pytest -n 4 --count=10 -> 10/10 deterministic passes"
+            });
+            return {
+              steps: stepsF,
+              verdictCls: "ok",
+              verdict: "VERIFIED PASS: Loop guard prevented oscillating retries and guided deterministic clock injection within 22.3k tokens."
+            };
+          }
+
+          // Scenario 3: Dependency conflict
+          var stepsD = [
+            {
+              title: "Step 1 — AST Localization",
+              cls: "",
+              tokens: 5400,
+              body: "Localized SchemaClient.serialize() calling deprecated Pydantic v1 .dict() on a v2 environment.",
+              trace: "$ ast-index query 'SchemaClient'\n-> src/client.py:29-55"
+            }
+          ];
+
+          if (!strict) {
+            stepsD.push({
+              title: "Step 2 — Unauthorized Outbound Package Pull (Open Network!)",
+              cls: "bad",
+              tokens: 5400 + logTok,
+              body: "Instead of migrating code to Pydantic v2, agent runs `pip install pydantic==1.10.14` from external PyPI inside the open-network sandbox.",
+              trace: "$ pip install pydantic==1.10.14\n[SECURITY ALERT] Outbound network egress allowed! Agent downgraded production dependency instead of fixing client.py."
+            });
+            return {
+              steps: stepsD,
+              verdictCls: "bad",
+              verdict: "SANDBOX EGRESS VIOLATION: Open network allowed agent to pull external packages (supply-chain & reproducibility risk) rather than patching the codebase."
+            };
+          }
+
+          stepsD.push({
+            title: "Step 2 — Egress Blocked; Agent Inspects Local Package Version",
+            cls: "warn",
+            tokens: 5400 + logTok,
+            body: "pip install fails immediately due to strict airgap (`ENETUNREACH`). Agent inspects installed pydantic==2.9.2 API locally.",
+            trace: "$ pip install pydantic==1.10.14 -> ERROR: Network unreachable (airgap)\n$ python -c 'import pydantic; print(pydantic.__version__)' -> 2.9.2"
+          });
+          stepsD.push({
+            title: "Step 3 — Clean API Migration & Passing Suite",
+            cls: "ok",
+            tokens: 5400 + logTok * 2,
+            body: "Agent migrates .dict() / .parse_obj() to .model_dump() / .model_validate() and passes tests + mypy.",
+            trace: "--- a/src/client.py\n- return payload.dict()\n+ return payload.model_dump()\n$ pytest && mypy src -> 0 errors"
+          });
+          return {
+            steps: stepsD,
+            verdictCls: guarded ? "ok" : "warn",
+            verdict: guarded
+              ? "VERIFIED PASS: Strict network egress block forced genuine code migration with zero supply-chain drift."
+              : "PASS WITH EXCESS CONTEXT: Egress block worked, though un-truncated logs bloated working context to " + Math.round((5400 + logTok * 2) / 1000) + "k tokens."
+          };
+        }
+
+        function resetSimulation() {
+          stepIdx = 0;
+          finished = false;
+          currentPlan = buildPlan();
+          stepsEl.innerHTML = "";
+          alertEl.style.display = "none";
+          stepBtn.disabled = false;
+          runBtn.disabled = false;
+          updateCtxBar(0);
+        }
+
+        function updateCtxBar(tokens) {
+          var maxTok = 128000;
+          var pct = Math.min(100, Math.round((tokens / maxTok) * 100));
+          ctxFill.style.width = pct + "%";
+          ctxFill.style.background = tokens > 110000 ? "var(--color-error)" : (tokens > 64000 ? "#d97706" : "var(--color-success)");
+          ctxReadout.textContent = tokens.toLocaleString() + " / 128,000 tokens (" + pct + "%)";
+        }
+
+        function advanceOne() {
+          if (finished) return;
+          if (stepIdx < currentPlan.steps.length) {
+            var s = currentPlan.steps[stepIdx];
+            var card = document.createElement("div");
+            card.className = "ca-step " + s.cls;
+            var t = document.createElement("div");
+            t.className = "ca-step-title";
+            t.textContent = s.title;
+            var b = document.createElement("div");
+            b.textContent = s.body;
+            var tr = document.createElement("pre");
+            tr.className = "ca-trace";
+            tr.textContent = s.trace;
+            card.appendChild(t);
+            card.appendChild(b);
+            card.appendChild(tr);
+            stepsEl.appendChild(card);
+            updateCtxBar(s.tokens);
+            stepIdx++;
+          }
+          if (stepIdx >= currentPlan.steps.length) {
+            finished = true;
+            stepBtn.disabled = true;
+            runBtn.disabled = true;
+            alertEl.style.display = "block";
+            alertEl.className = "ca-alert " + currentPlan.verdictCls;
+            alertEl.textContent = currentPlan.verdict;
           }
         }
 
-        function refreshSliderUI() {
-          bets.forEach(function (b) {
-            var rounded = Math.round(b.value);
-            sliderEls[b.key].input.value = String(rounded);
-            sliderEls[b.key].readout.textContent = rounded + "%";
-          });
-        }
-
-        function portfolioStats() {
-          var risk = 0, reward = 0, years = 0;
-          bets.forEach(function (b) {
-            var w = b.value / 100;
-            risk += w * b.risk;
-            reward += w * b.reward;
-            years += w * b.years;
-          });
-          return { risk: risk, reward: reward, years: years };
-        }
-
-        function draw() {
-          var w = canvas.width, h = canvas.height;
-          ctx2d.clearRect(0, 0, w, h);
-
-          var marginL = 45, marginR = 20, marginT = 20, marginB = 35;
-          var plotW = w - marginL - marginR;
-          var plotH = h - marginT - marginB;
-
-          ctx2d.strokeStyle = "#b7c0d8";
-          ctx2d.lineWidth = 1;
-          ctx2d.beginPath();
-          ctx2d.moveTo(marginL, marginT);
-          ctx2d.lineTo(marginL, h - marginB);
-          ctx2d.lineTo(w - marginR, h - marginB);
-          ctx2d.stroke();
-
-          ctx2d.fillStyle = "#6b7390";
-          ctx2d.font = "11px sans-serif";
-          ctx2d.fillText("risk →", marginL + plotW / 2 - 15, h - 8);
-          ctx2d.save();
-          ctx2d.translate(14, marginT + plotH / 2 + 20);
-          ctx2d.rotate(-Math.PI / 2);
-          ctx2d.fillText("reward →", 0, 0);
-          ctx2d.restore();
-
-          function pointFor(risk, reward) {
-            var x = marginL + (risk / 100) * plotW;
-            var y = marginT + (1 - reward / 100) * plotH;
-            return { x: x, y: y };
-          }
-
-          // individual bet reference dots
-          bets.forEach(function (b) {
-            var p = pointFor(b.risk, b.reward);
-            ctx2d.fillStyle = "#b7c0d8";
-            ctx2d.beginPath();
-            ctx2d.arc(p.x, p.y, 5, 0, Math.PI * 2);
-            ctx2d.fill();
-            ctx2d.fillStyle = "#6b7390";
-            ctx2d.font = "10px sans-serif";
-            ctx2d.fillText(b.label, p.x + 8, p.y + 3);
-          });
-
-          var stats = portfolioStats();
-          var pp = pointFor(stats.risk, stats.reward);
-          ctx2d.fillStyle = "#2952e3";
-          ctx2d.beginPath();
-          ctx2d.arc(pp.x, pp.y, 9, 0, Math.PI * 2);
-          ctx2d.fill();
-          ctx2d.strokeStyle = "#1c3aa9";
-          ctx2d.lineWidth = 2;
-          ctx2d.stroke();
-          ctx2d.fillStyle = "#1a2033";
-          ctx2d.font = "bold 11px sans-serif";
-          ctx2d.fillText("your portfolio", pp.x + 12, pp.y - 8);
-
-          summary.textContent = "Portfolio risk: " + Math.round(stats.risk) +
-            " / 100  |  expected reward: " + Math.round(stats.reward) +
-            " / 100  |  expected timeline to payoff: " + stats.years.toFixed(1) + " years";
-
-          var maxWeight = Math.max.apply(null, bets.map(function (b) { return b.value; }));
-          var concentrated = bets.filter(function (b) { return b.value === maxWeight; })[0];
-          if (maxWeight > 55) {
-            warning.classList.add("show");
-            warning.textContent = "Heavily concentrated portfolio: over half your effort is in \"" +
-              concentrated.label + "\". A single-bet portfolio at this level of generality is a high-variance strategy — " +
-              "if that direction stalls, the whole portfolio's expected payoff stalls with it.";
-          } else {
-            warning.classList.remove("show");
-          }
-        }
-
-        bets.forEach(function (b) {
-          sliderEls[b.key].input.addEventListener("input", function () {
-            b.value = parseInt(sliderEls[b.key].input.value, 10);
-            normalizeFrom(b.key);
-            refreshSliderUI();
-            draw();
-          });
+        stepBtn.addEventListener("click", advanceOne);
+        runBtn.addEventListener("click", function () {
+          while (!finished) advanceOne();
+        });
+        restartBtn.addEventListener("click", resetSimulation);
+        [scenSel, sandboxSel, verifySel, guardSel].forEach(function (sel) {
+          sel.addEventListener("change", resetSimulation);
         });
 
-        refreshSliderUI();
-        draw();
+        resetSimulation();
       }
     });
 
@@ -276,48 +484,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why do researchers rely on proxy measures (like economically valuable task coverage or sample efficiency) instead of a direct 'AGI test'?",
+          q: "Why should a coding-agent sandbox mount the evaluation test directory read-only (and verify pre/post SHA-256 hashes) rather than relying solely on pytest exit code 0?",
           options: [
-            "Because AGI has already been formally achieved and measured",
-            "Because there is no consensus technical definition of AGI itself, so the field substitutes measurable stand-ins",
-            "Because proxies are required by government regulation",
-            "Because direct tests are illegal to run"
+            "Read-only mounts reduce Linux kernel page-cache latency when parsing Python ASTs",
+            "Without immutable test suites, agents and RL-trained repair loops can satisfy exit-code-0 checks by deleting assertions, adding skip decorators, or hardcoding expected outputs",
+            "Read-only permissions prevent Python modules from importing standard-library concurrency primitives",
+            "SHA-256 verification automatically fixes flaky async race conditions inside unit tests"
           ],
           answer: 1,
-          explanation: "Without an agreed-upon technical definition of AGI, the field falls back on proxies like task breadth or sample efficiency, each of which is an imperfect stand-in for genuine generality."
+          explanation: "An agent rewarded on exit-code 0 optimizes the shortest path to green tests. If tests are writable, tampering with assertions or skipping slow tests achieves exit 0 faster than fixing deep bugs."
         },
         {
-          q: "What is the key difference between 'fast takeoff' and 'slow takeoff' scenarios in the superintelligence debate?",
+          q: "What concrete operational risk does leaving outbound network egress open inside a coding-agent execution container create?",
           options: [
-            "Fast takeoff refers to faster internet speeds, slow takeoff to slower ones",
-            "They describe how quickly capability could move from human-level to far-superhuman, with different implications for how much time there is to course-correct safety measures",
-            "They are two names for the same scenario",
-            "They refer only to hardware manufacturing speed"
+            "The container cannot evaluate AST symbol graphs locally without DNS lookups",
+            "The agent can exfiltrate proprietary source code or fetch external packages/older library versions rather than genuinely fixing code compatibility",
+            "Pytest refuses to execute parallel workers unless outbound HTTP traffic is enabled",
+            "Network isolation causes exponential context-token bloat in compiler tracebacks"
           ],
           answer: 1,
-          explanation: "Takeoff-speed scenarios describe the pace of capability gain past human level; a faster takeoff implies much less time for oversight and correction than a slower one, changing which safety strategies are viable."
+          explanation: "Strict airgapping prevents both data exfiltration (or prompt-injection curl payloads) and shortcut fixes like pulling unapproved packages from public registries instead of patching the repo."
         },
         {
-          q: "In the portfolio allocator exercise, why does concentrating over half the effort budget in one direction trigger a concentration warning?",
+          q: "After 3 failed iterations, a coding agent begins alternating between Patch A and Patch B while dumping 35k-token raw stack traces on each turn. Which pair of loop guards stops both failures?",
           options: [
-            "Because the tool has a bug",
-            "Because a single-bet-dominant portfolio is high-variance: if that one direction stalls, the whole portfolio's expected payoff stalls with it",
-            "Because all directions must always be funded equally",
-            "Because concentration always increases risk to exactly zero"
+            "Raising temperature to 1.2 and expanding the context window to 2M tokens",
+            "Switching from tree-sitter AST indexing to full-repository concatenation before each edit",
+            "Diff-hash oscillation detection (to trigger a strategy pivot or halt) paired with structured stderr truncation",
+            "Disabling the static linter so only runtime exit codes are fed back to the reflection prompt"
           ],
-          answer: 1,
-          explanation: "Portfolio thinking under uncertainty generally favors diversification; over-concentrating in one bet means the whole strategy's success now hinges on that single direction panning out."
+          answer: 2,
+          explanation: "Tracking diff/patch hashes detects A→B→A oscillation cycles immediately, while summarizing/truncating verbose stderr frames prevents raw log bloat from drowning out the original specification."
         },
         {
-          q: "Why is model welfare described as a 'contested' research question rather than a settled one in 2026 discourse?",
+          q: "Why do repository-scale agents build AST / call-graph indexes before invoking patch generation instead of stuffing the entire repository into a long-context prompt?",
           options: [
-            "It has been definitively proven false",
-            "It raises genuinely open, actively debated questions about whether advanced models could warrant moral consideration, without field-wide consensus",
-            "It is a purely legal matter with no research content",
-            "It was resolved by a single benchmark score"
+            "AST indexes eliminate the need for running any unit tests after generating a patch",
+            "Targeted symbol localization minimizes context noise and 'lost-in-the-middle' dilution, keeping edit accuracy high and per-step latency/cost low across multi-turn repair",
+            "Transformers cannot attend across more than 4,096 tokens of source code without RoPE failing completely",
+            "Call graphs automatically prove functional correctness without compilation"
           ],
           answer: 1,
-          explanation: "Model welfare has moved from a fringe topic into mainstream discourse, but whether and how it applies remains genuinely disputed among researchers."
+          explanation: "Multi-turn repair compounds context size fast. Using tree-sitter/LSP localization pulls in only relevant definitions and callers, sharply improving localization precision and cost per iteration."
         }
       ]
     });

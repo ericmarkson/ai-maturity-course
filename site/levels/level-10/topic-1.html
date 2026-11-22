@@ -4,25 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Frontier Model Pretraining and Research — AI Maturity Course</title>
-<meta name="description" content="The end-to-end discipline of designing, training, and validating next-generation foundation models under a fixed compute budget.">
+<meta name="description" content="Chinchilla vs. inference-optimal overtraining, data curriculum and decontamination, μP hyperparameter transfer, and pre-to-post-training handoff.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "10-1";
 </script>
 <style>
-  .pp-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
-  .pp-sliders { display: flex; flex-direction: column; gap: var(--space-3); }
-  .pp-slider-row { display: grid; grid-template-columns: 160px 1fr 70px; align-items: center; gap: var(--space-3); }
-  .pp-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
-  .pp-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
-  .pp-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
-  .pp-loss-readout { font-weight: 700; font-size: var(--font-size-md); margin-top: var(--space-2); }
-  .pp-checklist { list-style: none; margin: var(--space-3) 0 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-  .pp-checklist li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); color: var(--color-text-faint); font-size: var(--font-size-sm); border-left: 4px solid var(--color-border-strong); transition: all 0.15s ease; }
-  .pp-checklist li.hit { background: var(--color-success-bg); color: var(--color-success); border-left-color: var(--color-success); font-weight: 600; }
-  .pp-justify-textarea { width: 100%; min-height: 90px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-family: inherit; font-size: var(--font-size-base); resize: vertical; }
-  .pp-wordcount { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
+  .pt-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .pt-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .pt-field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .pt-field label { font-weight: 700; font-size: var(--font-size-sm); display: flex; justify-content: space-between; gap: var(--space-2); }
+  .pt-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); font-size: var(--font-size-xs); color: var(--color-text); }
+  .pt-select { padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text); font-size: var(--font-size-sm); }
+  .pt-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+  .pt-presets-label { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-muted); margin-right: var(--space-1); }
+  .pt-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); }
+  .pt-metric { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
+  .pt-metric-label { font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 600; }
+  .pt-metric-val { font-family: var(--font-mono); font-size: var(--font-size-md); font-weight: 800; color: var(--color-text); margin-top: 2px; }
+  .pt-canvas-wrap { background: #ffffff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .pt-scenario { background: var(--color-bg); border: 1px solid var(--color-border); border-left: 4px solid var(--color-primary); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); }
+  .pt-scenario-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+  .pt-verdict { font-size: var(--font-size-sm); font-weight: 700; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin: var(--space-2) 0 0 0; }
+  .pt-verdict.ok { background: var(--color-success-bg); color: var(--color-success); }
+  .pt-verdict.warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .pt-verdict.bad { background: var(--color-error-bg); color: var(--color-error); }
 </style>
 </head>
 <body>
@@ -36,32 +43,57 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a fixed compute budget and a target capability profile, produce a defensible high-level pretraining plan (data mix, architecture choice, scaling strategy) and justify each choice against a tradeoff.
+      <strong>Learning objective:</strong> Optimize parameter count (<code>N</code>) and pretraining token budget (<code>D</code>) under a fixed compute budget and deployment demand, and design pretraining data curricula, <code>μP</code> proxy transfers, and post-training handoffs.
     </div>
+
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Frontier model pretraining is the end-to-end research and engineering discipline of designing, training,
-          and validating the next generation of foundation models from scratch. It spans everything upstream of
-          "the model works": what data it sees, what architecture it uses, how much compute goes to model size
-          versus data versus training duration, and how pretraining hands off into post-training.
+          Frontier model pretraining is the end-to-end discipline of designing, scaling, and validating foundation models from scratch before post-training. Under budgets of <code>10<sup>23</sup>–10<sup>26</sup></code> FLOPs, a single unrecoverable instability or suboptimal compute allocation wastes millions of dollars, requiring scaling-law economics, strict data engineering, and small-scale predictive validation.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        For dense transformers, training compute obeys <code>C ≈ 6ND</code> FLOPs (2 FLOPs forward + 4 backward per parameter-token). Hoffmann et al. modeled pretraining cross-entropy loss via the Chinchilla power law:
+      </p>
+      <pre class="code-block">L(N, D) = 1.69 + 406.4 / N^0.34 + 410.7 / D^0.28</pre>
       <ul>
-        <li><strong>Pretraining data strategy</strong> — composition, deduplication, and the frontier-lab trend of
-          using synthetic data to supplement scarce real high-quality data.</li>
-        <li><strong>Architecture and objective decisions</strong> made before a run starts (attention variant, MoE
-          routing, context length target), and how they're validated at small scale before committing to a
-          frontier-scale run.</li>
-        <li><strong>Scaling-law-informed compute allocation</strong> — choosing model size vs. dataset size vs.
-          training duration under a fixed compute budget.</li>
-        <li><strong>Post-training pipeline design</strong> — how pretraining, RLHF/RLAIF, and safety fine-tuning
-          stages fit together into one coherent model lifecycle.</li>
+        <li><strong>Chinchilla vs. inference-optimal overtraining:</strong> Minimizing <em>training</em> loss alone favors scaling <code>N</code> and <code>D</code> together near ~20 tokens/parameter. However, total lifecycle compute is <code>C<sub>total</sub> = 6ND + 2ND<sub>infer</sub></code>. Because the isoFLOP loss valley is shallow while serving latency, KV-cache footprint, and inference FLOPs scale linearly with <code>N</code>, production labs (e.g., Llama-3 / Qwen-style runs) deliberately overtrain smaller models to <strong>100–500+ tokens/parameter</strong>.</li>
+        <li><strong>Data curriculum &amp; decontamination:</strong> Pretraining uses staged curricula—broad deduplicated web text and repositories early, followed by late-stage <em>annealing</em> (raising the learning-rate decay phase proportion of verified math, code, and synthetic reasoning traces). Every corpus must undergo n-gram and semantic decontamination against held-out eval suites.</li>
+        <li><strong>μP (Maximal Update Parametrization) transfer:</strong> Tuning learning rates and initialization directly at 70B+ scale is cost-prohibitive. Under standard parametrization, optimal LR shifts with model width; <code>μP</code> rescales per-layer init variance and LR by width ratios so hyperparameters tuned on 40M–400M proxy models transfer invariant to frontier width.</li>
+        <li><strong>Pre-to-post-training handoff:</strong> Mid-training extends context via RoPE base-frequency scaling and long-document packing while preserving base entropy—avoiding premature distribution sharpening before SFT and RLVR/RLHF.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Compute-Optimal vs. Inference-Optimal at C = 10<sup>24</sup> FLOPs</h3>
+      <p>
+        Suppose a lab allocates <code>C = 10<sup>24</sup></code> training FLOPs and expects <code>D<sub>infer</sub> = 10<sup>13</sup></code> (10 trillion) generated tokens in production:
+      </p>
+      <table class="lesson-table">
+        <thead>
+          <tr><th>Regime</th><th>Tokens/Param (D/N)</th><th>Params (N)</th><th>Tokens (D)</th><th>Loss L(N,D)</th><th>Inference FLOPs (2ND<sub>infer</sub>)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Chinchilla heuristic</td><td>20 : 1</td><td>91.3B</td><td>1.83T</td><td>1.918 nats</td><td>1.83 × 10<sup>24</sup></td></tr>
+          <tr><td>Overtrained serving</td><td>200 : 1</td><td>28.9B</td><td>5.77T</td><td>1.913 nats</td><td>0.58 × 10<sup>24</sup> (3.16× cheaper)</td></tr>
+          <tr><td>Extreme edge overtrain</td><td>500 : 1</td><td>18.3B</td><td>9.13T</td><td>1.926 nats</td><td>0.37 × 10<sup>24</sup> (5.0× cheaper)</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Shifting from 20:1 to 200:1 saves <code>1.25 × 10<sup>24</sup></code> inference FLOPs—exceeding the entire training run—while fitting inside 3× smaller GPU memory with negligible loss penalty (Notice too how Hoffmann's asymmetric exponents <code>0.34</code> vs <code>0.28</code> push the raw loss minimum toward higher <code>D/N</code> at <code>10<sup>24</sup></code> FLOPs).
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Treating pretraining scaling curves as validation-free:</strong> Two mistakes routinely invalidate frontier runs: (1) extrapolating proxy scaling laws without <code>μP</code>, causing optimizer divergence or LR collapse when width scales 16×; and (2) letting synthetic or web data leak eval questions into late annealing, creating illusory downward loss slopes that evaporate on private holdouts.
+      </p>
     </section>
   </div>
 
@@ -91,213 +123,437 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Pretraining plan: allocate a fixed compute budget",
+      title: "Chinchilla Power-Law & Overtraining Tradeoff Simulator",
       instructions:
-        "You have a fixed compute budget split three ways: model size, dataset size, and training steps. " +
-        "Drag any slider and the other two rebalance automatically to keep the budget at 100%. Watch the " +
-        "estimated loss curve and score update live, then justify your allocation in 3 sentences below.",
+        "Adjust the training compute budget C = 6ND, the tokens-per-parameter ratio D/N, and expected lifetime inference volume. " +
+        "Compare the Chinchilla compute-optimal regime (~20 tok/param) against inference-optimal overtraining (100–500 tok/param), " +
+        "then diagnose the selected deployment scenario against real memory, token-supply, and lifecycle-FLOP constraints.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
         var wrap = document.createElement("div");
-        wrap.className = "pp-wrap";
+        wrap.className = "pt-wrap";
 
-        var dims = [
-          { key: "model", label: "Model size share", value: 40 },
-          { key: "data", label: "Dataset size share", value: 40 },
-          { key: "steps", label: "Training steps share", value: 20 }
-        ];
+        var SCENARIOS = {
+          high_traffic: {
+            name: "High-Traffic Consumer API (10T tokens served, 1×80GB H100 serving target)",
+            desc: "Target: fit BF16 weights + KV headroom in ≤70 GB (N ≤ 30B params), serve 10T tokens cheaply, and keep loss L(N,D) ≤ 1.98 nats.",
+            inferExp: 13,
+            check: function (res) {
+              var okN = res.N <= 30e9;
+              var okL = res.loss <= 1.98;
+              var okRatio = res.ratio >= 120;
+              if (okN && okL && okRatio) {
+                return { cls: "ok", text: "PASS — Overtraining packs strong capability into " + fmtParams(res.N) + " (fits single 80GB node), cutting serving cost " + (res.chinN / res.N).toFixed(1) + "× vs. 20:1." };
+              }
+              var issues = [];
+              if (!okN) issues.push("N=" + fmtParams(res.N) + " exceeds 30B single-GPU serving envelope (raise D/N)");
+              if (!okL) issues.push("L=" + res.loss.toFixed(3) + " > 1.98 (raise compute C)");
+              if (!okRatio) issues.push("D/N=" + res.ratio + " under-utilizes overtraining savings");
+              return { cls: "warn", text: "MISALIGNED — " + issues.join("; ") + "." };
+            }
+          },
+          token_bound: {
+            name: "Token-Scarce Frontier Reasoning (Max 2.5T unique quality tokens available)",
+            desc: "Target: maximize raw capability (L(N,D) ≤ 1.92 nats) without repeating scarce unique tokens past 2.5T (D ≤ 2.5e12), even if serving takes multi-GPU.",
+            inferExp: 11,
+            check: function (res) {
+              var okD = res.D <= 2.5e12;
+              var okL = res.loss <= 1.92;
+              if (okD && okL) {
+                return { cls: "ok", text: "PASS — With D=" + fmtTokens(res.D) + " ≤ 2.5T unique tokens and N=" + fmtParams(res.N) + ", you reach L=" + res.loss.toFixed(3) + " without multi-epoch memorization." };
+              }
+              var issues = [];
+              if (!okD) issues.push("D=" + fmtTokens(res.D) + " exceeds 2.5T unique corpus limit (lower D/N toward Chinchilla 20:1)");
+              if (!okL) issues.push("L=" + res.loss.toFixed(3) + " > 1.92 (increase C toward 10^24+)");
+              return { cls: "bad", text: "CONSTRAINT VIOLATION — " + issues.join("; ") + "." };
+            }
+          },
+          balanced_research: {
+            name: "Balanced Frontier Baseline (C ≈ 10^23.5, minimal pretraining loss)",
+            desc: "Target: achieve within 0.01 nats of the isoFLOP curve minimum while keeping total lifecycle FLOPs ≤ 2.5× training compute.",
+            inferExp: 12,
+            check: function (res) {
+              var delta = res.loss - res.minLoss;
+              var ratioLife = res.totalFlops / res.C;
+              if (delta <= 0.01 && ratioLife <= 2.5) {
+                return { cls: "ok", text: "PASS — Within " + delta.toFixed(4) + " nats of isoFLOP optimum and lifecycle compute is only " + ratioLife.toFixed(2) + "× training FLOPs." };
+              }
+              var issues = [];
+              if (delta > 0.01) issues.push("loss is +" + delta.toFixed(3) + " nats above isoFLOP minimum");
+              if (ratioLife > 2.5) issues.push("inference dominates (" + ratioLife.toFixed(1) + "× training FLOPs — increase D/N)");
+              return { cls: "warn", text: "SUBOPTIMAL — " + issues.join("; ") + "." };
+            }
+          }
+        };
 
-        var sliderContainer = document.createElement("div");
-        sliderContainer.className = "pp-sliders";
-        var sliderEls = {};
+        var controls = document.createElement("div");
+        controls.className = "pt-controls";
 
-        dims.forEach(function (d) {
-          var row = document.createElement("div");
-          row.className = "pp-slider-row";
-          var label = document.createElement("label");
-          label.textContent = d.label;
-          label.setAttribute("for", "pp-slider-" + d.key);
-          var input = document.createElement("input");
-          input.type = "range";
-          input.min = "5";
-          input.max = "90";
-          input.value = String(d.value);
-          input.id = "pp-slider-" + d.key;
-          var readout = document.createElement("span");
-          readout.className = "pp-readout";
-          readout.textContent = d.value + "%";
-          row.appendChild(label);
-          row.appendChild(input);
-          row.appendChild(readout);
-          sliderContainer.appendChild(row);
-          sliderEls[d.key] = { input: input, readout: readout };
+        // Compute C slider
+        var cField = document.createElement("div");
+        cField.className = "pt-field";
+        var cLabel = document.createElement("label");
+        cLabel.setAttribute("for", "pt-c-slider");
+        var cTitle = document.createElement("span");
+        cTitle.textContent = "Training compute C = 6ND";
+        var cReadout = document.createElement("span");
+        cReadout.className = "pt-readout";
+        cLabel.appendChild(cTitle);
+        cLabel.appendChild(cReadout);
+        var cSlider = document.createElement("input");
+        cSlider.type = "range";
+        cSlider.id = "pt-c-slider";
+        cSlider.min = "21.0";
+        cSlider.max = "25.0";
+        cSlider.step = "0.2";
+        cSlider.value = "23.6";
+        cField.appendChild(cLabel);
+        cField.appendChild(cSlider);
+        controls.appendChild(cField);
+
+        // Ratio D/N slider
+        var rField = document.createElement("div");
+        rField.className = "pt-field";
+        var rLabel = document.createElement("label");
+        rLabel.setAttribute("for", "pt-r-slider");
+        var rTitle = document.createElement("span");
+        rTitle.textContent = "Tokens / parameter (D/N)";
+        var rReadout = document.createElement("span");
+        rReadout.className = "pt-readout";
+        rLabel.appendChild(rTitle);
+        rLabel.appendChild(rReadout);
+        var rSlider = document.createElement("input");
+        rSlider.type = "range";
+        rSlider.id = "pt-r-slider";
+        rSlider.min = "5";
+        rSlider.max = "600";
+        rSlider.step = "5";
+        rSlider.value = "20";
+        rField.appendChild(rLabel);
+        rField.appendChild(rSlider);
+        controls.appendChild(rField);
+
+        // Inference demand slider
+        var iField = document.createElement("div");
+        iField.className = "pt-field";
+        var iLabel = document.createElement("label");
+        iLabel.setAttribute("for", "pt-i-slider");
+        var iTitle = document.createElement("span");
+        iTitle.textContent = "Lifetime served tokens";
+        var iReadout = document.createElement("span");
+        iReadout.className = "pt-readout";
+        iLabel.appendChild(iTitle);
+        iLabel.appendChild(iReadout);
+        var iSlider = document.createElement("input");
+        iSlider.type = "range";
+        iSlider.id = "pt-i-slider";
+        iSlider.min = "10.0";
+        iSlider.max = "13.5";
+        iSlider.step = "0.25";
+        iSlider.value = "12.5";
+        iField.appendChild(iLabel);
+        iField.appendChild(iSlider);
+        controls.appendChild(iField);
+
+        wrap.appendChild(controls);
+
+        // Presets
+        var presetRow = document.createElement("div");
+        presetRow.className = "pt-presets";
+        var presetLbl = document.createElement("span");
+        presetLbl.className = "pt-presets-label";
+        presetLbl.textContent = "Quick regimes:";
+        presetRow.appendChild(presetLbl);
+        [
+          { label: "Chinchilla (20:1)", ratio: 20 },
+          { label: "Moderate Overtrain (100:1)", ratio: 100 },
+          { label: "Llama-Style Serving (250:1)", ratio: 250 },
+          { label: "Edge Compact (500:1)", ratio: 500 }
+        ].forEach(function (p) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn btn-secondary btn-sm";
+          btn.textContent = p.label;
+          btn.addEventListener("click", function () {
+            rSlider.value = String(p.ratio);
+            update();
+          });
+          presetRow.appendChild(btn);
         });
-        wrap.appendChild(sliderContainer);
+        wrap.appendChild(presetRow);
 
+        // Canvas
         var canvasWrap = document.createElement("div");
-        canvasWrap.className = "pp-canvas-wrap";
+        canvasWrap.className = "pt-canvas-wrap";
         var canvas = document.createElement("canvas");
-        canvas.width = 560;
-        canvas.height = 180;
+        canvas.width = 720;
+        canvas.height = 270;
         canvas.style.width = "100%";
-        canvas.style.maxWidth = "560px";
+        canvas.style.maxWidth = "720px";
         canvas.style.display = "block";
         canvasWrap.appendChild(canvas);
-        var lossReadout = document.createElement("p");
-        lossReadout.className = "pp-loss-readout";
-        canvasWrap.appendChild(lossReadout);
         wrap.appendChild(canvasWrap);
 
-        var checklistHeading = document.createElement("p");
-        checklistHeading.style.fontWeight = "600";
-        checklistHeading.style.marginTop = "var(--space-3)";
-        checklistHeading.textContent = "Justify your allocation (3 sentences):";
-        wrap.appendChild(checklistHeading);
+        // Metrics grid
+        var metrics = document.createElement("div");
+        metrics.className = "pt-metrics";
+        function makeMetric(title) {
+          var box = document.createElement("div");
+          box.className = "pt-metric";
+          var lbl = document.createElement("div");
+          lbl.className = "pt-metric-label";
+          lbl.textContent = title;
+          var val = document.createElement("div");
+          val.className = "pt-metric-val";
+          box.appendChild(lbl);
+          box.appendChild(val);
+          metrics.appendChild(box);
+          return val;
+        }
+        var mParams = makeMetric("Model size (N)");
+        var mTokens = makeMetric("Pretraining tokens (D)");
+        var mLoss = makeMetric("Chinchilla loss L(N,D)");
+        var mInfCost = makeMetric("Inference cost / tok (2N)");
+        var mLife = makeMetric("Total lifecycle FLOPs");
+        wrap.appendChild(metrics);
 
-        var textarea = document.createElement("textarea");
-        textarea.className = "pp-justify-textarea";
-        textarea.placeholder = "e.g. I weighted data slightly higher than model size because our target capability profile depends on breadth of coverage more than raw parameter count...";
-        wrap.appendChild(textarea);
-
-        var wordcount = document.createElement("p");
-        wordcount.className = "pp-wordcount";
-        wordcount.textContent = "0 words / 0 characters";
-        wrap.appendChild(wordcount);
-
-        var checklist = document.createElement("ul");
-        checklist.className = "pp-checklist";
-        var checks = [
-          { key: "compute", label: "Mentions the fixed compute budget / tradeoff under constraint", re: /compute|budget|constrain/i },
-          { key: "data", label: "Mentions dataset size or data quality", re: /data(set)?|token|corpus/i },
-          { key: "model", label: "Mentions model size or parameter count", re: /model size|paramet|scale/i },
-          { key: "steps", label: "Mentions training duration or steps", re: /step|duration|epoch|iterat/i }
-        ];
-        checks.forEach(function (c) {
-          var li = document.createElement("li");
-          li.textContent = c.label;
-          li.dataset.key = c.key;
-          checklist.appendChild(li);
+        // Scenario diagnosis panel
+        var scenBox = document.createElement("div");
+        scenBox.className = "pt-scenario";
+        var scenHead = document.createElement("div");
+        scenHead.className = "pt-scenario-head";
+        var scenLbl = document.createElement("label");
+        scenLbl.setAttribute("for", "pt-scen-select");
+        scenLbl.style.fontWeight = "700";
+        scenLbl.textContent = "Scenario diagnosis target:";
+        var scenSelect = document.createElement("select");
+        scenSelect.id = "pt-scen-select";
+        scenSelect.className = "pt-select";
+        Object.keys(SCENARIOS).forEach(function (k) {
+          var opt = document.createElement("option");
+          opt.value = k;
+          opt.textContent = SCENARIOS[k].name;
+          scenSelect.appendChild(opt);
         });
-        wrap.appendChild(checklist);
+        scenHead.appendChild(scenLbl);
+        scenHead.appendChild(scenSelect);
+        scenBox.appendChild(scenHead);
+
+        var scenDesc = document.createElement("p");
+        scenDesc.style.margin = "0";
+        scenDesc.style.fontSize = "var(--font-size-sm)";
+        scenDesc.style.color = "var(--color-text-muted)";
+        scenBox.appendChild(scenDesc);
+
+        var scenVerdict = document.createElement("p");
+        scenVerdict.className = "pt-verdict";
+        scenVerdict.setAttribute("role", "status");
+        scenBox.appendChild(scenVerdict);
+        wrap.appendChild(scenBox);
 
         root.appendChild(wrap);
+        var g = canvas.getContext("2d");
 
-        var ctx2d = canvas.getContext("2d");
+        function chinchillaLoss(N, D) {
+          return 1.69 + 406.4 / Math.pow(N, 0.34) + 410.7 / Math.pow(D, 0.28);
+        }
 
-        function normalizeFrom(changedKey) {
-          var total = dims.reduce(function (s, d) { return s + d.value; }, 0);
-          if (total === 100) return;
-          var others = dims.filter(function (d) { return d.key !== changedKey; });
-          var othersTotal = others.reduce(function (s, d) { return s + d.value; }, 0);
-          var remaining = 100 - dims.filter(function (d) { return d.key === changedKey; })[0].value;
-          if (othersTotal <= 0) {
-            others.forEach(function (d) { d.value = remaining / others.length; });
-          } else {
-            others.forEach(function (d) { d.value = Math.max(1, (d.value / othersTotal) * remaining); });
+        function solveND(C, ratio) {
+          var N = Math.sqrt(C / (6 * ratio));
+          var D = ratio * N;
+          return { N: N, D: D, loss: chinchillaLoss(N, D) };
+        }
+
+        function fmtParams(n) {
+          if (n >= 1e12) return (n / 1e12).toFixed(2) + "T";
+          if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+          return (n / 1e6).toFixed(0) + "M";
+        }
+
+        function fmtTokens(d) {
+          if (d >= 1e12) return (d / 1e12).toFixed(2) + "T";
+          if (d >= 1e9) return (d / 1e9).toFixed(1) + "B";
+          return (d / 1e6).toFixed(0) + "M";
+        }
+
+        function fmtSci(x) {
+          var exp = Math.floor(Math.log10(x));
+          var mant = x / Math.pow(10, exp);
+          return mant.toFixed(2) + "e" + exp;
+        }
+
+        function update() {
+          var cExp = parseFloat(cSlider.value);
+          var ratio = parseInt(rSlider.value, 10);
+          var iExp = parseFloat(iSlider.value);
+
+          var C = Math.pow(10, cExp);
+          var dInfer = Math.pow(10, iExp);
+
+          cReadout.textContent = "10^" + cExp.toFixed(1);
+          rReadout.textContent = ratio + " : 1";
+          iReadout.textContent = fmtTokens(dInfer);
+
+          var cur = solveND(C, ratio);
+          var chin = solveND(C, 20);
+          var infFlops = 2 * cur.N * dInfer;
+          var totalFlops = C + infFlops;
+
+          // Sweep isoFLOP curve for r in [5..600]
+          var samples = [];
+          var minLoss = Infinity, minR = 20;
+          var maxLoss = -Infinity;
+          for (var r = 5; r <= 600; r += 5) {
+            var pt = solveND(C, r);
+            samples.push({ r: r, N: pt.N, D: pt.D, loss: pt.loss });
+            if (pt.loss < minLoss) { minLoss = pt.loss; minR = r; }
+            if (pt.loss > maxLoss) maxLoss = pt.loss;
           }
-        }
 
-        function estimateLoss() {
-          var m = dims[0].value, dd = dims[1].value, s = dims[2].value;
-          var base = 4.2;
-          var gain = 0.018 * m + 0.02 * dd + 0.008 * s;
-          var imbalancePenalty = Math.abs(m - dd) * 0.006;
-          var loss = base - gain + imbalancePenalty;
-          return Math.max(1.4, loss);
-        }
+          // Update readouts
+          mParams.textContent = fmtParams(cur.N);
+          mTokens.textContent = fmtTokens(cur.D);
+          mLoss.textContent = cur.loss.toFixed(3) + " nats";
+          mInfCost.textContent = fmtSci(2 * cur.N) + " FLOPs";
+          mLife.textContent = fmtSci(totalFlops) + " (" + (totalFlops / C).toFixed(1) + "× C)";
 
-        function draw() {
+          // Draw two charts on canvas
           var w = canvas.width, h = canvas.height;
-          ctx2d.clearRect(0, 0, w, h);
-          var finalLoss = estimateLoss();
-          var startLoss = finalLoss + 2.6;
+          g.clearRect(0, 0, w, h);
 
-          var marginL = 40, marginR = 20, marginT = 20, marginB = 30;
-          var plotW = w - marginL - marginR;
-          var plotH = h - marginT - marginB;
+          // Left plot: IsoFLOP L(N,D) vs D/N
+          var lx = 54, ly = 28, lw = 290, lh = 192;
+          g.strokeStyle = "#b7c0d8";
+          g.lineWidth = 1;
+          g.strokeRect(lx, ly, lw, lh);
+          g.fillStyle = "#151c2e";
+          g.font = "bold 12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("IsoFLOP Loss L(N, D) vs. D/N", lx, 16);
 
-          // axes
-          ctx2d.strokeStyle = "#b7c0d8";
-          ctx2d.lineWidth = 1;
-          ctx2d.beginPath();
-          ctx2d.moveTo(marginL, marginT);
-          ctx2d.lineTo(marginL, h - marginB);
-          ctx2d.lineTo(w - marginR, h - marginB);
-          ctx2d.stroke();
-          ctx2d.fillStyle = "#6b7390";
-          ctx2d.font = "11px sans-serif";
-          ctx2d.fillText("training progress →", marginL + plotW / 2 - 55, h - 8);
-          ctx2d.save();
-          ctx2d.translate(12, marginT + plotH / 2 + 20);
-          ctx2d.rotate(-Math.PI / 2);
-          ctx2d.fillText("loss", 0, 0);
-          ctx2d.restore();
+          var yMin = Math.max(1.65, minLoss - 0.03);
+          var yMax = Math.max(minLoss + 0.12, maxLoss + 0.02);
 
-          var maxLoss = 5.0, minLoss = 1.2;
-          function yFor(loss) {
-            return marginT + (1 - (loss - minLoss) / (maxLoss - minLoss)) * plotH;
-          }
+          function xLeft(rVal) { return lx + ((rVal - 5) / (600 - 5)) * lw; }
+          function yLeft(lVal) { return ly + lh - ((lVal - yMin) / (yMax - yMin)) * lh; }
 
-          ctx2d.strokeStyle = "#2952e3";
-          ctx2d.lineWidth = 2.5;
-          ctx2d.beginPath();
-          var n = 60;
-          for (var i = 0; i <= n; i++) {
-            var t = i / n;
-            var loss = finalLoss + (startLoss - finalLoss) * Math.exp(-3.2 * t);
-            var x = marginL + t * plotW;
-            var y = yFor(loss);
-            if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
-          }
-          ctx2d.stroke();
+          // Draw curve
+          g.strokeStyle = "#2554e8";
+          g.lineWidth = 2.5;
+          g.beginPath();
+          samples.forEach(function (s, idx) {
+            var px = xLeft(s.r), py = yLeft(s.loss);
+            if (idx === 0) g.moveTo(px, py); else g.lineTo(px, py);
+          });
+          g.stroke();
 
-          var endY = yFor(finalLoss);
-          ctx2d.fillStyle = "#0f9d78";
-          ctx2d.beginPath();
-          ctx2d.arc(marginL + plotW, endY, 5, 0, Math.PI * 2);
-          ctx2d.fill();
+          // Chinchilla 20:1 vertical reference
+          var x20 = xLeft(20);
+          g.setLineDash([4, 3]);
+          g.strokeStyle = "#0d946e";
+          g.lineWidth = 1.5;
+          g.beginPath();
+          g.moveTo(x20, ly);
+          g.lineTo(x20, ly + lh);
+          g.stroke();
+          g.setLineDash([]);
+          g.fillStyle = "#0d7a4a";
+          g.font = "10px sans-serif";
+          g.fillText("20:1", x20 + 4, ly + 13);
 
-          lossReadout.textContent = "Estimated final loss: " + finalLoss.toFixed(2) +
-            "  (model " + Math.round(dims[0].value) + "% / data " + Math.round(dims[1].value) +
-            "% / steps " + Math.round(dims[2].value) + "%)";
+          // Min loss star/dot
+          g.fillStyle = "#646f8d";
+          g.beginPath();
+          g.arc(xLeft(minR), yLeft(minLoss), 4, 0, Math.PI * 2);
+          g.fill();
+          g.fillText("min (" + minR + ":1)", Math.min(lx + lw - 62, xLeft(minR) + 6), yLeft(minLoss) + 14);
+
+          // Current selection dot
+          var cx = xLeft(ratio), cy = yLeft(cur.loss);
+          g.fillStyle = "#d93b0b";
+          g.beginPath();
+          g.arc(cx, cy, 6, 0, Math.PI * 2);
+          g.fill();
+
+          // Axis labels left
+          g.fillStyle = "#46506b";
+          g.font = "10px sans-serif";
+          g.textAlign = "right";
+          g.fillText(yMax.toFixed(2), lx - 6, ly + 8);
+          g.fillText(yMin.toFixed(2), lx - 6, ly + lh);
+          g.textAlign = "center";
+          g.fillText("5", lx, ly + lh + 14);
+          g.fillText("300", lx + lw / 2, ly + lh + 14);
+          g.fillText("600 tok/param", lx + lw - 24, ly + lh + 14);
+
+          // Right plot: Total Lifecycle FLOPs (Train + Infer) vs Serving Cost Pareto
+          var rx = 408, ry = 28, rw = 290, rh = 192;
+          g.strokeStyle = "#b7c0d8";
+          g.lineWidth = 1;
+          g.strokeRect(rx, ry, rw, rh);
+          g.fillStyle = "#151c2e";
+          g.font = "bold 12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Serving Size (N) vs. Loss Tradeoff", rx, 16);
+
+          var maxN = samples[0].N; // at r=5
+          var minN = samples[samples.length - 1].N; // at r=600
+          function xRight(nVal) { return rx + ((nVal - minN) / (maxN - minN)) * rw; }
+
+          g.strokeStyle = "#7c3aed";
+          g.lineWidth = 2.5;
+          g.beginPath();
+          samples.forEach(function (s, idx) {
+            var px = xRight(s.N), py = yLeft(s.loss);
+            if (idx === 0) g.moveTo(px, py); else g.lineTo(px, py);
+          });
+          g.stroke();
+
+          // 20:1 dot on right plot
+          g.fillStyle = "#0d7a4a";
+          g.beginPath();
+          g.arc(xRight(chin.N), yLeft(chin.loss), 5, 0, Math.PI * 2);
+          g.fill();
+          g.font = "10px sans-serif";
+          g.fillText("20:1 (" + fmtParams(chin.N) + ")", Math.min(rx + rw - 76, xRight(chin.N) + 6), yLeft(chin.loss) - 6);
+
+          // Current dot on right plot
+          g.fillStyle = "#d93b0b";
+          g.beginPath();
+          g.arc(xRight(cur.N), yLeft(cur.loss), 6, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = "#151c2e";
+          g.font = "bold 10px sans-serif";
+          g.fillText("Now (" + fmtParams(cur.N) + ")", Math.min(rx + rw - 68, xRight(cur.N) + 8), yLeft(cur.loss) + 12);
+
+          g.fillStyle = "#46506b";
+          g.font = "10px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Smaller/Faster (" + fmtParams(minN) + ")", rx, ry + rh + 14);
+          g.textAlign = "right";
+          g.fillText("Larger N (" + fmtParams(maxN) + ")", rx + rw, ry + rh + 14);
+
+          // Update scenario check
+          var scen = SCENARIOS[scenSelect.value];
+          scenDesc.textContent = scen.desc;
+          var verdict = scen.check({
+            C: C, N: cur.N, D: cur.D, ratio: ratio, loss: cur.loss,
+            minLoss: minLoss, chinN: chin.N, totalFlops: totalFlops
+          });
+          scenVerdict.className = "pt-verdict " + verdict.cls;
+          scenVerdict.textContent = verdict.text;
         }
 
-        function refreshSliderUI() {
-          dims.forEach(function (d) {
-            var rounded = Math.round(d.value);
-            sliderEls[d.key].input.value = String(rounded);
-            sliderEls[d.key].readout.textContent = rounded + "%";
-          });
-        }
-
-        dims.forEach(function (d) {
-          sliderEls[d.key].input.addEventListener("input", function () {
-            d.value = parseInt(sliderEls[d.key].input.value, 10);
-            normalizeFrom(d.key);
-            refreshSliderUI();
-            draw();
-          });
+        cSlider.addEventListener("input", update);
+        rSlider.addEventListener("input", update);
+        iSlider.addEventListener("input", update);
+        scenSelect.addEventListener("change", function () {
+          var scen = SCENARIOS[scenSelect.value];
+          iSlider.value = String(scen.inferExp);
+          update();
         });
 
-        function updateChecklist() {
-          var text = textarea.value;
-          var words = text.trim().length ? text.trim().split(/\s+/).length : 0;
-          wordcount.textContent = words + " words / " + text.length + " characters";
-          checks.forEach(function (c) {
-            var li = checklist.querySelector('li[data-key="' + c.key + '"]');
-            if (c.re.test(text)) {
-              li.classList.add("hit");
-            } else {
-              li.classList.remove("hit");
-            }
-          });
-        }
-
-        textarea.addEventListener("input", updateChecklist);
-
-        refreshSliderUI();
-        draw();
-        updateChecklist();
+        update();
       }
     });
 
@@ -306,48 +562,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Under a fixed compute budget, what is the central tradeoff in scaling-law-informed pretraining decisions?",
+          q: "Why did frontier open-weight families (e.g., Llama-3 8B trained on 15T tokens) intentionally train far past the ~20 tokens/parameter Chinchilla ratio?",
           options: [
-            "Choosing between CPU and GPU hardware vendors",
-            "Balancing model size, dataset size, and training duration against each other",
-            "Choosing the programming language for the training loop",
-            "Deciding whether to use cloud or on-premise storage"
+            "Because Hoffmann et al.'s power-law exponents make larger parameter counts strictly worse in training loss at every FLOP budget",
+            "Because once total lifetime serving FLOPs (2·N·D_infer) dwarf training FLOPs, paying slightly higher pretraining FLOPs to compress capability into a smaller N cuts inference cost and KV-cache memory dramatically",
+            "Because μP hyperparameter transfer breaks above 20 tokens/parameter unless learning rate is held constant",
+            "Because overtraining eliminates the need for data deduplication or post-training alignment"
           ],
           answer: 1,
-          explanation: "Scaling laws describe how loss depends jointly on model size, data size, and compute — under a fixed budget, increasing one typically means decreasing another."
+          explanation: "Chinchilla minimizes loss per training FLOP, not per lifetime FLOP. Because the isoFLOP curve is relatively flat around the minimum while inference latency, memory, and FLOPs scale directly with N, overtraining smaller models to 100–500+ tokens/parameter is optimal for high-traffic deployment."
         },
         {
-          q: "Why do frontier labs increasingly supplement pretraining data with synthetic data?",
+          q: "What specific failure mode does Maximal Update Parametrization (μP) solve before committing to a multi-million-dollar frontier pretraining run?",
           options: [
-            "Synthetic data is always higher quality than real data",
-            "Real high-quality data is becoming scarce relative to the data volumes frontier runs require",
-            "Regulations require it",
-            "It is cheaper to store than real data"
+            "It prevents training-data contamination from leaking into evaluation benchmarks during scraping",
+            "It eliminates pipeline-parallel bubbles across InfiniBand links by compressing activation gradients",
+            "It makes optimal learning rates and initialization variances invariant across model widths so sweeps on cheap proxy models transfer directly to the target scale",
+            "It allows RoPE context extension from 4k to 128k tokens without mid-training on long documents"
           ],
-          answer: 1,
-          explanation: "As models scale, the supply of easily available high-quality real text is being outpaced by data appetite, motivating synthetic data generation to fill the gap."
+          answer: 2,
+          explanation: "Under standard parametrization, optimal learning rates shift downward unpredictably as layer width increases. μP scales per-layer initialization and learning rates with width so hyperparameters tuned on small proxy runs transfer directly to frontier scale."
         },
         {
-          q: "What is the purpose of validating architecture/objective decisions 'at small scale' before a frontier-scale run?",
+          q: "During pretraining data curation, what is the purpose of late-stage 'annealing' (cool-down) on high-signal curated math, code, and synthetic reasoning corpora?",
           options: [
-            "Small-scale runs are required by law",
-            "It lets researchers catch problems and estimate trends cheaply before committing enormous, hard-to-reverse compute to a full run",
-            "Small models are always deployed to production",
-            "It has no real purpose beyond tradition"
+            "As the learning rate decays toward zero, upweighting verified, high-density reasoning data locks in sharp downstream representations without causing early overfitting to narrow domains",
+            "Annealing increases the temperature of softmax logits during pretraining to prevent gradient explosion",
+            "It removes the need for n-gram decontamination because higher-quality data overrides memorized web test items",
+            "It ensures the model forgets noisy web syntax completely before SFT begins"
           ],
-          answer: 1,
-          explanation: "Frontier-scale runs are extremely expensive and slow to iterate on, so labs de-risk architecture and hyperparameter choices with smaller, cheaper experiments first."
+          answer: 0,
+          explanation: "High-diversity noisy web data helps early generalization, while upweighting clean math, code, and reasoning traces during the final LR decay (annealing) phase yields disproportionately strong benchmark gains—provided the annealing mix is thoroughly decontaminated."
         },
         {
-          q: "In the post-training pipeline, what typically follows pretraining and RLHF/RLAIF in a coherent model lifecycle?",
+          q: "Why should pretraining teams preserve base-model output entropy and avoid heavy refusal conditioning during mid-training?",
           options: [
-            "Nothing — pretraining is the final stage",
-            "Safety fine-tuning, integrated as part of the same overall lifecycle rather than a separate afterthought",
-            "The model is retrained from scratch",
-            "The dataset is deleted"
+            "Refusal conditioning cannot be learned by transformer architectures during RLHF",
+            "Over-sharpening the distribution too early limits exploration and diversity during downstream SFT and RLVR/RLHF post-training",
+            "Higher entropy guarantees lower Chinchilla cross-entropy loss on held-out validation splits",
+            "Post-training stages discard the pretrained weights and reinitialize the final projection head"
           ],
           answer: 1,
-          explanation: "A coherent lifecycle treats pretraining, preference-based post-training, and safety fine-tuning as connected stages of one pipeline, not independent one-off steps."
+          explanation: "Effective post-training—especially RLVR and preference optimization—relies on the base model generating diverse candidate trajectories to explore and reinforce. Collapsing distribution entropy prematurely in pretraining hurts downstream post-training headroom."
         }
       ]
     });

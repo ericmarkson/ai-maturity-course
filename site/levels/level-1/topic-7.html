@@ -3,13 +3,137 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A Brief History of AI: From Symbolic Systems to Deep Learning — AI Maturity Course</title>
-<meta name="description" content="An interactive timeline through AI's major eras — symbolic AI, the AI winters, expert systems, machine learning, and deep learning — with a clickable, scrubbable timeline widget.">
+<title>How AI Actually Works Behind the Scenes (Through Everyday Analogies) — AI Maturity Course</title>
+<meta name="description" content="Learn what happens behind the scenes when you send an AI prompt — through everyday analogies like cookbooks vs. tasting dishes, tuned dials, next-piece prediction, and why hallucinations happen.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "1-7";
 </script>
+<style>
+  .bb-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--space-3); }
+  .bb-prompt-btn {
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    background: #fff;
+    color: #151c2e;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+  .bb-prompt-btn:hover { border-color: var(--color-primary); }
+  .bb-prompt-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .bb-stage-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: var(--space-3) 0;
+  }
+  .bb-stage-tab {
+    border: 1px solid var(--color-border-strong);
+    border-radius: 999px;
+    padding: 5px 12px;
+    background: #fff;
+    color: #151c2e;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .bb-stage-tab[aria-pressed="true"] {
+    background: #0d946e;
+    color: #fff;
+    border-color: #0d946e;
+  }
+  .bb-stage-box {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    color: #151c2e;
+    margin-bottom: var(--space-3);
+  }
+  .bb-stage-box h4 { margin: 0 0 var(--space-2) 0; color: #151c2e; }
+  .bb-token-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
+  .bb-token-chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+  }
+  .bb-token-id { font-size: 0.68rem; color: #46506b; }
+  .bb-dials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 8px;
+    margin-top: var(--space-2);
+  }
+  .bb-dial-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    background: #f5f7fc;
+    font-size: 0.85rem;
+  }
+  .bb-dial-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: #dbe3f4;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .bb-dial-fill { height: 100%; background: #2554e8; }
+  .bb-prob-row { margin-bottom: 8px; }
+  .bb-prob-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    margin-bottom: 2px;
+  }
+  .bb-prob-track {
+    height: 12px;
+    background: #eaedf6;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .bb-prob-fill { height: 100%; background: #2554e8; transition: width 0.2s ease; }
+  .bb-output-box {
+    background: #f5f7fc;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .bb-chosen-word {
+    background: #d1fae5;
+    color: #065f46;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .bb-risk-badge {
+    display: inline-block;
+    margin-top: var(--space-3);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+  }
+  .bb-risk-low { background: #e1f6eb; color: #0d7a4a; border: 1px solid #0d7a4a; }
+  .bb-risk-med { background: #fff5db; color: #855200; border: 1px solid #d97706; }
+  .bb-risk-high { background: #fdeceb; color: #b9251c; border: 1px solid #b9251c; }
+</style>
 </head>
 <body>
 
@@ -18,52 +142,71 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 1 — Beginner</p>
-  <h1>A Brief History of AI: From Symbolic Systems to Deep Learning</h1>
+  <h1>How AI Actually Works Behind the Scenes (Through Everyday Analogies)</h1>
 
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can place the major eras of AI history in order
-      (symbolic AI, the AI winters, expert systems, statistical machine learning, deep learning) and
-      explain in plain language what approach shifted between each era and why.
+      <strong>Learning objective:</strong> Explain, using everyday analogies, how modern AI learns from examples
+      rather than fixed recipes, trace the four steps that happen the moment you hit Send on a prompt, and spot
+      why an AI can sound completely confident even when inventing wrong facts.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          The history of AI is not one steady march of progress — it's a series of distinct eras,
-          each built around a different dominant approach, separated by both real breakthroughs and
-          "winters" where funding and enthusiasm collapsed. Early AI tried to hand-code human
-          reasoning as logical rules; modern AI instead lets algorithms learn patterns directly from
-          data, at a scale early researchers couldn't have imagined.
+          Behind the scenes, a modern AI assistant is not a giant filing cabinet of memorized web pages, and it isn't
+          running a live Google search every time you type a question. Instead, it is a <strong>pattern-completing
+          prediction engine</strong> made of billions of tiny numeric dials (<strong>parameters</strong>) tuned during
+          training so that, given any starter text, it can guess the single most likely next word-piece—over and over,
+          one piece at a time.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li>Symbolic AI ("GOFAI"): reasoning as logic and search over hand-coded rules</li>
-        <li>Expert systems: encoding a human expert's know-how as if-then rules for one narrow domain</li>
-        <li>The AI winters: why overpromising and underdelivering nearly stalled the field twice</li>
-        <li>The statistical machine learning shift: letting algorithms learn patterns from data instead of hand-written rules</li>
-        <li>The deep learning breakthrough: bigger datasets, GPU compute, and neural networks that scale</li>
-        <li>Where generative AI and large language models fit into this story</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works (Everyday Analogies)</h2>
       <p>
-        It's tempting to picture AI as a single continuous invention, but it has really been rebuilt
-        from different foundations more than once. The first wave assumed intelligence was mostly
-        about logic: if you could write down enough rules and let a program search through their
-        consequences, you'd get reasoning. That assumption ran out of road twice — first with
-        general-purpose symbolic reasoning, then with narrower expert systems — because hand-written
-        rules can't cover every messy real-world case and can't improve from experience on their own.
-        The idea that eventually broke through was almost the opposite: instead of writing the rules
-        yourself, show an algorithm enough examples and let it find the patterns. That statistical
-        shift made AI far more robust, and when it was combined with far larger datasets and GPU
-        hardware capable of the matrix math neural networks need, it produced the deep learning
-        systems — and now the large language and image-generating models — that define the current
-        era.
+        <strong>1. Cookbook Recipe vs. Tasting 10,000 Dishes:</strong> Traditional computer software works like a strict
+        <em>cookbook recipe</em>: a programmer writes exact step-by-step rules (<code>"If the total is over $50, subtract $10"</code>).
+        Modern AI learns more like a chef who tastes <em>10,000 different meals</em> and gradually turns thousands of
+        mental seasoning dials after each dish until they sense what goes well together—without anyone writing fixed
+        rules for every single situation.
+      </p>
+      <p>
+        <strong>2. What Happens the Instant You Hit Send:</strong>
+      </p>
+      <ul>
+        <li><strong>Step 1 — Chop into word-pieces (Tokens):</strong> Your sentence is sliced into small chunks called
+          <em>tokens</em> (common words stay whole; long words break into familiar pieces like <code>"un" + "friend" + "ly"</code>)
+          and translated into ID numbers.</li>
+        <li><strong>Step 2 — Flow through billions of tuned dials:</strong> Those chunks pass through layers of tuned
+          numeric dials trained on huge amounts of text, lighting up patterns that connect every clue in your prompt.</li>
+        <li><strong>Step 3 — Score the next piece ("Autocomplete on steroids"):</strong> The AI builds a ranked list of
+          candidate next tokens with probabilities (e.g., <em>"Paris": 94%, "Lyon": 3%</em>). A <strong>Temperature</strong>
+          dial controls how adventurous it is—low temperature picks the safest front-runner; higher temperature mixes in
+          surprising runners-up.</li>
+        <li><strong>Step 4 — Repeat one piece at a time:</strong> It picks one token, glues it onto the end of your
+          prompt, and runs the whole loop again for the very next piece until the reply finishes.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Two Prompts Behave Totally Differently</h3>
+      <ul>
+        <li><strong>Prompt A:</strong> <code>"The capital of France is ____"</code> &rarr; Millions of training passages pair <em>capital + France</em> with <em>Paris</em>, so the dials push <code>"Paris"</code> near 96% probability. Easy win.</li>
+        <li><strong>Prompt B:</strong> <code>"Our company's private Q4 marketing budget is ____"</code> &rarr; The AI has zero access to your company's private files! Yet its pattern dials still recognize how corporate budget sentences usually finish (<code>"$1.2 million"</code>, <code>"$450,000"</code>) and smoothly output a polished, confident guess.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Confusing Smooth Confidence With Truth (Hallucinations)</h3>
+      <p>
+        Because the AI's core job is predicting <em>what sounds like the most plausible continuation</em> rather than
+        checking a verified truth vault, a completely made-up statistic or fake book citation is written in the exact
+        same confident, polished voice as a real fact. That invented output is called a <strong>hallucination</strong>—so
+        always verify important dates, numbers, and private facts (or connect the AI to real search/documents).
       </p>
     </section>
 
@@ -94,274 +237,357 @@
   (function () {
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
-    var TIMELINE_START = 1950;
-    var TIMELINE_END = 2026;
-
-    var ERAS = [
-      {
-        start: 1950,
-        years: "1950 – 1956",
-        title: "The Dawn: Turing and Dartmouth",
-        body: "In 1950, Alan Turing asked “Can machines think?” and proposed what's now called " +
-          "the Turing Test. In the summer of 1956, a small workshop at Dartmouth College coined the " +
-          "term “artificial intelligence” and set the field's founding ambition: building " +
-          "machines that reason the way people do.",
-        keyFact: "The word “AI” itself dates only to 1956 — younger than the transistor."
-      },
-      {
-        start: 1956,
-        years: "1956 – 1974",
-        title: "Symbolic AI (“GOFAI”)",
-        body: "Early AI treated intelligence as symbol manipulation: represent knowledge as logical " +
-          "statements and search through possibilities to find an answer. Programs like the Logic " +
-          "Theorist and General Problem Solver proved math theorems and solved puzzles, fueling huge " +
-          "optimism that human-level AI was just a decade away.",
-        keyFact: "GOFAI stands for “Good Old-Fashioned AI” — a label coined later, once other approaches took over."
-      },
-      {
-        start: 1974,
-        years: "1974 – 1980",
-        title: "The First AI Winter",
-        body: "Symbolic systems turned out to be brittle: they worked on toy problems but collapsed on " +
-          "messy real-world input, and couldn't handle uncertainty or learn from experience. " +
-          "Government reports (like the UK's 1973 Lighthill report) concluded AI had overpromised, and " +
-          "funding for AI research dried up worldwide.",
-        keyFact: "“AI winter” is a play on “nuclear winter” — coined by researchers living through the funding freeze."
-      },
-      {
-        start: 1980,
-        years: "1980 – 1987",
-        title: "Expert Systems Boom",
-        body: "AI research regrouped around a narrower, more commercially useful idea: encode a human " +
-          "expert's know-how as hundreds of if-then rules for one specific domain. Systems like MYCIN " +
-          "(medical diagnosis) and XCON (computer configuration) showed real business value, and an " +
-          "entire expert-systems industry — hardware, software, consulting — boomed.",
-        keyFact: "XCON reportedly saved Digital Equipment Corporation an estimated $40 million a year by the mid-1980s."
-      },
-      {
-        start: 1987,
-        years: "1987 – 1993",
-        title: "The Second AI Winter",
-        body: "Expert systems shared the same brittleness as their symbolic ancestors: every new " +
-          "situation needed another hand-written rule, and maintaining thousands of rules became " +
-          "unmanageable. When cheaper general-purpose computers made specialized “LISP machine” " +
-          "hardware obsolete almost overnight, the expert-systems industry collapsed and funding froze " +
-          "again.",
-        keyFact: "The LISP machine market — once worth hundreds of millions of dollars — largely evaporated within a few years."
-      },
-      {
-        start: 1993,
-        years: "1993 – 2006",
-        title: "The Statistical Machine Learning Shift",
-        body: "Instead of hand-coding rules, researchers increasingly let algorithms learn patterns " +
-          "directly from data — decision trees, support vector machines, statistical language models. " +
-          "This quieter, less hyped approach proved far more robust to messy real-world data than " +
-          "symbolic rule sets ever had. In 1997, IBM's Deep Blue beat world chess champion Garry " +
-          "Kasparov, blending brute-force search with learned evaluation.",
-        keyFact: "Many everyday 1990s–2000s tools — spam filters, search ranking, recommendation engines — were quietly built on this statistical ML wave, with none of the earlier hype."
-      },
-      {
-        start: 2006,
-        years: "2006 – 2012",
-        title: "Deep Learning Re-emerges",
-        body: "Neural networks had existed since the 1950s–80s but were considered impractical to " +
-          "train at scale. Around 2006, researchers found better ways to train many-layered " +
-          "(“deep”) networks, and cheap GPU hardware — originally built for video games — turned " +
-          "out to be perfect for the matrix math neural networks need. In 2012, a deep network called " +
-          "AlexNet dramatically won the ImageNet image-recognition competition, stunning the field.",
-        keyFact: "AlexNet roughly halved the ImageNet error rate compared to the next-best, non-deep-learning entry in 2012."
-      },
-      {
-        start: 2012,
-        years: "2012 – present",
-        title: "Scaling Up: Transformers and Generative AI",
-        body: "AlexNet's success kicked off a race to build bigger neural networks trained on more " +
-          "data with more compute. The 2017 invention of the Transformer architecture made it " +
-          "practical to train on massive amounts of text, leading to large language models (like GPT) " +
-          "and, alongside them, image- and audio-generating diffusion models — the generative AI wave " +
-          "defining AI today.",
-        keyFact: "The 2017 paper that introduced the Transformer architecture is titled “Attention Is All You Need.”"
-      }
-    ];
-
-    function eraEnd(idx) {
-      return idx + 1 < ERAS.length ? ERAS[idx + 1].start : TIMELINE_END;
-    }
-
-    function yearToPercent(year) {
-      return ((year - TIMELINE_START) / (TIMELINE_END - TIMELINE_START)) * 100;
-    }
-
-    function findEraIndexForYear(year) {
-      var idx = 0;
-      for (var i = 0; i < ERAS.length; i++) {
-        if (ERAS[i].start <= year) idx = i;
-      }
-      return idx;
-    }
-
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Scrub through AI history",
+      title: "Inside the AI Black Box: Trace a Prompt Step-by-Step",
       instructions:
-        "Click a marker on the timeline, or drag the year slider, to move through AI's major eras " +
-        "— from symbolic AI in the 1950s to today's deep learning and generative AI. The detail " +
-        "panel below updates live with each era's story and a key fact.",
+        "Pick one of the three prompts below, adjust the Temperature (Predictability vs. Creativity) slider, " +
+        "and step through all 4 behind-the-scenes stages to see how text becomes tokens, lights up tuned pattern " +
+        "dials, ranks next-piece probabilities, and carries high or low hallucination risk.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
-        var activeIndex = 1; // start on Symbolic AI, a good default landing era
+        var SCENARIOS = [
+          {
+            id: "fact",
+            label: "1. Well-known fact",
+            prompt: "The capital of France is",
+            tokens: [
+              { text: "The", id: 464 },
+              { text: "capital", id: 3139 },
+              { text: "of", id: 286 },
+              { text: "France", id: 4881 },
+              { text: "is", id: 318 }
+            ],
+            dials: [
+              { name: "Geography & countries", strength: 95, note: "Recognizes \"France\" + \"capital\"" },
+              { name: "Encyclopedic phrasing", strength: 88, note: "Expects a single city name next" },
+              { name: "Creative storytelling", strength: 10, note: "Mostly inactive on factual cues" }
+            ],
+            // Base logits for realistic temperature-sensitive softmax
+            candidates: [
+              { word: "Paris.", logit: 5.4, tail: " The city is known for the Eiffel Tower." },
+              { word: "Paris,", logit: 3.1, tail: " located along the Seine River." },
+              { word: "a", logit: 1.4, tail: " vibrant cultural hub called Paris." },
+              { word: "located", logit: 0.7, tail: " in northern central France — Paris." },
+              { word: "Lyon", logit: -0.4, tail: " (historically a Silk Road center, though Paris is the capital)." }
+            ],
+            riskLevel: "low",
+            riskText: "LOW HALLUCINATION RISK — Well-known public fact repeated thousands of times during training, so the dials agree strongly on \"Paris\"."
+          },
+          {
+            id: "creative",
+            label: "2. Creative email draft",
+            prompt: "Welcome aboard! We are thrilled to have you join our",
+            tokens: [
+              { text: "Welcome", id: 19134 },
+              { text: "aboard", id: 16590 },
+              { text: "!", id: 0 },
+              { text: "We", id: 775 },
+              { text: "are", id: 389 },
+              { text: "thrilled", id: 22999 },
+              { text: "to", id: 284 },
+              { text: "have", id: 423 },
+              { text: "you", id: 345 },
+              { text: "join", id: 4654 },
+              { text: "our", id: 674 }
+            ],
+            dials: [
+              { name: "Warm workplace tone", strength: 90, note: "Matches \"Welcome aboard\" & \"thrilled\"" },
+              { name: "Team / community nouns", strength: 84, note: "Predicts group nouns after \"join our\"" },
+              { name: "Strict factual recall", strength: 15, note: "Open-ended style — many good answers" }
+            ],
+            candidates: [
+              { word: "team", logit: 3.5, tail: " this Monday! Let's grab coffee at 9am." },
+              { word: "crew", logit: 2.7, tail: " as we kick off an exciting new chapter." },
+              { word: "mission", logit: 2.4, tail: " to build friendlier tools for beginners." },
+              { word: "adventure", logit: 1.9, tail: " — pack your curiosity and big ideas!" },
+              { word: "family", logit: 1.5, tail: " of builders and curious problem-solvers." }
+            ],
+            riskLevel: "med",
+            riskText: "CREATIVE CHOICE (LOW FACT RISK) — There is no single right word here. Raising Temperature lets colorful words like \"adventure\" or \"crew\" compete with safe \"team\"."
+          },
+          {
+            id: "private",
+            label: "3. Private company question",
+            prompt: "Our company's confidential Q4 marketing budget is",
+            tokens: [
+              { text: "Our", id: 5122 },
+              { text: "company", id: 1664 },
+              { text: "'s", id: 338 },
+              { text: "confidential", id: 14796 },
+              { text: "Q", id: 48 },
+              { text: "4", id: 19 },
+              { text: "marketing", id: 7191 },
+              { text: "budget", id: 3481 },
+              { text: "is", id: 318 }
+            ],
+            dials: [
+              { name: "Business report style", strength: 92, note: "Recognizes \"Q4\" + \"marketing budget is\"" },
+              { name: "Currency & number format", strength: 86, note: "Strongly expects \"$X.XM\" next" },
+              { name: "Your actual private file", strength: 0, note: "ZERO access — the AI has never seen your spreadsheet!" }
+            ],
+            candidates: [
+              { word: "$1.2 million", logit: 3.3, tail: ", focused primarily on digital channels." },
+              { word: "$450,000", logit: 3.0, tail: ", allocated across social and search ads." },
+              { word: "$850,000", logit: 2.8, tail: " for the upcoming quarter." },
+              { word: "currently", logit: 2.1, tail: " finalized at $2.4 million pending approval." },
+              { word: "not", logit: 1.6, tail: " available to me — please share the document." }
+            ],
+            riskLevel: "high",
+            riskText: "HIGH HALLUCINATION RISK — Notice! The AI has ZERO access to your private Q4 spreadsheet, yet its grammar/report dials still rank plausible dollar figures like \"$1.2 million\" in a confident business voice!"
+          }
+        ];
+
+        var CHIP_COLORS = ["#e8efff", "#e1f6eb", "#fff5db", "#f1eaff"];
+        var activeScenarioIdx = 0;
+        var activeStage = 1; // 1..4
+        var temperature = 0.7;
+        var chosenIdx = 0;
 
         var wrap = document.createElement("div");
-        root.appendChild(wrap);
 
-        // --- Year scrubber slider ---
-        var sliderRow = document.createElement("div");
-        sliderRow.className = "slider-row";
-        var sliderLabel = document.createElement("label");
-        sliderLabel.textContent = "Year";
-        sliderLabel.style.flex = "0 0 auto";
-        var slider = document.createElement("input");
-        slider.type = "range";
-        slider.min = String(TIMELINE_START);
-        slider.max = String(TIMELINE_END);
-        slider.value = String(ERAS[activeIndex].start);
-        slider.style.flex = "1 1 260px";
-        var yearReadout = document.createElement("span");
-        yearReadout.className = "readout";
-        yearReadout.textContent = slider.value;
-        sliderRow.appendChild(sliderLabel);
-        sliderRow.appendChild(slider);
-        sliderRow.appendChild(yearReadout);
-        wrap.appendChild(sliderRow);
+        // Prompt selector buttons
+        var promptLabel = document.createElement("p");
+        promptLabel.style.fontWeight = "700";
+        promptLabel.style.marginBottom = "6px";
+        promptLabel.textContent = "Step 0 — Choose a prompt to trace:";
+        wrap.appendChild(promptLabel);
 
-        // --- Timeline track with clickable era markers ---
-        var track = document.createElement("div");
-        track.style.position = "relative";
-        track.style.width = "100%";
-        track.style.height = "70px";
-        track.style.margin = "20px 0 8px 0";
-        wrap.appendChild(track);
-
-        var trackLine = document.createElement("div");
-        trackLine.style.position = "absolute";
-        trackLine.style.left = "0";
-        trackLine.style.right = "0";
-        trackLine.style.top = "30px";
-        trackLine.style.height = "3px";
-        trackLine.style.background = "var(--color-border-strong)";
-        trackLine.style.borderRadius = "2px";
-        track.appendChild(trackLine);
-
-        var markers = ERAS.map(function (era, idx) {
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.setAttribute("aria-label", era.years + ": " + era.title);
-          btn.style.position = "absolute";
-          btn.style.left = yearToPercent(era.start) + "%";
-          btn.style.top = "16px";
-          btn.style.transform = "translateX(-50%)";
-          btn.style.width = "24px";
-          btn.style.height = "24px";
-          btn.style.borderRadius = "50%";
-          btn.style.border = "2px solid var(--color-primary)";
-          btn.style.background = "#fff";
-          btn.style.cursor = "pointer";
-          btn.style.padding = "0";
-
-          var yearLabel = document.createElement("div");
-          yearLabel.textContent = era.start;
-          yearLabel.style.position = "absolute";
-          yearLabel.style.left = yearToPercent(era.start) + "%";
-          yearLabel.style.top = "44px";
-          yearLabel.style.transform = "translateX(-50%)";
-          yearLabel.style.fontSize = "0.7rem";
-          yearLabel.style.color = "var(--color-text-faint)";
-          yearLabel.style.whiteSpace = "nowrap";
-          track.appendChild(yearLabel);
-
-          btn.addEventListener("click", function () {
-            setActiveEra(idx);
+        var promptsRow = document.createElement("div");
+        promptsRow.className = "bb-prompts";
+        promptsRow.setAttribute("role", "group");
+        promptsRow.setAttribute("aria-label", "Sample prompts");
+        var promptBtns = SCENARIOS.map(function (sc, idx) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "bb-prompt-btn";
+          b.textContent = sc.label + ": \"" + sc.prompt + "…\"";
+          b.setAttribute("aria-pressed", idx === 0 ? "true" : "false");
+          b.addEventListener("click", function () {
+            activeScenarioIdx = idx;
+            chosenIdx = 0;
+            promptBtns.forEach(function (btn, j) {
+              btn.setAttribute("aria-pressed", j === activeScenarioIdx ? "true" : "false");
+            });
+            renderAll();
           });
-
-          track.appendChild(btn);
-          return btn;
+          promptsRow.appendChild(b);
+          return b;
         });
+        wrap.appendChild(promptsRow);
 
-        // --- Detail pane ---
-        var pane = document.createElement("div");
-        pane.style.background = "var(--color-bg)";
-        pane.style.border = "1px solid var(--color-border)";
-        pane.style.borderRadius = "8px";
-        pane.style.padding = "16px";
-        pane.style.marginTop = "12px";
+        // Temperature slider
+        var tempRow = document.createElement("div");
+        tempRow.className = "slider-row";
+        var tempLabel = document.createElement("label");
+        tempLabel.setAttribute("for", "bb-temp-slider");
+        tempLabel.textContent = "Predictability ↔ Creativity (Temperature)";
+        var tempSlider = document.createElement("input");
+        tempSlider.type = "range";
+        tempSlider.id = "bb-temp-slider";
+        tempSlider.min = "0.1";
+        tempSlider.max = "1.5";
+        tempSlider.step = "0.1";
+        tempSlider.value = "0.7";
+        var tempReadout = document.createElement("span");
+        tempReadout.className = "readout";
+        tempReadout.textContent = "0.7 (Balanced)";
+        tempRow.appendChild(tempLabel);
+        tempRow.appendChild(tempSlider);
+        tempRow.appendChild(tempReadout);
+        wrap.appendChild(tempRow);
 
-        var eraYearsEl = document.createElement("p");
-        eraYearsEl.className = "card-eyebrow";
-        eraYearsEl.style.margin = "0 0 4px 0";
+        // Stage tabs + Next Step button
+        var stageNav = document.createElement("div");
+        stageNav.className = "bb-stage-nav";
+        var stageNames = [
+          "1. Split into Tokens",
+          "2. Tuned Dials Match Patterns",
+          "3. Next-Piece Probabilities",
+          "4. Output & Hallucination Check"
+        ];
+        var stageBtns = stageNames.map(function (label, idx) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "bb-stage-tab";
+          b.textContent = label;
+          b.setAttribute("aria-pressed", idx === 0 ? "true" : "false");
+          b.addEventListener("click", function () {
+            activeStage = idx + 1;
+            renderAll();
+          });
+          stageNav.appendChild(b);
+          return b;
+        });
+        var nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn btn-primary btn-sm";
+        nextBtn.textContent = "Next Stage →";
+        nextBtn.addEventListener("click", function () {
+          activeStage = activeStage < 4 ? activeStage + 1 : 1;
+          renderAll();
+        });
+        stageNav.appendChild(nextBtn);
+        wrap.appendChild(stageNav);
 
-        var eraTitleEl = document.createElement("h3");
-        eraTitleEl.style.margin = "0 0 8px 0";
-
-        var eraBodyEl = document.createElement("p");
-        eraBodyEl.style.margin = "0 0 10px 0";
-
-        var eraFactEl = document.createElement("p");
-        eraFactEl.style.margin = "0";
-        eraFactEl.style.fontWeight = "600";
-        eraFactEl.style.color = "var(--color-accent-dark)";
-
-        pane.appendChild(eraYearsEl);
-        pane.appendChild(eraTitleEl);
-        pane.appendChild(eraBodyEl);
-        pane.appendChild(eraFactEl);
-        wrap.appendChild(pane);
+        var stageBox = document.createElement("div");
+        stageBox.className = "bb-stage-box";
+        stageBox.setAttribute("role", "region");
+        stageBox.setAttribute("aria-live", "polite");
+        wrap.appendChild(stageBox);
 
         root.appendChild(wrap);
 
-        function setActiveEra(idx) {
-          activeIndex = idx;
-          var era = ERAS[idx];
-
-          markers.forEach(function (m, i) {
-            var isActive = i === idx;
-            m.style.background = isActive ? "var(--color-primary)" : "#fff";
-            m.style.width = isActive ? "30px" : "24px";
-            m.style.height = isActive ? "30px" : "24px";
-            m.style.boxShadow = isActive ? "0 0 0 4px var(--color-primary-light)" : "none";
+        function computeProbs(candidates, temp) {
+          var maxL = -Infinity;
+          candidates.forEach(function (c) {
+            var s = c.logit / temp;
+            if (s > maxL) maxL = s;
           });
-
-          eraYearsEl.textContent = era.years;
-          eraTitleEl.textContent = era.title;
-          eraBodyEl.textContent = era.body;
-          eraFactEl.textContent = "Key fact: " + era.keyFact;
-
-          // Keep the slider in sync with the clicked era, without re-firing
-          // the era lookup (avoids feedback jitter while dragging).
-          slider.value = String(era.start);
-          yearReadout.textContent = era.start;
+          var exps = candidates.map(function (c) {
+            return Math.exp(c.logit / temp - maxL);
+          });
+          var sum = exps.reduce(function (a, b) { return a + b; }, 0) || 1;
+          return exps.map(function (e) { return e / sum; });
         }
 
-        slider.addEventListener("input", function () {
-          var year = parseInt(slider.value, 10);
-          yearReadout.textContent = year;
-          var idx = findEraIndexForYear(year);
-          if (idx !== activeIndex) {
-            activeIndex = idx;
-            var era = ERAS[idx];
-            markers.forEach(function (m, i) {
-              var isActive = i === idx;
-              m.style.background = isActive ? "var(--color-primary)" : "#fff";
-              m.style.width = isActive ? "30px" : "24px";
-              m.style.height = isActive ? "30px" : "24px";
-              m.style.boxShadow = isActive ? "0 0 0 4px var(--color-primary-light)" : "none";
-            });
-            eraYearsEl.textContent = era.years;
-            eraTitleEl.textContent = era.title;
-            eraBodyEl.textContent = era.body;
-            eraFactEl.textContent = "Key fact: " + era.keyFact;
+        function sampleIndex(probs) {
+          var r = Math.random(), acc = 0;
+          for (var i = 0; i < probs.length; i++) {
+            acc += probs[i];
+            if (r <= acc) return i;
           }
+          return 0;
+        }
+
+        function tempDescriptor(t) {
+          if (t <= 0.3) return t.toFixed(1) + " (Super predictable)";
+          if (t <= 0.8) return t.toFixed(1) + " (Balanced)";
+          return t.toFixed(1) + " (Creative / adventurous)";
+        }
+
+        function renderAll() {
+          tempReadout.textContent = tempDescriptor(temperature);
+          stageBtns.forEach(function (b, idx) {
+            b.setAttribute("aria-pressed", idx + 1 === activeStage ? "true" : "false");
+          });
+          nextBtn.textContent = activeStage < 4 ? "Next Stage →" : "Restart Trace ↺";
+
+          var sc = SCENARIOS[activeScenarioIdx];
+          var probs = computeProbs(sc.candidates, temperature);
+
+          stageBox.innerHTML = "";
+
+          if (activeStage === 1) {
+            var h = document.createElement("h4");
+            h.textContent = "Stage 1 of 4: Chopping your prompt into word-pieces (Tokens)";
+            stageBox.appendChild(h);
+            var p = document.createElement("p");
+            p.style.fontSize = "0.9rem";
+            p.style.color = "#46506b";
+            p.textContent = "An AI cannot read raw letters directly. First, a tokenizer splits \"" + sc.prompt + "\" into " +
+              sc.tokens.length + " numbered puzzle pieces (notice how contractions or suffixes split apart):";
+            stageBox.appendChild(p);
+            var row = document.createElement("div");
+            row.className = "bb-token-row";
+            sc.tokens.forEach(function (tok, i) {
+              var chip = document.createElement("span");
+              chip.className = "bb-token-chip";
+              chip.style.background = CHIP_COLORS[i % CHIP_COLORS.length];
+              chip.innerHTML = "<span>" + tok.text + "</span><span class='bb-token-id'>ID #" + tok.id + "</span>";
+              row.appendChild(chip);
+            });
+            stageBox.appendChild(row);
+          } else if (activeStage === 2) {
+            var h2 = document.createElement("h4");
+            h2.textContent = "Stage 2 of 4: Flowing through billions of tuned dials (NOT a web search)";
+            stageBox.appendChild(h2);
+            var p2 = document.createElement("p");
+            p2.style.fontSize = "0.9rem";
+            p2.style.color = "#46506b";
+            p2.textContent = "Like a chef whose taste dials were tuned on 10,000 meals, the model matches clues across your tokens simultaneously. Notice which dials light up (and which stay at 0%):";
+            stageBox.appendChild(p2);
+            var grid = document.createElement("div");
+            grid.className = "bb-dials-grid";
+            sc.dials.forEach(function (d) {
+              var card = document.createElement("div");
+              card.className = "bb-dial-card";
+              card.innerHTML =
+                "<strong>" + d.name + " (" + d.strength + "%)</strong>" +
+                "<div style='font-size:0.8rem; color:#46506b; margin-top:2px;'>" + d.note + "</div>" +
+                "<div class='bb-dial-bar'><div class='bb-dial-fill' style='width:" + d.strength + "%; background:" +
+                (d.strength === 0 ? "#b9251c" : "#2554e8") + ";'></div></div>";
+              grid.appendChild(card);
+            });
+            stageBox.appendChild(grid);
+          } else if (activeStage === 3) {
+            var h3 = document.createElement("h4");
+            h3.textContent = "Stage 3 of 4: Candidate next-piece probabilities (live Temperature = " + temperature.toFixed(1) + ")";
+            stageBox.appendChild(h3);
+            var p3 = document.createElement("p");
+            p3.style.fontSize = "0.9rem";
+            p3.style.color = "#46506b";
+            p3.textContent = "Drag the Temperature slider above and watch these bars shift live: lower temperature concentrates probability on the #1 pick; higher temperature spreads chances to alternatives.";
+            stageBox.appendChild(p3);
+            sc.candidates.forEach(function (cand, idx) {
+              var pct = (probs[idx] * 100).toFixed(1);
+              var row = document.createElement("div");
+              row.className = "bb-prob-row";
+              row.innerHTML =
+                "<div class='bb-prob-meta'><span>\"" + cand.word + "\"</span><strong>" + pct + "%</strong></div>" +
+                "<div class='bb-prob-track'><div class='bb-prob-fill' style='width:" + pct + "%; background:" +
+                (idx === 0 ? "#0d946e" : "#2554e8") + ";'></div></div>";
+              stageBox.appendChild(row);
+            });
+          } else {
+            var h4 = document.createElement("h4");
+            h4.textContent = "Stage 4 of 4: Picked next piece & Hallucination Check";
+            stageBox.appendChild(h4);
+
+            var picked = sc.candidates[chosenIdx] || sc.candidates[0];
+            var outBox = document.createElement("div");
+            outBox.className = "bb-output-box";
+            outBox.innerHTML = sc.prompt + " <span class='bb-chosen-word'>" + picked.word + "</span>" + picked.tail;
+            stageBox.appendChild(outBox);
+
+            var rollRow = document.createElement("div");
+            rollRow.style.marginTop = "10px";
+            rollRow.style.display = "flex";
+            rollRow.style.alignItems = "center";
+            rollRow.style.gap = "10px";
+            rollRow.style.flexWrap = "wrap";
+            var rollBtn = document.createElement("button");
+            rollBtn.type = "button";
+            rollBtn.className = "btn btn-secondary btn-sm";
+            rollBtn.textContent = "Sample another roll (at Temp " + temperature.toFixed(1) + ")";
+            rollBtn.addEventListener("click", function () {
+              chosenIdx = sampleIndex(probs);
+              renderAll();
+            });
+            var rollHint = document.createElement("span");
+            rollHint.style.fontSize = "0.82rem";
+            rollHint.style.color = "#46506b";
+            rollHint.textContent = "Picked \"" + picked.word + "\" (" + (probs[chosenIdx] * 100).toFixed(1) + "% chance at this Temperature).";
+            rollRow.appendChild(rollBtn);
+            rollRow.appendChild(rollHint);
+            stageBox.appendChild(rollRow);
+
+            var riskBadge = document.createElement("div");
+            riskBadge.className = "bb-risk-badge " +
+              (sc.riskLevel === "low" ? "bb-risk-low" : (sc.riskLevel === "med" ? "bb-risk-med" : "bb-risk-high"));
+            riskBadge.textContent = sc.riskText;
+            stageBox.appendChild(riskBadge);
+          }
+        }
+
+        tempSlider.addEventListener("input", function () {
+          temperature = parseFloat(tempSlider.value);
+          var sc = SCENARIOS[activeScenarioIdx];
+          if (temperature <= 0.25) chosenIdx = 0;
+          else if (chosenIdx >= sc.candidates.length) chosenIdx = 0;
+          renderAll();
         });
 
-        setActiveEra(activeIndex);
+        renderAll();
       }
     });
 
@@ -370,43 +596,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What happened at the 1956 Dartmouth workshop?",
+          q: "In the 'cookbook recipe vs. tasting 10,000 dishes' analogy, what makes modern AI fundamentally different from traditional software?",
           options: [
-            "The term “artificial intelligence” was coined and the field was formally founded",
-            "The first neural network was trained on GPUs",
-            "The first commercial expert system was sold",
-            "The Transformer architecture was introduced"
+            "Traditional software skips running on computer chips, whereas AI runs inside cloud browsers only",
+            "Traditional software follows explicit step-by-step rules written by a human, whereas AI adjusts millions or billions of internal dials from examples",
+            "Traditional software can only calculate spreadsheets, whereas AI cannot perform arithmetic",
+            "AI downloads new hand-written if/then recipes from the internet every time you ask a question"
           ],
-          answer: 0,
-          explanation: "The 1956 Dartmouth workshop is where “artificial intelligence” was coined as a term and the field's founding ambitions were set out."
+          answer: 1,
+          explanation: "Conventional code executes exact instructions programmed upfront. Machine learning tunes internal numeric dials (parameters) across thousands or billions of examples until patterns emerge."
         },
         {
-          q: "What key weakness of both symbolic AI and expert systems contributed to the AI winters?",
+          q: "When you hit Send on a prompt to a standard standalone AI assistant, how does it produce its answer behind the scenes?",
           options: [
-            "They were brittle — reliant on hand-written rules that failed on messy real-world cases and couldn't learn from experience",
-            "They required too much electricity to operate at all",
-            "They generalized too well to new situations",
-            "They could only run on quantum computers, which didn't exist yet"
+            "It searches a live private database of exact saved Q&A transcripts and copies the closest match",
+            "It chops your prompt into word-pieces (tokens), passes them through tuned dials, and predicts the most likely next piece one step at a time",
+            "It converts your sentence into a spreadsheet formula and solves for the single deterministic truth",
+            "It automatically launches a live web search before generating every word in the sentence"
           ],
-          answer: 0,
-          explanation: "Both approaches depended on hand-coded rules. Rules that don't cover a new situation simply fail, and neither approach could learn or adapt from data on its own."
+          answer: 1,
+          explanation: "Stand-alone LLMs tokenize input, run patterns through trained parameters, and generate outputs token-by-token via next-token probability prediction—not live web search or exact Q&A lookup (unless tools are added)."
         },
         {
-          q: "What two things enabled the deep learning breakthrough around 2006–2012?",
+          q: "What happens when you raise the AI's Temperature (creativity) setting higher?",
           options: [
-            "Better techniques for training many-layered networks, plus GPU hardware for large-scale matrix computation",
-            "The invention of the internet and the first personal computer",
-            "A government ban on symbolic AI research",
-            "The complete elimination of the need for training data"
+            "The AI checks more external websites before replying so factual accuracy goes up",
+            "Runner-up candidate words gain higher probability, making replies more varied and creative—while also raising the odds of odd or wrong leaps",
+            "The AI splits your prompt into fewer tokens so the response finishes faster",
+            "The AI permanently updates its trained parameters to remember your writing style"
           ],
-          answer: 0,
-          explanation: "Improved training methods for deep (many-layered) networks combined with GPU hardware capable of the needed matrix math made large-scale neural networks practical for the first time."
+          answer: 1,
+          explanation: "Higher temperature flattens the probability distribution across candidate next tokens, letting second- and third-place choices win more often—great for brainstorming, riskier for factual precision."
         },
         {
-          q: "Which architecture, introduced in 2017, made it practical to train large language models on massive text datasets?",
-          options: ["The Transformer", "The Expert System", "The Perceptron", "The LISP machine"],
+          q: "Why can an AI sound completely confident when stating a false fact or inventing your company's private Q4 budget?",
+          options: [
+            "Because its dials optimize what sounds like a smooth, likely continuation of business or factual phrasing—not whether a statement is verified in a file",
+            "Because the AI intentionally deceives users whenever its context window gets full",
+            "Because numbers and dates are stripped out by the tokenizer before prediction",
+            "Because confident tone is hard-coded only on true statements unless Temperature is set to zero"
+          ],
           answer: 0,
-          explanation: "The 2017 paper “Attention Is All You Need” introduced the Transformer architecture, which underlies today's large language models."
+          explanation: "Models generate fluent next-token continuations matching training style. Without tool access to your files or fact verification, plausible-looking numbers come out in the same confident tone as verified facts (hallucination)."
         }
       ]
     });

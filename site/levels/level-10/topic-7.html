@@ -3,24 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Leading Research Organizations or Labs — AI Maturity Course</title>
-<meta name="description" content="The organizational and strategic skill of directing a research team or lab toward impactful frontier-AI work, distinct from doing the research yourself.">
+<title>End-to-End Frontier Systems Capstone: Architecture, Evals & Production Tradeoffs — AI Maturity Course</title>
+<meta name="description" content="Synthesizing model routing, RAG vs. long context, quantization and speculative decoding, guardrails, observability, and statistical release gates.">
 <link rel="stylesheet" href="../../assets/css/styles.css">
 <script>
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "10-7";
 </script>
 <style>
-  .ra-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
-  .ra-sliders { display: flex; flex-direction: column; gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
-  .ra-slider-row { display: grid; grid-template-columns: 190px 1fr 60px; align-items: center; gap: var(--space-3); }
-  .ra-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
-  .ra-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
-  .ra-meters { display: flex; flex-direction: column; gap: var(--space-3); }
-  .ra-meter-row label { font-weight: 700; font-size: var(--font-size-sm); display: flex; justify-content: space-between; }
-  .ra-meter-track { width: 100%; height: 16px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; margin-top: var(--space-1); }
-  .ra-meter-fill { height: 100%; border-radius: 999px; transition: width 0.15s ease, background-color 0.15s ease; }
-  .ra-note { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); font-size: var(--font-size-sm); font-weight: 600; }
+  .cs-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .cs-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .cs-field { display: flex; flex-direction: column; gap: var(--space-1); }
+  .cs-field label { font-weight: 700; font-size: var(--font-size-sm); display: flex; justify-content: space-between; gap: var(--space-2); }
+  .cs-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); font-size: var(--font-size-xs); }
+  .cs-select { padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-bg); color: var(--color-text); font-size: var(--font-size-sm); }
+  .cs-sla-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: var(--space-2); }
+  .cs-sla-card { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-3); background: var(--color-bg); display: flex; flex-direction: column; gap: 4px; }
+  .cs-sla-card.pass { border-top: 3px solid var(--color-success); }
+  .cs-sla-card.fail { border-top: 3px solid var(--color-error); }
+  .cs-sla-label { font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-muted); }
+  .cs-sla-val { font-family: var(--font-mono); font-size: var(--font-size-lg); font-weight: 800; color: var(--color-text); }
+  .cs-sla-target { font-size: var(--font-size-xs); color: var(--color-text-faint); }
+  .cs-badge { display: inline-block; align-self: flex-start; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; }
+  .cs-badge.pass { background: var(--color-success-bg); color: var(--color-success); }
+  .cs-badge.fail { background: var(--color-error-bg); color: var(--color-error); }
+  .cs-verdict { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-size-sm); border-left: 5px solid; }
+  .cs-verdict.pass { background: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success); }
+  .cs-verdict.fail { background: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error); }
+  .cs-diag { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
 </style>
 </head>
 <body>
@@ -30,35 +40,58 @@
 <main class="page-main" id="main-content">
 
   <p class="card-eyebrow">Level 10 — Master</p>
-  <h1>Leading Research Organizations or Labs</h1>
+  <h1>End-to-End Frontier Systems Capstone: Architecture, Evals &amp; Production Tradeoffs</h1>
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a fixed research team and compute budget, produce a prioritized portfolio of research bets across capability/safety/infrastructure categories and justify the allocation against at least one plausible alternative allocation.
+      <strong>Learning objective:</strong> Architect an end-to-end production AI system by jointly balancing semantic model routing, RAG vs. prefix-cached long context, serving quantization and speculative decoding, runtime guardrails, and statistical regression gate sizing under strict SLAs.
     </div>
+
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Leading research organizations or labs is the organizational and strategic skill of directing a research
-          team toward impactful frontier-AI work — distinct from doing the research yourself. It means allocating
-          scarce headcount and compute across competing priorities, shaping the culture the team works in, and
-          carrying responsibilities that extend beyond the lab's walls.
+          Production frontier systems engineering is the synthesis of model architecture, retrieval, inference serving, safety instrumentation, and statistical evaluation into one coupled system—where optimizing a single component in isolation frequently breaks end-to-end latency, unit economics, safety, or statistical release confidence.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Every production deployment is constrained simultaneously across latency, unit cost, task accuracy, safety compliance, and eval statistical power:
+      </p>
       <ul>
-        <li><strong>Research prioritization under uncertainty</strong> — portfolio thinking across capabilities,
-          safety, and infrastructure bets with different risk/timelines.</li>
-        <li><strong>Building a research culture</strong> — incentives for genuine novelty vs. publication-count
-          optimization, and psychological safety for reporting negative results.</li>
-        <li><strong>Resourcing tradeoffs unique to frontier AI</strong> — compute allocation across a lab's
-          competing training runs and research bets, echoing the 2026 GPU compute-crunch reality.</li>
-        <li><strong>External responsibilities</strong> — safety review processes, responsible disclosure, and
-          engagement with the governance landscape.</li>
+        <li><strong>Tiered model routing:</strong> A lightweight router classifier (or confidence cascade) dispatches routine lookups and formatting turns to an 8B/small model while escalating high-complexity reasoning to a frontier model. Because capability follows diminishing returns across traffic difficulty, routing 30–65% of queries to the frontier tier captures ~85–95% of frontier quality at a fraction of the cost.</li>
+        <li><strong>Hybrid RAG vs. prefix-cached long context:</strong> Dynamic, multi-million-document corpora require hybrid BM25 + dense retrieval + cross-encoder reranking; fixed codebases or contract bundles benefit from KV-prefix caching across shared context, whereas uncurated prompt stuffing inflates TTFT latency, cost, and prompt-injection exposure.</li>
+        <li><strong>FP8 quantization &amp; speculative decoding:</strong> Weight/KV-cache FP8 quantization cuts memory bandwidth pressure by ~1.4–2× with negligible quality loss (&lt;1%), while speculative decoding (draft model proposing <em>k</em> tokens verified in parallel by the target model) slashes p95 decoding latency with <em>mathematically exact</em> output distribution.</li>
+        <li><strong>Guardrails, telemetry &amp; statistical gating:</strong> Async dual-classifiers keep tail latency low compared to synchronous heavy LLM judges. Before shipping, automated release gates run <code>N</code> golden cases sized so the 95% confidence interval half-width <code>1.96·√(p(1−p)/N)</code> is smaller than the minimum regression threshold you care to detect.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Solving an Enterprise Legal RAG SLA</h3>
+      <p>
+        Target SLAs: <code>p95 ≤ 1800 ms</code>, <code>Cost ≤ $14 / 1k req</code>, <code>Quality ≥ 86</code>, <code>Safety ≥ 97%</code>, <code>Eval 95% CI ≤ ±2.5%</code>.
+      </p>
+      <table class="lesson-table">
+        <thead>
+          <tr><th>Design Choice</th><th>Naive All-Frontier Stack</th><th>Optimized Capstone Stack</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Router &amp; Serving</td><td>100% Frontier, BF16</td><td>35% Frontier / 65% Small, FP8 + Speculative</td></tr>
+          <tr><td>Context &amp; Guardrail</td><td>Naive Prompt Stuffing + Sync LLM Judge</td><td>Hybrid RAG + Rerank + Async Dual-Classifier</td></tr>
+          <tr><td>Eval Gate Size (N)</td><td>N = 100 (CI ±6.4% — noisy!)</td><td>N = 900 (CI ±2.1% — catches 3% drops)</td></tr>
+          <tr><td><strong>SLA Outcome</strong></td><td><strong>p95 ~4680 ms, ~$42/1k (FAIL)</strong></td><td><strong>p95 ~970 ms, ~$10.40/1k, Q≈89.7 (ALL PASS)</strong></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Shipping behind under-powered eval gates (N = 50–100):</strong> At <code>p = 0.85</code> and <code>N = 60</code>, the 95% confidence interval spans <code>±9.0%</code>. A prompt or quantization change can silently degrade production accuracy by 5% while passing a small golden check—or fail randomly and block healthy releases.
+      </p>
     </section>
   </div>
 
@@ -88,164 +121,244 @@
     var TOPIC_ID = window.CURRENT_TOPIC_ID;
 
     Exercise.create(document.getElementById("exercise-mount"), {
-      title: "Lab resource-allocation game",
+      title: "Production Architecture Constraint Solver",
       instructions:
-        "Distribute your lab's fixed headcount + compute budget across four teams. Drag any slider and the others " +
-        "rebalance to hold the total at 100%. Watch research output, team morale, and long-term impact respond " +
-        "live to your allocation.",
+        "Select a production workload, then tune the model router split, context retrieval strategy, serving stack, " +
+        "guardrail architecture, and eval gate sample size N. Satisfy all 5 SLA constraints simultaneously to clear the " +
+        "production ship gate.",
       topicId: TOPIC_ID,
       mount: function (root, ctx) {
+        var WORKLOADS = {
+          legal: {
+            name: "Enterprise Legal RAG (Dynamic 2M-doc corpus)",
+            sla: { p95: 1800, cost: 14.0, quality: 86, safety: 97.0, ci: 2.5 },
+            smallBaseMs: 480, frontierAddMs: 1400,
+            costSmall: 2.2, costFrontierAdd: 26.0,
+            ctxLat: { rag: 320, prefix: 460, naive: 1850 },
+            ctxCost: { rag: 1.6, prefix: 3.4, naive: 9.8 },
+            ctxQual: { rag: 5.0, prefix: 2.5, naive: -3.5 },
+            guardScale: 1.0
+          },
+          voice: {
+            name: "Real-Time Voice Support Agent (Strict conversational latency)",
+            sla: { p95: 480, cost: 8.5, quality: 80, safety: 95.0, ci: 3.0 },
+            smallBaseMs: 210, frontierAddMs: 650,
+            costSmall: 1.2, costFrontierAdd: 16.0,
+            ctxLat: { rag: 140, prefix: 180, naive: 900 },
+            ctxCost: { rag: 0.8, prefix: 2.2, naive: 6.5 },
+            ctxQual: { rag: 3.5, prefix: 2.0, naive: -4.0 },
+            guardScale: 0.75
+          },
+          pr: {
+            name: "Automated PR Code Reviewer (Multi-file repo diff analysis)",
+            sla: { p95: 4500, cost: 24.0, quality: 88, safety: 96.0, ci: 2.0 },
+            smallBaseMs: 900, frontierAddMs: 3200,
+            costSmall: 3.5, costFrontierAdd: 32.0,
+            ctxLat: { rag: 520, prefix: 420, naive: 2900 },
+            ctxCost: { rag: 2.4, prefix: 2.8, naive: 12.0 },
+            ctxQual: { rag: 3.0, prefix: 5.5, naive: -3.5 },
+            guardScale: 1.1
+          }
+        };
+
         var wrap = document.createElement("div");
-        wrap.className = "ra-wrap";
+        wrap.className = "cs-wrap";
 
-        var teams = [
-          { key: "capabilities", label: "Capabilities", value: 40 },
-          { key: "safety", label: "Safety", value: 20 },
-          { key: "infra", label: "Infrastructure", value: 25 },
-          { key: "exploratory", label: "Exploratory / blue-sky", value: 15 }
-        ];
+        var controls = document.createElement("div");
+        controls.className = "cs-controls";
 
-        var sliderContainer = document.createElement("div");
-        sliderContainer.className = "ra-sliders";
-        var sliderEls = {};
-
-        teams.forEach(function (t) {
-          var row = document.createElement("div");
-          row.className = "ra-slider-row";
-          var label = document.createElement("label");
-          label.textContent = t.label;
-          label.setAttribute("for", "ra-slider-" + t.key);
-          var input = document.createElement("input");
-          input.type = "range";
-          input.min = "5";
-          input.max = "80";
-          input.value = String(t.value);
-          input.id = "ra-slider-" + t.key;
-          var readout = document.createElement("span");
-          readout.className = "ra-readout";
-          readout.textContent = t.value + "%";
-          row.appendChild(label);
-          row.appendChild(input);
-          row.appendChild(readout);
-          sliderContainer.appendChild(row);
-          sliderEls[t.key] = { input: input, readout: readout };
-        });
-        wrap.appendChild(sliderContainer);
-
-        var meters = document.createElement("div");
-        meters.className = "ra-meters";
-        meters.style.marginTop = "var(--space-4)";
-
-        function makeMeter(key, title) {
-          var row = document.createElement("div");
-          row.className = "ra-meter-row";
-          var label = document.createElement("label");
-          var titleSpan = document.createElement("span");
-          titleSpan.textContent = title;
-          var valSpan = document.createElement("span");
-          valSpan.id = "ra-val-" + key;
-          label.appendChild(titleSpan);
-          label.appendChild(valSpan);
-          var track = document.createElement("div");
-          track.className = "ra-meter-track";
-          var fill = document.createElement("div");
-          fill.className = "ra-meter-fill";
-          fill.id = "ra-fill-" + key;
-          track.appendChild(fill);
-          row.appendChild(label);
-          row.appendChild(track);
-          meters.appendChild(row);
+        function makeSelect(id, labelText, opts) {
+          var field = document.createElement("div");
+          field.className = "cs-field";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          lbl.textContent = labelText;
+          var sel = document.createElement("select");
+          sel.id = id;
+          sel.className = "cs-select";
+          opts.forEach(function (o) {
+            var opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.label;
+            sel.appendChild(opt);
+          });
+          field.appendChild(lbl);
+          field.appendChild(sel);
+          controls.appendChild(field);
+          return sel;
         }
 
-        makeMeter("output", "Research output");
-        makeMeter("morale", "Team morale");
-        makeMeter("impact", "Long-term impact");
-        wrap.appendChild(meters);
+        function makeSlider(id, labelText, min, max, step, val) {
+          var field = document.createElement("div");
+          field.className = "cs-field";
+          var lbl = document.createElement("label");
+          lbl.setAttribute("for", id);
+          var t = document.createElement("span");
+          t.textContent = labelText;
+          var r = document.createElement("span");
+          r.className = "cs-readout";
+          lbl.appendChild(t);
+          lbl.appendChild(r);
+          var inp = document.createElement("input");
+          inp.type = "range";
+          inp.id = id;
+          inp.min = String(min);
+          inp.max = String(max);
+          inp.step = String(step);
+          inp.value = String(val);
+          field.appendChild(lbl);
+          field.appendChild(inp);
+          controls.appendChild(field);
+          return { input: inp, readout: r };
+        }
 
-        var note = document.createElement("p");
-        note.className = "ra-note";
-        wrap.appendChild(note);
+        var workloadSel = makeSelect("cs-workload", "1. Production Workload", [
+          { value: "legal", label: WORKLOADS.legal.name },
+          { value: "voice", label: WORKLOADS.voice.name },
+          { value: "pr", label: WORKLOADS.pr.name }
+        ]);
+        var routerCtl = makeSlider("cs-router", "2. Frontier Router Share", 0, 100, 5, 100);
+        var ctxSel = makeSelect("cs-ctx", "3. Context Strategy", [
+          { value: "naive", label: "Naive Full-Prompt Stuffing" },
+          { value: "rag", label: "Hybrid RAG + Cross-Encoder Rerank" },
+          { value: "prefix", label: "Prefix-Cached Long Context" }
+        ]);
+        var servSel = makeSelect("cs-serv", "4. Serving & Precision", [
+          { value: "bf16", label: "BF16 Standard Serving" },
+          { value: "fp8", label: "FP8 Weight + KV Quantized" },
+          { value: "fp8spec", label: "FP8 + Speculative Decoding" }
+        ]);
+        var guardSel = makeSelect("cs-guard", "5. Guardrail Strictness", [
+          { value: "regex", label: "Minimal Regex Filter" },
+          { value: "async", label: "Async Dual-Classifier + Input Shield" },
+          { value: "sync", label: "Synchronous Heavy LLM Judge" }
+        ]);
+        var evalCtl = makeSlider("cs-evaln", "6. Eval Gate Sample Size (N)", 50, 2000, 50, 100);
+
+        wrap.appendChild(controls);
+
+        // SLA Cards
+        var slaGrid = document.createElement("div");
+        slaGrid.className = "cs-sla-grid";
+        function makeSlaCard(title) {
+          var card = document.createElement("div");
+          card.className = "cs-sla-card";
+          var lbl = document.createElement("div");
+          lbl.className = "cs-sla-label";
+          lbl.textContent = title;
+          var val = document.createElement("div");
+          val.className = "cs-sla-val";
+          var tgt = document.createElement("div");
+          tgt.className = "cs-sla-target";
+          var bdg = document.createElement("span");
+          bdg.className = "cs-badge";
+          card.appendChild(lbl);
+          card.appendChild(val);
+          card.appendChild(tgt);
+          card.appendChild(bdg);
+          slaGrid.appendChild(card);
+          return { card: card, val: val, tgt: tgt, bdg: bdg };
+        }
+        var cP95 = makeSlaCard("p95 Latency");
+        var cCost = makeSlaCard("Cost / 1k Requests");
+        var cQual = makeSlaCard("Quality Score");
+        var cSafe = makeSlaCard("Safety Pass Rate");
+        var cCI = makeSlaCard("95% Eval CI Half-Width");
+        wrap.appendChild(slaGrid);
+
+        var verdictEl = document.createElement("div");
+        verdictEl.className = "cs-verdict";
+        verdictEl.setAttribute("role", "status");
+        wrap.appendChild(verdictEl);
+
+        var diagEl = document.createElement("p");
+        diagEl.className = "cs-diag";
+        wrap.appendChild(diagEl);
 
         root.appendChild(wrap);
 
-        function normalizeFrom(changedKey) {
-          var total = teams.reduce(function (s, t) { return s + t.value; }, 0);
-          if (total === 100) return;
-          var others = teams.filter(function (t) { return t.key !== changedKey; });
-          var othersTotal = others.reduce(function (s, t) { return s + t.value; }, 0);
-          var remaining = 100 - teams.filter(function (t) { return t.key === changedKey; })[0].value;
-          if (othersTotal <= 0) {
-            others.forEach(function (t) { t.value = remaining / others.length; });
+        function setCard(c, valStr, targetStr, ok) {
+          c.card.className = "cs-sla-card " + (ok ? "pass" : "fail");
+          c.val.textContent = valStr;
+          c.tgt.textContent = "Target: " + targetStr;
+          c.bdg.className = "cs-badge " + (ok ? "pass" : "fail");
+          c.bdg.textContent = ok ? "PASS" : "FAIL";
+        }
+
+        function solve() {
+          var wl = WORKLOADS[workloadSel.value];
+          var f = parseInt(routerCtl.input.value, 10) / 100;
+          var ctxMode = ctxSel.value;
+          var servMode = servSel.value;
+          var guardMode = guardSel.value;
+          var N = parseInt(evalCtl.input.value, 10);
+
+          routerCtl.readout.textContent = Math.round(f * 100) + "% Frontier";
+          evalCtl.readout.textContent = "N = " + N;
+
+          var servLatMul = servMode === "bf16" ? 1.0 : (servMode === "fp8" ? 0.78 : 0.56);
+          var servCostMul = servMode === "bf16" ? 1.0 : (servMode === "fp8" ? 0.72 : 0.68);
+          var servQualDelta = servMode === "bf16" ? 0.0 : -0.6;
+
+          var guardLat = (guardMode === "regex" ? 15 : (guardMode === "async" ? 110 : 950)) * wl.guardScale;
+          var guardCost = guardMode === "regex" ? 0.1 : (guardMode === "async" ? 1.1 : 4.8);
+          var guardSafe = guardMode === "regex" ? 86.0 : (guardMode === "async" ? 97.6 : 99.1);
+
+          var p95 = (wl.smallBaseMs + f * wl.frontierAddMs) * servLatMul + wl.ctxLat[ctxMode] + guardLat;
+          var cost = (wl.costSmall + f * wl.costFrontierAdd) * servCostMul + wl.ctxCost[ctxMode] + guardCost;
+          var quality = 71 + 22 * (1 - Math.exp(-3.0 * f)) + wl.ctxQual[ctxMode] + servQualDelta;
+          quality = Math.min(99.5, Math.max(40, quality));
+
+          var safety = guardSafe + 1.4 * f - (ctxMode === "naive" ? 2.0 : 0);
+          safety = Math.min(99.9, Math.max(60, safety));
+
+          var p = quality / 100;
+          var ci = 1.96 * Math.sqrt((p * (1 - p)) / N) * 100;
+
+          var okP95 = p95 <= wl.sla.p95;
+          var okCost = cost <= wl.sla.cost;
+          var okQual = quality >= wl.sla.quality;
+          var okSafe = safety >= wl.sla.safety;
+          var okCI = ci <= wl.sla.ci;
+
+          setCard(cP95, Math.round(p95) + " ms", "≤ " + wl.sla.p95 + " ms", okP95);
+          setCard(cCost, "$" + cost.toFixed(2), "≤ $" + wl.sla.cost.toFixed(2), okCost);
+          setCard(cQual, quality.toFixed(1) + " / 100", "≥ " + wl.sla.quality, okQual);
+          setCard(cSafe, safety.toFixed(1) + "%", "≥ " + wl.sla.safety.toFixed(1) + "%", okSafe);
+          setCard(cCI, "±" + ci.toFixed(2) + "%", "≤ ±" + wl.sla.ci.toFixed(1) + "%", okCI);
+
+          var failing = [];
+          if (!okP95) failing.push("p95 latency (" + Math.round(p95) + " ms)");
+          if (!okCost) failing.push("unit cost ($" + cost.toFixed(2) + "/1k)");
+          if (!okQual) failing.push("quality (" + quality.toFixed(1) + ")");
+          if (!okSafe) failing.push("safety (" + safety.toFixed(1) + "%)");
+          if (!okCI) failing.push("eval gate CI (±" + ci.toFixed(2) + "%)");
+
+          if (failing.length === 0) {
+            verdictEl.className = "cs-verdict pass";
+            verdictEl.textContent = "PRODUCTION SHIP GATE: CLEARED — All 5 SLA constraints satisfied simultaneously for " + wl.name + ".";
+            diagEl.textContent = "Architecture insight: Balanced routing (" + Math.round(f * 100) + "% frontier) + " +
+              ctxSel.options[ctxSel.selectedIndex].text + " + " + servSel.options[servSel.selectedIndex].text +
+              " keeps tail latency and cost inside budget while holding statistical power at N=" + N + ".";
           } else {
-            others.forEach(function (t) { t.value = Math.max(1, (t.value / othersTotal) * remaining); });
+            verdictEl.className = "cs-verdict fail";
+            verdictEl.textContent = "PRODUCTION SHIP GATE: BLOCKED — Failing " + failing.join(", ") + ".";
+            var tips = [];
+            if (!okP95 || !okCost) tips.push("lower frontier router %, switch away from naive prompt stuffing, or enable FP8 + speculative decoding");
+            if (!okQual) tips.push("raise frontier router % or choose Hybrid RAG / Prefix Caching to eliminate context dilution");
+            if (!okSafe) tips.push("upgrade from regex-only to Async Dual-Classifier + avoid uncurated prompt stuffing");
+            if (!okCI) tips.push("increase eval gate sample size N so CI half-width narrows");
+            diagEl.textContent = "Bottleneck remediation: " + tips.join("; ") + ".";
           }
         }
 
-        function refreshSliderUI() {
-          teams.forEach(function (t) {
-            var rounded = Math.round(t.value);
-            sliderEls[t.key].input.value = String(rounded);
-            sliderEls[t.key].readout.textContent = rounded + "%";
-          });
-        }
-
-        function byKey(key) { return teams.filter(function (t) { return t.key === key; })[0].value; }
-
-        function update() {
-          var capabilities = byKey("capabilities");
-          var safety = byKey("safety");
-          var infra = byKey("infra");
-          var exploratory = byKey("exploratory");
-
-          var output = Math.max(0, Math.min(100, capabilities * 0.5 + infra * 0.3 + exploratory * 0.2));
-
-          var morale = 100;
-          teams.forEach(function (t) {
-            if (t.value < 10) morale -= (10 - t.value) * 2.2;
-          });
-          if (capabilities > safety * 3) morale -= (capabilities - safety * 3) * 0.6;
-          morale = Math.max(0, Math.min(100, morale));
-
-          var impact = Math.max(0, Math.min(100, safety * 0.4 + exploratory * 0.35 + capabilities * 0.2 + infra * 0.05));
-
-          function setMeter(key, val) {
-            var fill = document.getElementById("ra-fill-" + key);
-            var valSpan = document.getElementById("ra-val-" + key);
-            fill.style.width = val + "%";
-            valSpan.textContent = Math.round(val) + " / 100";
-            var color = val < 35 ? "var(--color-error)" : (val < 65 ? "#c98a12" : "var(--color-success)");
-            fill.style.background = color;
-          }
-
-          setMeter("output", output);
-          setMeter("morale", morale);
-          setMeter("impact", impact);
-
-          var msg;
-          if (safety < 10) {
-            msg = "Safety is critically underfunded at " + Math.round(safety) + "% — near-term output may look strong, but this is a high-risk allocation for a frontier lab.";
-          } else if (exploratory < 8) {
-            msg = "Exploratory research is nearly zero — this portfolio optimizes today's roadmap but may miss the next paradigm shift.";
-          } else if (morale < 50) {
-            msg = "Morale is under strain: at least one team is starved of resources, or capabilities is badly outpacing safety staffing.";
-          } else {
-            msg = "Reasonably balanced portfolio: output " + Math.round(output) + ", morale " + Math.round(morale) +
-              ", long-term impact " + Math.round(impact) + ".";
-          }
-          note.textContent = msg;
-        }
-
-        teams.forEach(function (t) {
-          sliderEls[t.key].input.addEventListener("input", function () {
-            t.value = parseInt(sliderEls[t.key].input.value, 10);
-            normalizeFrom(t.key);
-            refreshSliderUI();
-            update();
-          });
+        [workloadSel, ctxSel, servSel, guardSel].forEach(function (el) {
+          el.addEventListener("change", solve);
         });
+        routerCtl.input.addEventListener("input", solve);
+        evalCtl.input.addEventListener("input", solve);
 
-        refreshSliderUI();
-        update();
+        solve();
       }
     });
 
@@ -254,48 +367,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What distinguishes 'leading a research organization' from 'doing the research' at the individual-contributor level?",
+          q: "An automated regression gate evaluates candidate prompts on N = 80 golden test cases (baseline pass rate ~85%). Why is this gate statistically inadequate for blocking a 4% production regression?",
           options: [
-            "There is no meaningful distinction",
-            "Leading a lab is an organizational and strategic skill — allocating headcount/compute across bets and shaping culture — separate from producing research results yourself",
-            "Leading a lab requires writing more code than anyone else on the team",
-            "Leading a lab means avoiding all interaction with governance or policy bodies"
+            "Binomial confidence intervals require normally distributed continuous rewards rather than binary pass/fail labels",
+            "At N = 80 and p = 0.85, the 95% CI half-width is ±7.8%, meaning a genuine 4% drop is drowned inside random sampling noise",
+            "Golden test sets larger than 50 items cause prompt-caching eviction on the evaluation cluster",
+            "Speculative decoding alters the output probability distribution unless N exceeds 10,000 samples"
           ],
           answer: 1,
-          explanation: "Lab leadership centers on prioritization, resourcing, and culture-building — decisions that shape what research gets done, rather than doing the research directly."
+          explanation: "1.96 × sqrt(0.85 × 0.15 / 80) ≈ 7.8%. Because confidence interval width shrinks as 1/√N, detecting a ~3–4% shift reliably requires roughly 600–1,200 paired eval items."
         },
         {
-          q: "Why does 'portfolio thinking' matter when allocating a lab's research bets across capabilities, safety, and infrastructure?",
+          q: "Why does adding speculative decoding on top of FP8 quantization improve p95 latency without introducing the quality loss of aggressive weight pruning?",
           options: [
-            "Because only one category should ever receive funding",
-            "Because each category carries different risk/timeline profiles, and a resilient lab balances near-term payoff against longer-horizon or higher-risk bets",
-            "Because portfolios are only relevant to financial investing, not research labs",
-            "Because infrastructure spending is always irrelevant to research outcomes"
+            "Speculative decoding skips attention layers on every fourth token after FP8 calibration",
+            "The target model verifies draft tokens in parallel via rejection sampling, guaranteeing outputs match the target FP8 distribution exactly while reducing memory-bandwidth stalls",
+            "Speculative decoding caches cross-encoder rerank scores across unrelated user tenants",
+            "Draft models replace the synchronous safety classifier during streaming generation"
           ],
           answer: 1,
-          explanation: "Like a financial portfolio, a lab's research bets differ in risk and time horizon; treating allocation as a portfolio decision helps balance near-term output against longer-term or riskier payoffs."
+          explanation: "Speculative decoding uses a small draft model to propose k tokens and verifies all k in a single parallel target forward pass via lossless rejection sampling, preserving the exact target distribution while slashing inter-token latency."
         },
         {
-          q: "In the resource-allocation exercise, what happens to the morale meter when capabilities funding vastly outpaces safety funding?",
+          q: "For an Enterprise Legal RAG assistant querying a continuously updated 2M-document repository under a strict $14/1k-request cost cap, why does Hybrid RAG + Rerank beat prefix-cached full-corpus context?",
           options: [
-            "Morale is unaffected by relative team funding",
-            "Morale decreases, reflecting overwork/strain risk when one team is disproportionately overloaded relative to a critical counterpart function",
-            "Morale always increases when capabilities is prioritized",
-            "Morale only depends on the exploratory team's funding"
+            "Prefix caching cannot store attention KV tensors for legal PDFs longer than 8,192 tokens",
+            "A 2M-document dynamic corpus exceeds single-prompt context limits and invalidates prefix caches whenever documents update, whereas Hybrid RAG retrieves only relevant chunks",
+            "Cross-encoder rerankers completely eliminate the need for runtime safety guardrails",
+            "Hybrid RAG guarantees 0% hallucination even when using an 8B model with zero frontier routing"
           ],
           answer: 1,
-          explanation: "The simulation penalizes morale when capabilities funding dramatically outpaces safety funding, modeling the real organizational strain of an imbalanced, overloaded team structure."
+          explanation: "Prefix caching shines when a large context (like a stable codebase) repeats unchanged across requests. Dynamic multi-million-document corpora exceed window limits and churn constantly, making hybrid retrieval + reranking vastly cheaper and more accurate."
         },
         {
-          q: "What is one of the 'external responsibilities' a research lab leader carries beyond internal team management?",
+          q: "A real-time voice agent (p95 SLA ≤ 480 ms) keeps failing its safety target at 86% with regex filters, but adding a synchronous heavy LLM judge pushes p95 to 1,180 ms. Which architectural change resolves both constraints?",
           options: [
-            "Ignoring all external regulatory or governance developments",
-            "Safety review processes, responsible disclosure practices, and engagement with the broader governance landscape",
-            "Publishing only marketing material, never technical findings",
-            "Refusing to ever share compute resources across teams"
+            "Route 100% of voice turns to the largest frontier model at BF16 precision to improve built-in refusal",
+            "Deploy a fast input shield + asynchronous dual-classifier stream monitor alongside FP8 speculative serving and tiered routing",
+            "Reduce the eval sample size N from 1,000 to 50 so safety variance averages out",
+            "Switch from hybrid RAG to full prompt stuffing so the safety classifier sees raw tool logs"
           ],
           answer: 1,
-          explanation: "Lab leadership extends outward to responsibilities like internal safety review, responsible disclosure of findings, and engagement with regulators and the wider governance ecosystem."
+          explanation: "A synchronous heavy judge sits directly on the critical latency path. Combining fast pre-flight checks with asynchronous streaming dual-classifiers keeps safety high (~97%+) while staying within sub-500 ms voice SLAs."
         }
       ]
     });

@@ -23,38 +23,70 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Explain why "king − man + woman ≈ queen" is a meaningful
-      demonstration of what an embedding space captures, and describe the difference between a
-      one-hot word representation and a dense embedding.
+      <strong>Learning objective:</strong> Trace how raw text becomes token IDs and dense embedding vectors—the same
+      input representation modern LLMs start from—explain why one-hot vectors fail, and interpret vector arithmetic like
+      <code>king − man + woman ≈ queen</code>.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Before a neural network can do anything with text, the text has to become numbers.
-          <strong>Tokenization</strong> breaks raw text into small pieces (words or word-fragments).
-          <strong>Embeddings</strong> turn each piece into a dense vector of numbers, positioned in
-          space so that words with similar meaning end up near each other. <strong>word2vec</strong>
-          is the classic algorithm that learns those vectors just by having the model try to predict
-          a word from the words around it (or vice versa) across a huge amount of raw text — no
-          human ever labels "these two words are similar."
+          Every modern language model begins by turning raw text into numbers in two steps. First,
+          <strong>tokenization</strong> splits text into integer-indexed pieces (words or subwords like
+          <code>"un" + "friend" + "liness"</code>). Next, an <strong>embedding table</strong> maps each token ID to a
+          dense vector of floats where words used in similar contexts land near one another—a distributional idea
+          pioneered cleanly by <strong>word2vec</strong> and still forming Layer 0 of today's LLMs.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Tokenization (Subwords Over Whole Words):</strong> Whole-word vocabularies explode on typos, code, or
+        rare compounds; character-by-character splits stretch sequences too long. Modern tokenizers (like Byte-Pair
+        Encoding, BPE) keep frequent words as single tokens while splitting rare words into common subword pieces,
+        balancing compact sequence length with zero "unknown word" failures.
+      </p>
+      <p>
+        <strong>2. Why One-Hot Vectors Fall Short:</strong> A 50,000-word vocabulary encoded as one-hot vectors uses
+        50,000-element arrays containing 49,999 zeros and a single <code>1</code>. Every pair of words is orthogonal
+        (<code>dot = 0</code>), meaning the geometry gives zero hint that <code>"dog"</code> is closer to
+        <code>"puppy"</code> than to <code>"toaster"</code>.
+      </p>
+      <p>
+        <strong>3. Dense Embeddings &amp; Neighbor Prediction (word2vec → LLMs):</strong> Instead of sparse 50,000-D
+        flags, an embedding lookup assigns each token a compact vector (say 300 to 4,096 numbers). Algorithms like
+        <code>word2vec</code> learn these coordinates from raw text without human labels by predicting neighboring words
+        from a center word (or vice versa): words that share contexts get pulled into shared semantic directions, which
+        modern transformer LLMs then contextualize further via self-attention.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Similarity Works in Dense Space</h3>
+      <p>
+        Imagine three vocabulary tokens in a tiny 3D embedding space <code>[royalty, animal, gender_female]</code>:
+      </p>
       <ul>
-        <li>Tokenization: splitting text into words or subwords a model can consume</li>
-        <li>Why raw text needs to become numbers, and why one-hot encoding every word is impractical
-          (huge, sparse vectors that treat every pair of words as equally different)</li>
-        <li>Embeddings: dense, low-dimensional vectors where semantic similarity becomes geometric
-          closeness</li>
-        <li>word2vec's core idea — predict a word from its neighboring context words, or predict the
-          context from a word — as the classic historical technique. Modern systems use richer,
-          context-aware embeddings built on the transformer ideas covered later in this course.</li>
+        <li><code>king = [0.95, 0.0, 0.05]</code>, <code>man = [0.05, 0.0, 0.05]</code> &rarr; <code>king − man = [0.90, 0.0, 0.0]</code> (the pure "royalty" offset)</li>
+        <li><code>woman = [0.05, 0.0, 0.95]</code> &rarr; <code>king − man + woman = [0.95, 0.0, 0.95]</code> &approx; <code>queen</code></li>
       </ul>
+      <p>
+        Because context prediction encodes concepts along consistent vector directions rather than isolated IDs, simple
+        linear algebra reveals relational structure automatically.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Static Token Vectors &amp; Tokenizer Blind Spots</h3>
+      <p>
+        Fixed word-level embeddings like word2vec store <em>one</em> vector per spelling—so <code>"bank"</code> blends
+        riverbanks and financial banks into one averaged point (transformer attention resolves this dynamically from
+        context). Meanwhile, because LLMs never see raw characters directly—only subword token IDs—unusual subword
+        splits explain why LLMs sometimes struggle to count letters in a word or reverse spellings reliably.
+      </p>
     </section>
 
   </div>
@@ -416,48 +448,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Why is representing every word as a one-hot vector (a huge vector of all zeros with a single 1) impractical for large vocabularies?",
+          q: "Beyond high memory usage, what is the deeper modeling flaw of representing words as one-hot vectors?",
           options: [
-            "It uses too little memory to be useful",
-            "It produces huge, sparse vectors where every pair of words is equally 'different,' with no notion of similarity",
-            "It can only represent numbers, not words",
-            "It requires a GPU to compute"
+            "One-hot vectors cannot encode punctuation or numbers",
+            "Every pair of distinct words is orthogonal (dot product = 0), giving the model zero geometric signal that 'cat' and 'kitten' are more related than 'cat' and 'truck'",
+            "One-hot vectors force every sentence to have the exact same token count",
+            "One-hot encodings cannot pass through linear matrix multiplication layers"
           ],
           answer: 1,
-          explanation: "One-hot vectors are as long as the vocabulary and every word is exactly the same distance from every other word — there's no way to say 'cat' and 'kitten' are more similar than 'cat' and 'car'."
+          explanation: "One-hot vectors treat every vocabulary item as equidistant and orthogonal. Dense learned embeddings place related concepts along nearby directions so models generalize across synonyms."
         },
         {
-          q: "What does the analogy \"king − man + woman ≈ queen\" demonstrate about a good embedding space?",
+          q: "What does the vector result king − man + woman ≈ queen demonstrate about learned embedding spaces?",
           options: [
-            "That embeddings are always exactly integers",
-            "That the space encodes relationships (like gender) as consistent directions, so vector arithmetic on those directions lands near analogous words",
-            "That word2vec memorizes a lookup table of every possible analogy",
-            "That embeddings can only be computed for royalty-related words"
+            "That training explicitly optimizes analogy pairs from a curated dictionary",
+            "That semantic and relational attributes (like royalty and gender) align along consistent vector directions across the space",
+            "That dense vectors are simply compressed integer indices storing part-of-speech tags",
+            "That adding any two nouns always returns their closest common hypernym"
           ],
           answer: 1,
-          explanation: "If the man→king direction and the woman→queen direction are roughly the same vector, that direction is capturing something like 'make royal' — a reusable relationship, not a memorized fact."
+          explanation: "Predicting context words forces co-occurring relationships into consistent geometric offsets (man→king aligns with woman→queen), emerging from raw text without explicit analogy labels."
         },
         {
-          q: "What is tokenization?",
+          q: "Why do modern LLMs rely on subword tokenization (e.g., BPE) rather than splitting strictly on spaces or individual characters?",
           options: [
-            "Encrypting text so a model can't read it",
-            "Breaking raw text into smaller pieces (words or sub-words) that a model can process",
-            "Translating text into another language",
-            "Removing all punctuation from a document permanently"
-          ],
-          answer: 1,
-          explanation: "Tokenization is the first step in any text pipeline: splitting a string into the discrete units (tokens) that get converted into numbers next."
-        },
-        {
-          q: "What is the core training idea behind word2vec?",
-          options: [
-            "Predict a word from its surrounding context words (or the context from a word), learned across huge amounts of raw text",
-            "Manually label pairs of synonyms and antonyms",
-            "Translate every sentence into English first",
-            "Count how many times each letter of the alphabet appears"
+            "Subword tokens let the model represent any rare or unseen word from reusable pieces without exploding vocabulary size or stretching sequences to character length",
+            "Space-splitting fails because neural networks cannot ingest integers above 1,000",
+            "Character tokenization produces higher semantic accuracy but is unsupported on GPUs",
+            "Subword tokenization automatically disambiguates homonyms like 'river bank' vs. 'money bank'"
           ],
           answer: 0,
-          explanation: "word2vec learns embeddings purely from the self-supervised task of predicting nearby words, which pushes words that appear in similar contexts to end up with similar vectors."
+          explanation: "Subword tokenization keeps common words intact while decomposing rare words into meaningful chunks—eliminating out-of-vocabulary failures while keeping sequence lengths manageable."
+        },
+        {
+          q: "How does word2vec learn meaningful word coordinates without human similarity labels, and what limitation do static word2vec vectors have compared to LLM embeddings?",
+          options: [
+            "It predicts surrounding context words from raw text; unlike Transformer layers, word2vec gives one fixed static vector per word regardless of sentence context",
+            "It aligns English words to dictionary definitions; unlike LLMs, word2vec only supports lowercase nouns",
+            "It clusters TF-IDF frequencies; unlike LLMs, word2vec embeddings change every time a word appears in a different paragraph",
+            "It uses causal attention masks during training; unlike LLMs, word2vec vectors have variable length per word"
+          ],
+          answer: 0,
+          explanation: "Self-supervised neighbor prediction pulls contextually similar words together, forming the same distributional foundation used in LLM embedding tables—except LLMs follow up with self-attention so polysemous words like 'bank' adapt to surrounding context."
         }
       ]
     });

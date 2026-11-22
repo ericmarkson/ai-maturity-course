@@ -23,35 +23,62 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Look at a plot of training vs. validation loss and identify
-      signs of overfitting, then explain how adding dropout or an L2 penalty would be expected to
-      change that plot.
+      <strong>Learning objective:</strong> Diagnose overfitting from training vs. validation loss curves, compare how
+      L1, L2, and dropout constrain model capacity during training, and navigate the bias–variance trade-off as
+      regularization strength <code>λ</code> varies.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Regularization</strong> is a set of techniques that deliberately handicap a model
-          during training so it learns general patterns instead of memorizing the training data. A
-          model with plenty of capacity can always drive training error toward zero by memorizing
-          noise — regularization trades away a little training performance for much better
-          performance on data it hasn't seen.
+          <strong>Regularization</strong> encompasses techniques that constrain a model during training so it discovers
+          smooth, generalizable patterns instead of memorizing training noise. Because high-capacity neural nets and
+          high-degree polynomials can drive training loss near zero by fitting every fluke, regularization trades a
+          slight increase in training error for substantially lower validation and test error.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. L2 (Ridge) vs. L1 (Lasso) Weight Penalties:</strong> Both add a complexity term scaled by
+        hyperparameter <code>λ</code> directly to the training loss: <code>L_total = L_data + λ · Penalty(w)</code>.
+        <strong>L2</strong> adds <code>∑ w_i²</code>, shrinking large weights smoothly toward zero so no single feature
+        dominates predictions. <strong>L1</strong> adds <code>∑ |w_i|</code>, pushing weak weights all the way to exact
+        <code>0</code>—acting as automatic feature selection.
+      </p>
+      <p>
+        <strong>2. Dropout (Stochastic Sub-Networks):</strong> On each training batch, dropout randomly zeroes out a
+        fraction <code>p</code> (e.g., 20–50%) of hidden activations and scales survivors by <code>1 / (1 − p)</code>.
+        Because neurons cannot rely on specific fragile partner neurons always being present, the network distributes
+        redundant representations—much like averaging an ensemble of smaller models. During evaluation, dropout turns off.
+      </p>
+      <p>
+        <strong>3. Tuning Regularization Strength <code>λ</code>:</strong> Too little penalty leaves the model free to
+        wiggle through noisy points (overfitting); too much penalty flattens weights toward zero so the model misses
+        real structure (underfitting).
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Sweeping L2 Penalty <code>λ</code> on a Noisy Curve</h3>
       <ul>
-        <li>Overfitting recap and regularization as the fix</li>
-        <li><strong>L1/L2 penalties</strong>: adding a cost for large weights to the loss function so
-          the model prefers smaller, simpler weights</li>
-        <li><strong>Dropout</strong>: randomly disabling neurons during training so the network can't
-          over-rely on any single one of them</li>
-        <li>The regularization-strength tradeoff: too little and the model overfits; too much and it
-          underfits</li>
+        <li><strong>Weak penalty (<code>λ = 10⁻⁶</code>):</strong> An 11th-degree polynomial fits training points tightly (low train MSE) while oscillating wildly between points—causing validation MSE to spike.</li>
+        <li><strong>Balanced penalty (<code>λ ≈ 1–10</code>):</strong> Large high-degree coefficients are penalized, smoothing the curve onto the true signal so validation MSE drops sharply.</li>
+        <li><strong>Extreme penalty (<code>λ = 1000</code>):</strong> Weights shrink near zero, collapsing the curve into a nearly flat line where both training and validation MSE climb (underfitting).</li>
       </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Forgetting Feature Scaling Before L1/L2 &amp; Leaving Dropout On</h3>
+      <p>
+        L1 and L2 penalize raw weight magnitudes equally—so if one feature is measured in millimeters (requiring tiny
+        weights) and another in kilometers (requiring huge weights), regularization unfairly crushes the kilometer
+        feature unless you standardize features first. In neural nets, also verify dropout is disabled during inference
+        (e.g., <code>model.eval()</code>) so predictions aren't noisy.
+      </p>
     </section>
 
   </div>
@@ -314,48 +341,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "On a plot of training loss vs. validation loss over time, which pattern is the clearest sign of overfitting?",
+          q: "On a training-vs.-validation loss curve over epochs, what pattern signals overfitting—and how should adding L2 regularization or dropout alter it?",
           options: [
-            "Both losses steadily decrease together and stay close",
-            "Training loss keeps dropping while validation loss flattens out or starts rising",
-            "Both losses stay flat and high from the start",
-            "Validation loss is always lower than training loss"
+            "Both training and validation loss stay flat and high; regularization lowers training loss faster while raising validation loss",
+            "Training loss keeps falling while validation loss plateaus or climbs; regularization raises training loss slightly while lowering validation loss and closing the gap",
+            "Validation loss drops steadily below training loss; regularization aligns both curves at zero",
+            "Training loss oscillates randomly while validation loss drops; regularization freezes weight updates early"
           ],
           answer: 1,
-          explanation: "That growing gap — training loss still falling while validation loss stalls or worsens — means the model is increasingly fitting training-set quirks that don't generalize."
+          explanation: "A widening gap where training error drops while validation error stalls/rises means the model is fitting training noise. Regularization constrains capacity, bringing training and validation curves closer at a better validation score."
         },
         {
-          q: "What does an L2 penalty add to the loss function?",
+          q: "How does L1 regularization behave differently from L2 regularization when optimizing weights?",
           options: [
-            "A bonus that rewards larger weights",
-            "A cost proportional to the size of the model's weights, discouraging any single weight from growing too large",
-            "A random shuffle of the training labels",
-            "Extra training data generated automatically"
+            "L1 shrinks weights smoothly proportionally to their value, whereas L2 clips weights above 1.0",
+            "L1 penalizes ∑|w_i| and tends to push uninformative weights exactly to zero (sparse feature selection), whereas L2 penalizes ∑w_i² and spreads shrinkage across correlated weights",
+            "L2 applies only to hidden layers while L1 applies only to convolutional kernels",
+            "L1 leaves weights unchanged during training and disables neurons randomly at inference"
           ],
           answer: 1,
-          explanation: "L2 (and L1) regularization adds a penalty term based on weight magnitude, so the optimizer has to trade off fitting the data against keeping weights small — which tends to produce smoother, less noise-fitting models."
+          explanation: "The constant slope of |w| near zero pushes weak L1 weights all the way to 0, creating sparse models; L2's gradient (2w) shrinks near zero, gently compressing weights without eliminating correlated features."
         },
         {
-          q: "What does dropout do during training?",
+          q: "Why does dropout randomly zero hidden activations during training forward passes—and what happens to dropout during test inference?",
           options: [
-            "Permanently deletes a fraction of the training examples",
-            "Randomly disables a fraction of neurons on each forward pass so the network can't over-rely on any one of them",
-            "Removes the last layer of the network entirely",
-            "Lowers the learning rate over time"
+            "It permanently prunes slow neurons to shrink model disk size; inference keeps the pruned network fixed",
+            "It prevents neurons from brittle co-adaptation by training redundant sub-networks; inference disables dropout so the full rescaled network runs deterministically",
+            "It adds Gaussian noise to target labels to smooth cross-entropy loss; inference runs multiple passes and keeps the minimum",
+            "It replaces L2 weight decay so weights can grow unbounded during both training and inference"
           ],
           answer: 1,
-          explanation: "By randomly zeroing out different neurons each pass, dropout forces the network to spread useful signal across many neurons instead of depending heavily on a few, which improves generalization."
+          explanation: "Randomly dropping activations forces each neuron to learn features useful across many active combinations. At test time, all neurons stay active (with appropriate scaling) for deterministic predictions."
         },
         {
-          q: "In the exercise, what happens if the regularization strength is pushed far too high?",
+          q: "In the polynomial fitting exercise, why do BOTH training loss and validation loss worsen when λ is pushed very high (e.g., λ = 1000)?",
           options: [
-            "The model overfits even more severely",
-            "Nothing changes — regularization strength has no effect on the fitted curve",
-            "The fitted curve becomes too simple/flat to capture the real pattern, and both training and validation loss rise — underfitting",
-            "Training loss becomes negative"
+            "Because high λ causes gradient descent to diverge past the polynomial boundary",
+            "Because the weight penalty overwhelms the data-fit term, forcing weights near zero so the model underfits even the true underlying signal",
+            "Because ridge regression converts negative weights into positive bias offsets",
+            "Because high λ removes validation examples from the MSE computation"
           ],
-          answer: 2,
-          explanation: "Regularization strength is a tradeoff dial: too little allows overfitting, but too much over-constrains the model so it can't capture even the real underlying pattern, raising error on both training and validation data."
+          answer: 1,
+          explanation: "When λ dominates L_data + λ∑w², minimizing loss means shrinking all weights near zero regardless of data fit—flattening the curve into high-bias underfitting."
         }
       ]
     });

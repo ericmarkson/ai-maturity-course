@@ -55,14 +55,48 @@
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h3>How It Works</h3>
       <ul>
-        <li>Orchestration patterns: supervisor/manager, peer-to-peer handoff, and linear pipeline</li>
-        <li>Role specialization (e.g. planner, researcher, critic agents)</li>
-        <li>Shared state and message passing between agents</li>
-        <li>Failure modes: infinite hand-off loops, conflicting goals, runaway cost</li>
+        <li>
+          <strong>Core Orchestration Topologies:</strong> (1) <strong>Linear Pipeline</strong> executes deterministic
+          stages (e.g., <code>Planner → Researcher → Writer → Fact-Checker</code>); (2) <strong>Supervisor / Manager</strong>
+          centralizes routing, dispatching subtasks to specialized workers and synthesizing results; (3) <strong>Peer-to-Peer
+          Handoff</strong> lets agents transfer control directly when a task leaves their domain; (4) <strong>Parallel
+          Fan-Out / Gather</strong> runs independent specialists concurrently to cut latency.
+        </li>
+        <li>
+          <strong>Role Specialization &amp; Context Isolation:</strong> Splitting workflows keeps each agent's system
+          prompt and tool list small and sharp, reducing tool-selection confusion and intermediate distraction compared
+          to one overloaded prompt.
+        </li>
+        <li>
+          <strong>Shared State &amp; Handoff Contracts:</strong> Agents pass typed state objects (outline, verified
+          citations, draft, review status) rather than dumping raw multi-thousand-token scratchpads at every hop.
+        </li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example</h3>
+      <p>
+        Wiring the 4-stage pipeline for <em>"Write and fact-check a 200-word blog post about home solar panels"</em>:
+      </p>
+      <ul>
+        <li><strong>Sound flow:</strong> <code>Planner</code> (creates 4-section outline) → <code>Researcher</code> (gathers 2023 payback &amp; efficiency stats with sources) → <code>Writer</code> (drafts 200 words using outline + stats) → <code>Fact-Checker</code> (verifies numbers against cited sources before shipping).</li>
+        <li><strong>Flawed flow:</strong> <code>Planner → Writer → Writer → Critic</code> omits the <code>Researcher</code> (so the writer guesses stats) and repeats <code>Writer</code> back-to-back without adding a verification gate.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Ping-pong handoff loops, telephone-game drift, and premature multi-agent complexity.</strong> If a
+        Critic rejects drafts for exceeding 200 words while a Fact-Checker demands extra source caveats, two agents
+        can loop forever unless capped by a hard <code>max_handoffs</code> limit. Passing prose summaries instead of
+        structured state also corrupts constraints across hops—and whenever one agent with clean tools can solve the
+        task reliably, adding multiple agents only multiplies latency, cost, and failure points.
+      </p>
     </section>
 
   </div>
@@ -409,48 +443,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In a supervisor/manager orchestration pattern, who decides where work is routed?",
+          q: "When should an engineering team choose a supervisor/manager pattern over peer-to-peer agent handoffs?",
           options: [
-            "Each agent decides independently, with no coordination",
-            "A designated supervisor/manager agent routes work among the specialized agents",
-            "Hand-offs happen at random",
-            "There is only ever one agent, so no routing is needed"
+            "When you want every worker agent to know the full prompt and tool definitions of every other agent",
+            "When dynamic task routing, parallel fan-out aggregation, and centralized termination control are needed across diverse specialists",
+            "When tasks always follow one fixed, unchanging 3-step sequence with zero branching",
+            "Whenever you want to eliminate all shared state between steps"
           ],
           answer: 1,
-          explanation: "The supervisor/manager pattern centralizes routing decisions in one coordinating agent, unlike peer-to-peer handoff where agents pass work directly to each other."
+          explanation: "A supervisor centralizes routing, aggregates parallel worker outputs, and enforces global termination limits. Fixed unchanging sequences fit a simple linear pipeline better, while peer-to-peer distributes routing decisions among workers."
         },
         {
-          q: "What is the primary purpose of shared state or message passing between agents in a pipeline?",
+          q: "Why do production multi-agent frameworks pass typed shared state objects (e.g., {outline, sources[], draft}) rather than forwarding the entire raw message transcript across every hop?",
           options: [
-            "To force every agent to redo the same work independently",
-            "To let each agent access relevant context and outputs produced by earlier agents",
-            "To prevent any agent from ever seeing another agent's output",
-            "To intentionally slow the pipeline down"
+            "Typed shared state keeps each specialist's context focused, lowers token cost, and prevents subtle 'telephone-game' constraint drift",
+            "LLMs cannot read messages generated by other instances of the same model family",
+            "Shared state automatically parallelizes sequential dependencies without changing the graph",
+            "Passing raw transcripts causes JSON Schema constrained decoding to disable tools"
+          ],
+          answer: 0,
+          explanation: "Forwarding raw internal scratchpads bloats context, distracts downstream agents, and drops constraints over long chains. Structured state fields give each specialist exact inputs cleanly."
+        },
+        {
+          q: "In a Critic ↔ Writer review loop, the Writer aims to cite every caveat thoroughly while the Critic rejects any draft over 150 words. After shipping, engineers notice single requests burning $4 in tokens and timing out. What failed?",
+          options: [
+            "The system lacks a Researcher agent to fetch external facts",
+            "Conflicting agent objectives without a max_iterations / escalation circuit breaker caused an unbounded ping-pong handoff loop",
+            "The Critic used temperature = 0 instead of top_p = 0.9",
+            "The Fact-Checker verified citations faster than the Writer could generate"
           ],
           answer: 1,
-          explanation: "Message passing / shared state is how one agent's output (e.g. the Planner's outline) becomes usable input for the next agent (e.g. the Writer)."
+          explanation: "Competing optimization criteria between agents trigger endless revision cycles unless orchestration enforces max_handoffs / max_iterations and a fallback resolution rule."
         },
         {
-          q: "In the exercise, what warning appears if a pipeline has no Critic or Fact-Checker role anywhere in it?",
+          q: "Which statements reflect real engineering tradeoffs in multi-agent orchestration? (Select all that apply.)",
           options: [
-            "A warning that the pipeline is too long",
-            "A warning that nothing catches errors before the output ships",
-            "No warning — every pipeline is equally safe",
-            "A warning that the task will run twice"
+            "Role specialization improves tool precision when a single agent would otherwise juggle dozens of conflicting tools",
+            "Fan-out / gather parallelism can cut wall-clock latency when subtasks (e.g., querying three independent sources) do not depend on each other",
+            "Splitting any simple single-turn task across 5 agents always improves accuracy and lowers latency",
+            "Omitting a verification/critic stage lets upstream hallucinations propagate straight into final user output"
           ],
-          answer: 1,
-          explanation: "Skipping any review/verification role is a real design flaw: without a Critic or Fact-Checker, mistakes from earlier agents flow straight through to the final output."
-        },
-        {
-          q: "Which of these are genuine failure-mode risks in multi-agent orchestration? (select all that apply)",
-          options: [
-            "Conflicting goals between agents",
-            "Runaway cost from repeated tool/LLM calls",
-            "Infinite hand-off loops with no termination condition",
-            "Agents always agreeing perfectly with zero possibility of error"
-          ],
-          answer: [0, 1, 2],
-          explanation: "Conflicting goals, runaway cost, and infinite loops are documented real risks. Agents never disagreeing or erring is not a real property of these systems — it's the opposite of a genuine risk."
+          answer: [0, 1, 3],
+          explanation: "Specializing prompts/tools, parallelizing independent subtasks, and adding verification gates are core multi-agent strengths. Splitting trivial tasks across 5 agents adds unnecessary latency, cost, and handoff risk."
         }
       ]
     });

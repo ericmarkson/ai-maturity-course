@@ -23,34 +23,66 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Describe, in order, the standard steps of one training loop
-      iteration (forward pass, loss computation, backward pass, weight update) and explain what
-      "automatic differentiation" saves a practitioner from having to do manually.
+      <strong>Learning objective:</strong> Explain what tensors and automatic differentiation (autograd) handle behind
+      the scenes in PyTorch and TensorFlow, trace the exact four-step training loop order, and avoid classic gradient
+      accumulation bugs.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          PyTorch and TensorFlow are the two dominant software frameworks that provide the building
-          blocks — tensors, automatic differentiation, prebuilt layers — for defining and training
-          neural networks without writing the underlying math from scratch.
+          Deep learning frameworks like <strong>PyTorch</strong> and <strong>TensorFlow/Keras</strong> provide two core
+          building blocks so engineers don't hand-code calculus or GPU kernels: <strong>tensors</strong> (multi-dimensional
+          arrays that run fast on accelerators) and <strong>automatic differentiation</strong> (recording forward math
+          so backpropagation gradients are computed automatically).
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li><strong>Tensors</strong> as the core data structure — generalizing numpy arrays into
-          GPU-friendly, differentiable objects</li>
-        <li><strong>Automatic differentiation</strong>: the framework computes backpropagation's
-          gradients for you, instead of you deriving and coding the calculus by hand</li>
-        <li>The standard training loop shape: <em>forward pass → compute loss → backward pass →
-          update weights</em>, repeated many times</li>
-        <li>PyTorch's more Python-native, dynamic style vs. TensorFlow/Keras's higher-level,
-          more declarative style — both are illustrative examples, not a prescription for which to use</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Tensors Beyond NumPy:</strong> A tensor generalizes a NumPy <code>ndarray</code>—holding scalars,
+        vectors, image batches <code>(B, C, H, W)</code>, or token sequences <code>(B, T, D)</code>—while supporting
+        GPU memory placement and optional gradient tracking.
+      </p>
+      <p>
+        <strong>2. Automatic Differentiation (Autograd):</strong> Whenever gradient tracking is enabled on model
+        weights, every forward operation appends a node to a dynamic computation graph. Calling
+        <code>loss.backward()</code> walks that graph backward via the chain rule and fills each parameter's
+        <code>.grad</code> buffer automatically.
+      </p>
+      <p>
+        <strong>3. Standard 4-Step Training Loop:</strong> Regardless of framework style (PyTorch's explicit Python loop
+        or Keras's higher-level <code>model.fit()</code>), every gradient-descent batch executes the exact same cycle:
+        <em>Forward pass &rarr; Compute loss &rarr; Backward pass &rarr; Update weights</em>.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Minimal PyTorch Batch Step</h3>
+      <pre class="code-block"><code>for x_batch, y_batch in train_loader:
+    optimizer.zero_grad()          # Clear gradients left over from prior batch
+    preds = model(x_batch)         # 1. Forward pass: compute predictions
+    loss = loss_fn(preds, y_batch) # 2. Compute scalar loss
+    loss.backward()                # 3. Backward pass: autograd fills .grad
+    optimizer.step()               # 4. Update weights using .grad &amp; lr</code></pre>
+      <p>
+        During validation/evaluation, wrapping inference in <code>model.eval()</code> and
+        <code>with torch.no_grad():</code> skips building the computation graph, cutting memory use and turning off
+        training-only behavior like dropout.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Forgetting <code>zero_grad()</code> or Leaving Training Mode On</h3>
+      <p>
+        In PyTorch, <code>.backward()</code> <em>adds</em> new gradients onto existing <code>.grad</code> tensors rather
+        than overwriting them (useful for micro-batch accumulation, fatal by accident). Omitting
+        <code>optimizer.zero_grad()</code> makes gradients sum endlessly across batches until training blows up.
+        Similarly, forgetting <code>model.eval()</code> during validation keeps dropout active and distorts metrics.
+      </p>
     </section>
 
   </div>
@@ -336,48 +368,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the correct order of one training loop iteration?",
+          q: "What is the exact dependency order of operations inside one standard gradient-descent training batch?",
           options: [
-            "Update weights → forward pass → compute loss → backward pass",
+            "Backward pass → compute loss → forward pass → update weights",
             "Forward pass → compute loss → backward pass → update weights",
-            "Compute loss → backward pass → forward pass → update weights",
-            "Backward pass → forward pass → update weights → compute loss"
+            "Compute loss → update weights → forward pass → backward pass",
+            "Forward pass → update weights → compute loss → backward pass"
           ],
           answer: 1,
-          explanation: "You first run the data forward through the network, measure how wrong it was (loss), propagate that error backward to get gradients, then use those gradients to update the weights."
+          explanation: "You must run inputs forward to get predictions, measure loss against targets, differentiate backward through that computation graph to populate .grad, and finally step the optimizer."
         },
         {
-          q: "What does 'automatic differentiation' save a practitioner from doing manually?",
+          q: "How does automatic differentiation (autograd) work behind the scenes in frameworks like PyTorch and TensorFlow?",
           options: [
-            "Loading the dataset from disk",
-            "Deriving and coding the calculus (gradients) needed for backpropagation by hand",
-            "Choosing which programming language to use",
-            "Writing the model's forward pass at all"
+            "It approximates derivatives numerically by perturbing every weight twice per batch",
+            "It records operations performed on tracked tensors during the forward pass and replays the chain rule backward to compute exact analytical gradients",
+            "It stores a precomputed lookup table of derivatives for every dataset size",
+            "It freezes early layers automatically so only the final linear layer needs derivatives"
           ],
           answer: 1,
-          explanation: "Frameworks like PyTorch and TensorFlow track every operation performed on tensors during the forward pass and automatically compute the gradients needed for the backward pass — no hand-derived calculus required."
+          explanation: "Autograd builds a computation graph of differentiable ops during the forward pass and walks it in reverse during loss.backward()—giving exact chain-rule gradients without numerical perturbation or manual calculus."
         },
         {
-          q: "What is a tensor, in the context of these frameworks?",
+          q: "What breaks in a PyTorch training loop if you accidentally omit optimizer.zero_grad() before each batch?",
           options: [
-            "A type of loss function",
-            "A generalization of a numpy array that supports GPU acceleration and automatic differentiation",
-            "A specific neural network architecture",
-            "A file format for saving trained models"
+            "Weights freeze because .grad tensors are cleared to None automatically",
+            "New batch gradients add onto stale gradients from previous batches, distorting step directions and risking divergence",
+            "Autograd switches into inference mode and stops recording the computation graph",
+            "The loss function returns NaN on the very first forward pass"
           ],
           answer: 1,
-          explanation: "Tensors are the core data structure: multi-dimensional arrays, like numpy arrays, but built to run on GPUs and to track operations for automatic differentiation."
+          explanation: "PyTorch accumulates gradients into .grad by default. Without zero_grad(), batch 5's update uses the sum of batches 1–5's gradients instead of batch 5 alone."
         },
         {
-          q: "How are PyTorch and TensorFlow generally described relative to each other?",
+          q: "Why do deep learning frameworks wrap arrays in Tensors instead of plain NumPy arrays—and why wrap validation in no_grad()?",
           options: [
-            "PyTorch only works on images; TensorFlow only works on text",
-            "PyTorch tends toward a more Python-native, dynamic style; TensorFlow/Keras tends toward a higher-level, more declarative style",
-            "They are two names for the exact same software",
-            "TensorFlow cannot use GPUs"
+            "Tensors add GPU execution and autograd tracking; no_grad() disables graph recording during eval to save memory and speed up inference",
+            "NumPy arrays only support 2D matrices while Tensors add 3D support; no_grad() clears learned weights after validation",
+            "Tensors enforce strict integer types for quantization; no_grad() re-enables dropout layers",
+            "NumPy arrays cannot represent floating-point decimals; no_grad() halves the learning rate"
           ],
-          answer: 1,
-          explanation: "Both accomplish the same core job (tensors + autodiff + layers), but they differ in programming style — this is a stylistic difference, not a strict capability gap."
+          answer: 0,
+          explanation: "NumPy handles arbitrary N-D arrays on CPU, whereas Tensors run on GPUs/TPUs and record computation graphs for autograd. During validation you don't step weights, so no_grad() skips graph storage."
         }
       ]
     });

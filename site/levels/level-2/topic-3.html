@@ -30,31 +30,49 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Look at a scatter plot and correctly decide whether linear or
-      logistic regression is the appropriate tool for the prediction task shown.
+      <strong>Learning objective:</strong> Building on the difference between regression and classification, match
+      numeric prediction tasks to linear regression and yes/no probability tasks to logistic regression, and explain
+      how each model's geometry works.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Linear regression</strong> predicts a continuous number — like a price — by fitting a
-          straight line through the data. <strong>Logistic regression</strong> predicts a category — like
-          yes/no — by fitting an S-shaped curve that squashes any input into a probability between 0 and 1.
-          Both work by finding weights that best relate the inputs to the output; they just differ in what
-          kind of output they're built to produce.
+          <strong>Linear regression</strong> predicts a continuous number by fitting the best straight line
+          (<code>y = w·x + b</code>) through labeled examples. Despite its name, <strong>logistic regression</strong>
+          is a <em>classification</em> algorithm: it takes that same weighted line and squashes it through an S-shaped
+          curve so the output stays strictly between <code>0</code> and <code>1</code> as a class probability.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
       <ul>
-        <li>Linear regression: fitting a line to predict a numeric value</li>
-        <li>Logistic regression: converting a line into a probability curve for classification</li>
-        <li>Coefficients/weights as "how much each input matters" (conceptually, no calculus needed)</li>
-        <li>Real-world examples: house price prediction vs. pass/fail prediction</li>
+        <li><strong>Linear regression (Straight line):</strong> Each input feature gets a weight ("how much does 1 extra square foot raise the price?") plus a starting baseline (intercept). The model slides and tilts the line until the average squared gap between the line and the actual points is as small as possible.</li>
+        <li><strong>Logistic regression (S-curve + threshold):</strong> For yes/no problems like pass/fail, a straight line would shoot past <code>100%</code> or below <code>0%</code>. Logistic regression bends the line into a smooth S-curve (sigmoid) bounded between <code>0</code> and <code>1</code>, then applies a cutoff (usually <code>0.5</code>) to decide Yes vs. No.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Study Hours &rarr; Score vs. Pass/Fail</h3>
+      <p>
+        Using the same student feature (<code>hours studied</code>):
+      </p>
+      <ul>
+        <li><strong>Linear regression:</strong> Fits <code>predicted_score = 45 + 6 × hours</code>. Studying <code>6 hours</code> predicts a numeric exam score of <code>81</code>.</li>
+        <li><strong>Logistic regression:</strong> Maps <code>hours</code> onto an S-curve where <code>6 hours</code> gives <code>88% chance of passing</code>—converting to <code>Pass</code> because <code>0.88 ≥ 0.50</code>, while <code>2 hours</code> gives <code>18% chance</code> &rarr; <code>Fail</code>.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Fooled by the Word "Regression" in Logistic Regression</h3>
+      <p>
+        Beginners often assume logistic regression predicts continuous targets because "regression" is in the name!
+        Remember: linear regression outputs unbounded numbers (house prices), whereas logistic regression outputs
+        probabilities for <strong>classification</strong> (spam/not spam, default/repay).
+      </p>
     </section>
   </div>
 
@@ -348,38 +366,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "You need to predict a house's exact sale price in dollars. Which is the right tool?",
-          options: ["Linear regression", "Logistic regression", "Either works identically", "Neither — this needs clustering"],
+          q: "You want to predict a house's exact sale price in dollars based on square footage and bedrooms. Which model fits the job?",
+          options: [
+            "Linear regression, because it fits a weighted line to output a continuous numeric value",
+            "Logistic regression, because house prices are bounded between minimum and maximum market values",
+            "k-means clustering, because neighborhoods naturally form price clusters",
+            "Either linear or logistic regression works interchangeably as long as prices are scaled"
+          ],
           answer: 0,
-          explanation: "Predicting a continuous number like price is exactly what linear regression is built for."
+          explanation: "Sale price is an unbounded continuous number, making linear regression the natural choice. Logistic regression squashes outputs into 0–1 probabilities for classification."
         },
         {
-          q: "You need to predict whether a loan applicant will default (yes/no). Which is the right tool?",
-          options: ["Linear regression", "Logistic regression", "Both are equally wrong", "k-means clustering"],
-          answer: 1,
-          explanation: "A yes/no outcome is a classification problem, which logistic regression handles by outputting a probability."
-        },
-        {
-          q: "In the exercise, what did dragging the two line handles change?",
+          q: "You need to predict whether a loan applicant will default (Yes or No). Why is logistic regression used instead of plain linear regression?",
           options: [
-            "The underlying data points",
-            "The fitted line's position, which changed the mean squared error",
-            "Nothing measurable",
-            "The labels of the data points"
+            "Linear regression cannot accept numeric features like income or debt ratio",
+            "Linear regression lines can shoot below 0 or above 1, whereas logistic regression squashes predictions cleanly into a 0–1 probability via an S-curve",
+            "Logistic regression skips weights and uses decision-tree thresholds instead",
+            "Linear regression only handles multi-class labels while logistic handles binary ones"
           ],
           answer: 1,
-          explanation: "The handles set the line's y-values at x=0 and x=10; moving them changes how well the line matches the points, shown by the live MSE."
+          explanation: "Yes/No classification calls for probabilities between 0 and 1. Passing a linear score through an S-curve keeps predictions inside (0, 1) so a threshold can decide Yes vs. No."
         },
         {
-          q: "What does logistic regression's output represent?",
+          q: "In the exercise's Linear mode, what were you optimizing as you dragged the two blue line handles?",
           options: [
-            "A raw, unbounded number",
-            "A probability between 0 and 1 that gets converted into a category",
-            "The exact predicted price",
-            "A cluster assignment"
+            "Moving the data points closer to the horizontal axis",
+            "Adjusting the line's slope and intercept to minimize the mean squared vertical error between the line and the points",
+            "Changing the decision cutoff from 0.5 to 0.8",
+            "Separating green points into two distinct unsupervised clusters"
           ],
           answer: 1,
-          explanation: "Logistic regression squashes its input into a 0-1 probability via an S-shaped curve, then a threshold turns that into a class label."
+          explanation: "Dragging the left and right handles changed the slope and height of the line, shrinking the Mean Squared Error when the line passed cleanly through the cloud of points."
+        },
+        {
+          q: "In logistic regression, what happens once the S-curve outputs a score like 0.78 for a patient?",
+          options: [
+            "0.78 is returned directly as the patient's numeric risk index without classification",
+            "It represents a 78% estimated probability of the positive class, which is compared against a threshold (such as 0.50) to pick Yes or No",
+            "The model subtracts 0.78 from the training mean to normalize future batches",
+            "The S-curve repeats through another hidden layer until the output equals exactly 1.0"
+          ],
+          answer: 1,
+          explanation: "Logistic regression predicts probability P(y=1 | x) ∈ (0, 1), and a threshold (default 0.5) turns that probability into a discrete category prediction."
         }
       ]
     });

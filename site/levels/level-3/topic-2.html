@@ -27,36 +27,67 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> You should be able to trace a small decision tree by hand
-      given a set of yes/no questions and a data point, predict its output, and explain in one
-      sentence why a forest of trees tends to generalize better than any single tree.
+      <strong>Learning objective:</strong> Trace how a decision tree selects threshold splits using impurity
+      reduction, diagnose overfitting in overly deep trees, and explain how random forests reduce variance via
+      bootstrap aggregation and feature subsampling.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          A <strong>decision tree</strong> is a flowchart of yes/no questions that splits data into
-          groups to make a prediction — "is age &gt; 30? if yes, ask another question; if no, ask a
-          different one" — until it reaches a final answer. A <strong>random forest</strong> trains
-          many slightly different trees (each seeing a random slice of the data) and lets them vote
-          together, which tends to produce a far more reliable prediction than any single tree alone.
+          A <strong>decision tree</strong> predicts outcomes by routing inputs down a hierarchy of threshold tests
+          (e.g., <code>income &gt; 60k?</code>), partitioning feature space into axis-aligned boxes whose leaves return a
+          majority class or mean value. A <strong>random forest</strong> trains hundreds of diverse decision trees on
+          random data slices and feature subsets, averaging their votes to cancel out individual tree variance.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Choosing Splits via Impurity Reduction:</strong> At each node, the tree evaluates candidate thresholds
+        across features and picks whichever split yields the purest child groups—measured by Gini impurity or entropy
+        (information gain). A box holding 10 Blue / 0 Orange has zero impurity; a 50/50 split has maximum impurity.
+      </p>
+      <p>
+        <strong>2. Deep Tree Overfitting &amp; Pruning:</strong> Unconstrained trees keep splitting until every leaf
+        contains 1–2 samples—memorizing outliers and noisy training quirks. Capping <code>max_depth</code> or
+        <code>min_samples_leaf</code> (pruning) forces broader, more general leaves.
+      </p>
+      <p>
+        <strong>3. Bagging &amp; Feature Subsampling in Random Forests:</strong> If every tree saw identical rows and
+        columns, all trees would look alike and make identical mistakes. Random forests use <strong>bagging</strong>
+        (sampling training rows with replacement per tree) <em>plus</em> considering only a random subset of features at
+        each split—decorrelating the trees so ensemble voting suppresses variance and reveals feature importance.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Tracing a Depth-2 Credit Screening Tree</h3>
+      <p>
+        Suppose a depth-2 tree uses <strong>Split 1:</strong> <code>income &gt; $55k</code> and
+        <strong>Split 2:</strong> <code>credit_score &gt; 680</code>:
+      </p>
       <ul>
-        <li><strong>How a tree picks its splits (impurity/information gain, intuitively)</strong> —
-          at each step, the tree looks for the question that best separates the classes.</li>
-        <li><strong>Overfitting in a single deep tree vs. pruning</strong> — a tree that asks too many
-          narrow questions memorizes noise instead of learning general patterns.</li>
-        <li><strong>Ensembles: bagging and why averaging many trees reduces variance</strong> — many
-          imperfect, differently-biased trees can average out to something more stable.</li>
-        <li><strong>Feature importance as a byproduct of tree-based models</strong> — which questions
-          the trees relied on most tells you which features mattered most.</li>
+        <li>Applicant <code>($70k, score 710)</code> takes Right &rarr; Right into a leaf holding 18 Paid / 2 Defaulted &rarr; predicts <strong>Approve (90%)</strong>.</li>
+        <li>Applicant <code>($70k, score 610)</code> takes Right &rarr; Left into a leaf holding 4 Paid / 11 Defaulted &rarr; predicts <strong>Decline</strong>.</li>
       </ul>
+      <p>
+        Every rule corresponds to a crisp horizontal or vertical rectangle—easy to explain, yet brittle if carved too
+        deeply around single edge cases.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Expecting Trees to Extrapolate Trends</h3>
+      <p>
+        Because every leaf simply outputs the average or majority class of training points inside its boundary box, a
+        decision tree or random forest <strong>cannot extrapolate</strong> beyond the range seen in training. If training
+        house sizes stopped at 3,000 sq ft, a random forest predicts roughly the same price for a 6,000 sq ft mansion as
+        for a 3,000 sq ft house—use linear/trend components when forecasting outside observed bounds.
+      </p>
     </section>
   </div>
 
@@ -231,48 +262,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "In the exercise, how is each of the 4 regions colored?",
+          q: "In the 2-split tree exercise, how does the model decide what class color to assign to each of the 4 quadrants?",
           options: [
-            "Randomly, on every redraw",
-            "By whichever class is the majority among the points that fall inside that region",
-            "Always blue for the left half",
-            "By the average x-coordinate of the region"
+            "It computes the distance to the center of the quadrant and picks the nearest point's label",
+            "It takes the majority class among the training points that fall inside that leaf quadrant",
+            "It rotates the boundary line diagonally until all quadrants contain equal counts",
+            "It fits a separate logistic regression curve inside each quadrant"
           ],
           answer: 1,
-          explanation: "Each region takes a majority vote of the points inside it — this is exactly how a decision tree assigns a predicted class to a leaf."
+          explanation: "Decision tree leaves predict the majority class (for classification) or mean value (for regression) of all training examples routed into that leaf region."
         },
         {
-          q: "Why would a single very deep decision tree (many splits, tiny regions) tend to overfit?",
+          q: "Why does growing a single decision tree all the way until every leaf contains 1 training sample usually perform worse on new test data than a pruned tree?",
           options: [
-            "Deep trees always run out of memory",
-            "It starts carving out regions that fit noise/outliers in the training data rather than the general pattern",
-            "Deep trees can only be used for regression, not classification",
-            "Overfitting only happens with random forests, not single trees"
+            "Deep trees lose the ability to evaluate categorical variables at lower branches",
+            "Splitting down to 1-point leaves carves tiny boxes around random training noise and outliers, creating high-variance overfitting",
+            "Pruning increases the number of split features available at the root node",
+            "Unpruned trees predict smooth curved boundaries that miss sharp thresholds"
           ],
           answer: 1,
-          explanation: "With enough splits, a tree can wrap a tiny region around individual noisy points, which memorizes the training set instead of learning a pattern that generalizes."
+          explanation: "An unconstrained tree achieves near-100% training accuracy by isolating individual noisy points; limiting max_depth or min_samples_leaf keeps splits tied to genuine trends."
         },
         {
-          q: "What is the core idea behind why a random forest often outperforms a single decision tree?",
+          q: "Why does a Random Forest sample a random subset of features at each split IN ADDITION to bagging random slices of rows?",
           options: [
-            "It uses a completely different mathematical method that has nothing to do with trees",
-            "Averaging predictions from many differently-trained trees reduces variance and cancels out individual trees' mistakes",
-            "Random forests always have fewer splits than a single tree",
-            "It removes the need for any training data at all"
+            "To guarantee every tree in the forest achieves 100% accuracy on its own training slice",
+            "To prevent one dominant feature from making all trees look nearly identical, decorrelating their errors so averaging reduces variance",
+            "Because decision trees cannot evaluate more than two features per node without crashing",
+            "To allow the random forest to extrapolate linearly beyond maximum training target values"
           ],
           answer: 1,
-          explanation: "Bagging trains many trees on different random slices of data; their individual errors tend to be somewhat independent, so voting/averaging smooths those out."
+          explanation: "If one strong predictor exists, bagged trees alone all split on it near the root and make correlated errors. Subsampling features forces diverse alternative splits, making ensemble voting far stronger."
         },
         {
-          q: "Moving Split A (the vertical line) all the way to x = 0 would put every point into which two regions?",
+          q: "If Split A (x >) is slid all the way to x = 0 in the exercise, which quadrants receive all 30 points and why?",
           options: [
-            "The two right-hand regions (tr and br) only",
-            "The two left-hand regions (tl and bl) only",
-            "All four regions equally",
-            "No regions — points disappear"
+            "Only the two left-hand quadrants (top-left and bottom-left), because zero exceeds every x coordinate",
+            "Only the two right-hand quadrants (top-right and bottom-right), because every point's positive x coordinate fails x ≤ 0",
+            "All four quadrants equally, because Split B divides the vertical axis independently",
+            "None of the quadrants, because empty leaves cause the tree to reset Split A"
           ],
-          answer: 0,
-          explanation: "If the vertical split sits at x = 0, no point has x <= 0, so every point falls on the \"right\" side of that split, landing in the top-right or bottom-right region depending on Split B."
+          answer: 1,
+          explanation: "Since all plotted coordinates have x > 0, placing Split A at x = 0 leaves the x ≤ 0 branches empty and routes every point into either top-right or bottom-right depending on Split B."
         }
       ]
     });

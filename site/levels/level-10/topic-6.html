@@ -34,32 +34,42 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Given a specific frontier-AI risk scenario, draft a one-page policy recommendation that names the governance lever (disclosure requirement, compute threshold, audit mandate, etc.) best suited to it and explain why a different lever would be less effective.
+      <strong>Learning objective:</strong> Design targeted governance interventions (compute thresholds, third-party red-team audits, cloud KYC, incident disclosures) matched to concrete frontier risk mechanisms, accounting for information asymmetry and verification limits.
     </div>
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          Advising policy and governance on frontier AI means translating technical realities about frontier models
-          into guidance usable by regulators, legislators, and international bodies — people who must make binding
-          decisions without necessarily having deep technical background, under real uncertainty about what a given
-          model can actually do.
+          Advising policy and governance on frontier AI means translating technical realities—compute scaling, capability elicitation, open-weight irreversibility, and hardware supply chains—into verifiable, enforceable institutional levers for regulators and international bodies acting under steep information asymmetry.
         </p>
       </div>
     </section>
-    <section>
-      <h2>Subtopics</h2>
+
+    <section class="how-it-works">
+      <h3>How It Works</h3>
+      <p>
+        Effective frontier governance chooses policy levers where regulators can independently verify compliance without collapsing innovation:
+      </p>
       <ul>
-        <li><strong>The current governance landscape</strong> — the EU's risk-tiered prescriptive model, the US's
-          voluntary-standards-plus-state-patchwork model (NIST AI RMF, state laws), and China's centrally
-          administered filing/review model.</li>
-        <li><strong>Frontier-specific governance tools</strong> — capability/compute thresholds for triggering
-          oversight, frontier safety frameworks, and internal audit functions at AI developers.</li>
-        <li><strong>The policymaker's information problem</strong> — frontier AI is built by a small number of
-          firms, but capabilities and risks are hard for outsiders to verify independently.</li>
-        <li><strong>International coordination efforts</strong> and their limits given competitive dynamics between
-          states and labs.</li>
+        <li><strong>The policymaker's information asymmetry:</strong> Frontier capabilities are concentrated inside a small number of labs whose internal evaluations and weights are proprietary. Regulators rely on structured <em>disclosure mandates</em>, standardized incident reporting, and pre-deployment access for public AI Safety Institutes (AISIs).</li>
+        <li><strong>Compute thresholds vs. algorithmic drift:</strong> Training FLOP thresholds (e.g., <code>10<sup>26</sup></code> FLOPs) provide an objective, physically measurable trigger grounded in chip clusters and cloud telemetry—unlike vague capability prose. However, algorithmic efficiency gains (~3–4× every 18 months) and inference-time RL scaling mean static FLOP triggers decay over time and must pair with capability triggers.</li>
+        <li><strong>Jurisdictional divergence &amp; enforcement:</strong> The EU AI Act uses prescriptive risk-tiered rules plus systemic-risk compute triggers; the US leans on voluntary frameworks (NIST AI RMF), AISI evaluations, and sectoral/state mandates; China enforces centralized algorithm registries and pre-release filing reviews.</li>
+        <li><strong>International coordination &amp; cloud KYC:</strong> While geopolitical competition limits binding treaties on model weights, compute supply chains (leading-edge EUV lithography, HBM, cloud GPU clusters) offer choke-point verification hooks via cloud Know-Your-Customer (KYC) and workload reporting.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Selecting the Right Lever for Bioweapon Uplift vs. Consumer Fraud</h3>
+      <p>
+        For <strong>frontier CBRN uplift</strong>, mandating post-hoc consumer liability fails because a single open-weight leak is irreversible—requiring <em>pre-deployment third-party capability evals triggered by compute/cloud thresholds</em>. Conversely, for <strong>automated phishing/consumer fraud</strong> using small commodity models, training-FLOP thresholds miss the risk entirely; <em>sector-level liability, watermarking/provenance, and telecom/platform abuse controls</em> are far more effective.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall</h3>
+      <p>
+        <strong>Over-specifying brittle technical rules in statute:</strong> Locking specific model architectures, benchmark names, or fixed FLOP numbers into slow-to-amend legislation guarantees obsolescence as post-training RL and distillation pack frontier capabilities into smaller training runs. Durable policy pairs statutory safety outcomes with agile technical standards maintained by safety institutes.
+      </p>
     </section>
   </div>
 
@@ -223,48 +233,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "What is the key structural difference between the EU's approach to AI governance and the US's approach, as described in the current landscape?",
+          q: "Why do frontier governance frameworks rely on training-compute (FLOP) thresholds as initial oversight triggers, and what technical limitation causes those thresholds to decay over time?",
           options: [
-            "The EU uses a risk-tiered prescriptive model, while the US relies more on voluntary standards plus a state-level patchwork",
-            "The EU has no AI regulation at all",
-            "The US model is identical to China's centrally administered filing/review model",
-            "Both use the exact same compute-threshold rules"
-          ],
-          answer: 0,
-          explanation: "The EU's model imposes prescriptive, risk-tiered obligations, whereas the US approach currently leans on voluntary frameworks like the NIST AI RMF plus a patchwork of state laws."
-        },
-        {
-          q: "Why is the 'policymaker's information problem' a distinct challenge for frontier-AI governance?",
-          options: [
-            "Because there is too much publicly available information about frontier models",
-            "Because frontier AI is built by a small number of firms, and capabilities/risks are hard for outsiders to independently verify",
-            "Because policymakers already have full access to model weights",
-            "Because there is no problem — frontier AI is fully transparent by default"
+            "FLOPs directly measure alignment robustness; their limitation is that FP8 quantization makes FLOP counting impossible on GPU clusters",
+            "Compute is physically measurable and hard to conceal across large GPU clusters, but algorithmic efficiency gains, distillation, and test-time RL scaling let smaller training runs reach formerly frontier capabilities",
+            "Training FLOPs correlate perfectly with deployment latency, so compute triggers automatically govern all edge inference risks",
+            "Compute thresholds are mandated identically across the EU AI Act, NIST AI RMF, and Chinese CAC filings"
           ],
           answer: 1,
-          explanation: "With frontier development concentrated in a handful of firms and limited independent verification of capabilities, regulators often must act on asymmetric or incomplete information."
+          explanation: "Training FLOPs offer an auditable, hardware-grounded proxy that avoids vague capability definitions, yet algorithmic progress and inference-time compute steadily push dangerous capability thresholds downward in FLOP terms—requiring periodic recalibration and capability triggers."
         },
         {
-          q: "In the policy-tradeoff simulator, why does enforceability follow a non-monotonic ('sweet spot') pattern rather than always increasing with stringency?",
+          q: "A regulator wants to prevent catastrophic misuse of open-weight models capable of bio-synthesis uplift. Why is relying solely on ex-post civil liability ineffective compared to pre-deployment third-party evaluations?",
           options: [
-            "It's a random number with no logic behind it",
-            "Because both very low stringency (nothing to enforce) and very high stringency (compliance becomes too costly/complex to verify) can undermine practical enforceability",
-            "Enforceability always equals safety assurance exactly",
-            "Because enforceability only depends on the disclosure lever"
+            "Civil courts cannot assign liability when open-source licenses include standard MIT disclaimers",
+            "Once hazardous weights are publicly downloaded, distribution is irreversible and downstream fine-tuning strips away safety filters—making pre-release gating the only credible prevention point",
+            "Third-party evaluators hold training compute monopolies that allow them to delete model checkpoints remotely",
+            "Ex-post liability applies only to closed APIs because open-weight downloads carry zero inference FLOPs"
           ],
           answer: 1,
-          explanation: "Too little regulation leaves nothing meaningful to enforce, while excessive stringency can make compliance so costly or complex that real-world enforcement degrades — enforceability peaks somewhere in the middle."
+          explanation: "Open-weight releases cannot be recalled once mirrored globally. Pre-release independent evaluations and safety cases must verify that dangerous uplift cannot be recovered before publication, whereas ex-post liability cannot undo proliferation."
         },
         {
-          q: "What is a key limitation of international coordination efforts on frontier AI governance?",
+          q: "In the policy-tradeoff simulator, why does practical enforceability drop when all regulatory levers (compute thresholds, red-teaming, disclosures, and audit intensity) are pushed near 100% simultaneously?",
           options: [
-            "They have already fully solved the coordination problem",
-            "Competitive dynamics between states and labs limit how far coordination can go, even when summits or dialogues produce agreements",
-            "International coordination is legally impossible under any circumstances",
-            "No countries have ever discussed AI governance together"
+            "Regulatory agencies gain infinite auditing capacity above 80% stringency, eliminating compliance gaps",
+            "Excessive compliance complexity and verification bottlenecks overwhelm auditing capacity, incentivizing regulatory evasion, shadow compute, and rubber-stamp box-checking",
+            "High disclosure intensity automatically substitutes for compute thresholds, reducing safety assurance to zero",
+            "Strict audit mandates prevent model weights from converging during distributed pretraining"
           ],
           answer: 1,
-          explanation: "Even where international dialogues and summits produce stated agreements, competitive pressures between states and between labs limit how binding or durable that coordination actually is."
+          explanation: "Enforceability is non-monotonic: zero rules leave nothing to enforce, while maximally burdensome overlapping rules outstrip regulator technical capacity and drive box-checking or evasion."
+        },
+        {
+          q: "How do structural differences between EU, US, and Chinese AI governance create distinct compliance challenges for a frontier lab operating globally?",
+          options: [
+            "The EU focuses purely on voluntary NIST-style benchmarks, while the US enforces mandatory pre-release algorithm registration",
+            "The EU AI Act imposes prescriptive risk-tiered statutory obligations with systemic-risk FLOP triggers; the US pairs voluntary federal frameworks and AISI testing with state-level laws; China mandates centralized filing and content/model reviews",
+            "All three jurisdictions enforce identical international compute treaties verified by hardware telemetry",
+            "Only China tracks training compute, whereas the EU and US ban training models above 10^24 FLOPs"
+          ],
+          answer: 1,
+          explanation: "Labs must navigate three distinct governance architectures: EU statutory risk-tiering, US voluntary/AISI + fragmented state rules, and China's centralized pre-deployment filing regime."
         }
       ]
     });

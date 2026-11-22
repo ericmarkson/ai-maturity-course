@@ -23,46 +23,52 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can give one concrete example of how biased
-      training data could lead to an unfair AI outcome, and one example of a privacy trade-off in
-      an everyday AI tool.
+      <strong>Learning objective:</strong> Trace how skewed training data leads an AI to produce biased
+      decisions even without malicious code, weigh everyday privacy trade-offs, and explain why human
+      builders remain accountable for AI outcomes.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          AI systems can inherit unfairness from their training data (<strong>bias</strong>) and can
-          raise concerns about how personal data is collected and used (<strong>privacy</strong>) —
-          two of the most immediate real-world consequences of AI to be aware of. Neither problem
-          requires a system to be "broken": a model can work exactly as designed and still produce
-          unfair outcomes or collect more personal data than most users realize.
+          Two real-world risks show up even when an AI model has zero software bugs: <strong>algorithmic
+          bias</strong> (an AI faithfully reproducing unfairness or gaps present in its training data) and
+          <strong>privacy exposure</strong> (personal voice, location, health, or work data collected and
+          retained to power smarter features). Neither makes "the AI" responsible—human design and
+          deployment choices always govern accountability.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li>Where bias comes from: skewed or unrepresentative training data</li>
-        <li>Real-world examples of biased outcomes (hiring tools, facial recognition, lending)</li>
-        <li>Privacy: what data AI systems collect and how it may be used or retained</li>
-        <li>Why "the AI decided it" doesn't remove human responsibility for outcomes</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works (The Mirror Analogy)</h2>
       <p>
-        A model learns whatever pattern is in its training data — including patterns nobody
-        intended to teach it. If a hiring model is trained mostly on résumés of people who were
-        historically hired into a role, it can learn to favor whatever made those résumés look
-        similar, even if that similarity has nothing to do with actual job performance. The model
-        isn't "deciding to be unfair" in any deliberate sense; it is faithfully reproducing a skew
-        that was already present in the data it was shown. This is why bias audits look at the
-        training data and the outcomes, not just the code. Privacy raises a related but separate
-        question: many AI tools work better the more personal data they collect (voice recordings,
-        location history, browsing habits), which creates a real trade-off between convenience and
-        how much of your data is gathered, stored, and potentially reused. And because a company,
-        not the model, chose what data to use and decided to ship the system, responsibility for
-        the outcome stays with the people who built and deployed it — "the algorithm did it" is not
-        an excuse that makes accountability disappear.
+        Think of an ML model as a high-speed mirror trained on yesterday's records:
+      </p>
+      <ul>
+        <li><strong>Bias from skewed history:</strong> If a hiring tool learns from 10 years of past hires where one group was historically overlooked, the model spots traits common among past hires and scores qualified applicants from underrepresented groups lower—without anyone programming prejudice explicitly.</li>
+        <li><strong>Bias from missing representation:</strong> Facial recognition trained mostly on well-lit photos of light-skinned faces misses darker-skinned faces or varied lighting far more often.</li>
+        <li><strong>Privacy trade-offs:</strong> Smarter personalization (voice assistants, smart keyboards, medical tools) often runs by sending personal audio, text, or behavior logs to cloud servers—creating tension between convenience and keeping sensitive data private.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Same Rule, Skewed Scores</h3>
+      <p>
+        In the hiring simulator below, both Group A and Group B face the exact same cutoff bar (<code>threshold = 60</code>).
+        Yet at baseline, Group A gets ~85% interviews while Group B gets only ~25%—not because the cutoff rule treated
+        them differently, but because biased historical training data suppressed Group B's input scores!
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: "We Deleted the Gender/Race Column, So Our Model Is Unbiased"</h3>
+      <p>
+        Even if you strip out sensitive columns directly, models quickly pick up <strong>proxy clues</strong>—like zip
+        codes, college clubs, or phrasing patterns—that correlate with demographics in the training data. True fairness
+        checks audit <em>actual outcome rates</em> across groups and keep humans accountable rather than hiding behind
+        "the algorithm decided it."
       </p>
     </section>
 
@@ -279,48 +285,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "Where does bias in an AI system's outputs most commonly originate?",
+          q: "When a hiring or lending AI behaves unfairly even though its code has zero bugs, where does the bias usually originate?",
           options: [
-            "Skewed or unrepresentative training data that reflects past inequities",
-            "Random hardware malfunctions in the computer running the model",
-            "The programming language used to build the model",
-            "The color scheme of the user interface"
+            "From unrepresentative or historically skewed training data (and proxy correlations) that the model faithfully learns to repeat",
+            "From the model intentionally inventing new discrimination rules outside its training examples",
+            "From using too many hidden layers in a neural network instead of a single layer",
+            "From evaluating the model on a separate test split rather than its training split"
           ],
           answer: 0,
-          explanation: "A model learns whatever pattern exists in the data it's trained on. If that data is skewed or unrepresentative, the model reproduces the skew — it isn't a hardware or UI issue."
+          explanation: "Models mirror patterns in the historical data they study—including unequal hiring history or underrepresentation—even without malicious code."
         },
         {
-          q: "In the hiring-threshold exercise, why can Group B end up with a lower acceptance rate even though both groups face the exact same threshold?",
+          q: "In the hiring-threshold simulator, why does Group B receive far fewer interview invitations at threshold 60 even though both groups share the exact same cutoff rule?",
           options: [
-            "Group B's underlying scores are lower because the mock model was shaped by historically skewed training data, not because the rule differs between groups",
-            "The slider secretly applies a stricter threshold to Group B only",
-            "Group B has fewer candidates in the simulation, which changes the math",
-            "There is no real difference between the two groups in the exercise"
+            "Because the cutoff threshold applies strictly to Group B while Group A bypasses scoring",
+            "Because Group B's scores were systematically pushed lower by skewed historical data upstream before hitting the identical threshold rule",
+            "Because Group B contains fewer total candidates in the simulator pool",
+            "Because random sampling noise in threshold sliders always favors Group A"
           ],
-          answer: 0,
-          explanation: "The threshold is identical for both groups — the gap in outcomes comes from a difference in the underlying scores, which stands in for bias baked into the training data."
+          answer: 1,
+          explanation: "Treating unequal scores with an 'equal' cutoff rule still produces unequal outcomes when historical bias shifted the scores upstream."
         },
         {
-          q: "Which of these is an example of a privacy trade-off in an everyday AI tool?",
+          q: "Which scenario best illustrates a real privacy trade-off in an everyday AI product?",
           options: [
-            "A smart speaker or voice assistant that must send audio to the cloud to recognize a wake word and respond",
-            "A calculator app that drains a little extra battery",
-            "A word processor that spell-checks text entirely offline",
-            "A game that uses more storage space than expected"
+            "An offline calculator app taking 20 milliseconds longer to render graphs on older screens",
+            "A smart speaker or meeting assistant uploading voice audio and transcripts to cloud servers where recordings may be stored or used for model improvement",
+            "A weather app displaying a 7-day forecast based on public National Weather Service radar",
+            "A spam filter running entirely on fixed blocklists without analyzing message text"
           ],
-          answer: 0,
-          explanation: "Many AI features only work well if the system collects and processes personal data (like voice or location) — the convenience comes with a real trade-off in how much personal data is gathered and retained."
+          answer: 1,
+          explanation: "Many cloud AI features deliver convenience by collecting, transmitting, and sometimes retaining sensitive personal voice, document, or behavior data."
         },
         {
-          q: "Why doesn't saying \"the AI decided it\" remove human responsibility for an unfair outcome?",
+          q: "Why does 'the algorithm made the call' never excuse a company from accountability for an unfair denial?",
           options: [
-            "Because people chose the training data, designed the system, and decided to deploy it, so accountability stays with them",
-            "Because AI systems are legally recognized as independent decision-makers",
-            "Because AI outputs are purely random and therefore no one's fault",
-            "Because there is no way to ever review or audit an AI system's decisions"
+            "Because automated algorithms always randomize outputs at high temperature",
+            "Because engineers and leaders chose the training data, selected what proxies to include, set deployment thresholds, and decided to ship the tool without adequate audits",
+            "Because simply deleting sensitive columns like race or gender automatically guarantees fairness",
+            "Because AI models only recommend actions and never execute automated filtering in real systems"
           ],
-          answer: 0,
-          explanation: "A model's outputs are a direct product of choices made by the people who selected its data, designed it, and shipped it — those choices, and their consequences, remain human responsibilities."
+          answer: 1,
+          explanation: "Human teams control dataset curation, evaluation metrics, fairness testing, and deployment decisions—responsibility stays with the builders and operators."
         }
       ]
     });

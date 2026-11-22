@@ -33,32 +33,67 @@
 
   <div class="lesson-content">
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Correctly classify a given model or task as better suited to a BERT-style
-      vs. GPT-style pretraining objective, and explain why.
+      <strong>Learning objective:</strong> Match a language model task to a BERT-style (masked bidirectional encoder)
+      or GPT-style (autoregressive causal decoder) pretraining objective, and explain why pretrain-then-adapt
+      outperforms training from scratch.
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          <strong>Pretrained language models</strong> are transformers trained once on huge amounts of general text
-          so they already "know" language patterns, then reused for many different tasks instead of training from
-          scratch each time. <strong>BERT-style</strong> models are trained with masked language modeling — predict a
-          hidden word using context from <em>both</em> sides — which makes them strong at understanding tasks.
-          <strong>GPT-style</strong> models are trained with next-token prediction — predict the next word using only
-          the words <em>before</em> it — which makes them naturally suited to open-ended text generation.
+          <strong>Pretrained language models</strong> learn broad syntax, semantics, and world knowledge once via
+          self-supervised training on massive unlabeled corpora, then adapt cheaply to downstream tasks.
+          <strong>BERT-style encoders</strong> train with <em>masked language modeling (MLM)</em>—predicting masked
+          tokens using bidirectional context from both sides—excelling at understanding, classification, and retrieval.
+          <strong>GPT-style decoders</strong> train with <em>causal next-token prediction</em>—predicting the next
+          token from left context only—excelling at open-ended generation and instruction following.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
-      <ul>
-        <li>Masked language modeling (BERT-style, bidirectional understanding) vs. next-token prediction (GPT-style, autoregressive generation)</li>
-        <li>Pretraining vs. downstream task adaptation</li>
-        <li>Model families and scale (small/base/large variants, why parameter count matters)</li>
-        <li>Why "pretrained + adapt" beat training every model from scratch</li>
-      </ul>
+    <section class="how-it-works">
+      <h2>How It Works</h2>
+      <p>
+        <strong>1. Bidirectional MLM (BERT-style):</strong> During pretraining, roughly 15% of input tokens are masked
+        or corrupted (e.g., <code>"The [MASK] barked loudly"</code>). Because encoder self-attention has no causal mask,
+        every token reads both preceding and following words to reconstruct the missing token. This makes encoders ideal
+        for sentiment classification, named-entity extraction, and dense sentence embeddings.
+      </p>
+      <p>
+        <strong>2. Autoregressive Next-Token Prediction (GPT-style):</strong> Every token predicts the immediately
+        following token using a causal mask so future tokens remain hidden. At inference time, the model generates one
+        token, appends it to the prompt, and repeats—turning a single pretraining objective into a general-purpose text
+        generator and zero/few-shot reasoner.
+      </p>
+      <p>
+        <strong>3. Pretraining, Scale &amp; Downstream Adaptation:</strong> Instead of learning grammar and facts from a
+        small labeled dataset (which overfits quickly), practitioners start from small/base/large pretrained checkpoints.
+        Larger parameter counts retain richer long-tail facts and compositional patterns, though smaller distilled
+        encoders still dominate low-latency classification pipelines.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Why Right Context Resolves Ambiguity</h3>
+      <p>
+        Consider predicting the blank in <code>"I picked up the hot ____ before my meeting."</code>
+        At the blank position, a <strong>GPT-style</strong> decoder only sees <code>"I picked up the hot"</code>, so
+        probability spreads across <code>"coffee"</code>, <code>"pizza"</code>, <code>"pan"</code>, or <code>"laptop"</code>.
+        Now change the sentence ending to <code>"I picked up the hot ____ and dialed the client."</code> A
+        <strong>BERT-style</strong> encoder sees <code>"dialed the client"</code> to the right of the blank and shifts
+        probability sharply toward <code>"phone"</code>—whereas a causal model couldn't read those future tokens at that step.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Mismatching Architecture to Task</h3>
+      <p>
+        Using an out-of-the-box GPT-style decoder for fast document classification or sentence embeddings often adds
+        unnecessary latency and weaker early-token representations (since early tokens cannot attend to the end of the
+        sentence). Conversely, trying to force a bidirectional BERT encoder to generate long, coherent multi-paragraph
+        prose breaks down because it was never trained to sample sequences step-by-step left-to-right.
+      </p>
     </section>
   </div>
 
@@ -241,38 +276,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A masked language model (BERT-style) predicting a hidden word can use context from:",
-          options: ["Only the words before the mask", "Only the words after the mask", "Words on both sides of the mask", "No context at all"],
+          q: "During pretraining, what context can a BERT-style masked language model attend to when predicting a hidden [MASK] token?",
+          options: [
+            "Only tokens to the left of [MASK], enforced by a causal mask",
+            "Only the two immediately adjacent tokens on either side",
+            "Tokens on both the left and right sides of [MASK] simultaneously",
+            "Only the [CLS] summary token from the previous training batch"
+          ],
           answer: 2,
-          explanation: "BERT-style masked language modeling is bidirectional — it uses context from both the left and right of the masked token."
+          explanation: "BERT-style encoders omit the causal mask, letting self-attention combine left and right context simultaneously. Limiting to left context describes GPT-style causal models, while fixed windows describe local-only models."
         },
         {
-          q: "Which task is more naturally suited to a GPT-style (autoregressive, left-to-right) model?",
-          options: ["Filling in a single missing word using surrounding sentence context", "Generating the next sentence of an open-ended story", "Classifying whether two sentences mean the same thing", "None of these — BERT and GPT are interchangeable"],
-          answer: 1,
-          explanation: "GPT-style next-token prediction naturally extends text left-to-right, making it well suited to open-ended generation like continuing a story."
-        },
-        {
-          q: "Why do practitioners usually reuse a pretrained model instead of training from scratch for every new task?",
+          q: "Which production workload is a GPT-style causal decoder better suited for than a BERT-style encoder?",
           options: [
-            "Pretraining is illegal to repeat",
-            "Pretrained models already encode general language patterns learned from huge datasets, so adapting them is far cheaper than learning language from zero",
-            "Training from scratch always produces a better model",
-            "Pretrained models require no data at all for the downstream task"
+            "Generating a multi-paragraph customer email reply token by token from a short prompt",
+            "Scoring 10,000 support tickets per second into 5 fixed sentiment labels with strict <15ms latency",
+            "Computing bidirectional token-level entity tags where every word depends on words after it",
+            "Producing compact fixed-size sentence vectors without needing causal masking"
+          ],
+          answer: 0,
+          explanation: "Causal next-token pretraining aligns directly with open-ended left-to-right text generation. High-throughput fixed classification, bidirectional NER, and sentence embeddings typically favor compact encoder models."
+        },
+        {
+          q: "Why does adapting a pretrained language model with 2,000 labeled reviews typically beat training a transformer from scratch on those 2,000 reviews?",
+          options: [
+            "Pretrained models freeze all weights during fine-tuning so overfitting is mathematically impossible",
+            "Self-supervised pretraining on huge corpora already encodes grammar and general semantics, which 2,000 task labels alone cannot teach without severe overfitting",
+            "Training from scratch requires labeled data for every word in the dictionary rather than sentence labels",
+            "Pretrained checkpoints eliminate the need for a held-out validation set during adaptation"
           ],
           answer: 1,
-          explanation: "The pretrain-then-adapt approach lets a downstream task benefit from patterns learned over massive general corpora, requiring far less task-specific data and compute."
+          explanation: "A few thousand labeled examples are far too small to learn vocabulary semantics and syntax from random weights. Pretraining supplies general linguistic representations so adaptation only needs to map them to the target task (validation is still essential)."
         },
         {
-          q: "In the exercise, why does the GPT-style panel ignore words that appear after the blank even when they are present in the sentence?",
+          q: "In the exercise, why do BERT-style and GPT-style predictions diverge when strong disambiguating words appear AFTER the ____ blank?",
           options: [
-            "It's a rendering bug",
-            "It simulates the autoregressive constraint: a GPT-style model only ever conditions on tokens generated so far, not future tokens",
-            "GPT-style models can't process punctuation",
-            "The right-hand words are always irrelevant to meaning"
+            "GPT-style models allocate fewer parameters to nouns than verbs",
+            "BERT-style models use a larger tokenizer vocabulary for right-hand words",
+            "The GPT-style model obeys an autoregressive constraint and cannot condition on tokens positioned after the blank",
+            "GPT-style models ignore prepositions and adjectives when scoring candidate words"
           ],
-          answer: 1,
-          explanation: "GPT-style models generate one token at a time based only on previous tokens, so at prediction time future words are unavailable by design — the exercise simulates that constraint directly."
+          answer: 2,
+          explanation: "Under causal autoregressive modeling, each token only sees preceding tokens. Words after the blank remain masked out for GPT-style prediction, whereas bidirectional BERT-style models use both left and right cues."
         }
       ]
     });

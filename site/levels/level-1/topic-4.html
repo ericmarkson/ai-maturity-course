@@ -23,38 +23,47 @@
   <div class="lesson-content">
 
     <div class="lesson-objective">
-      <strong>Learning objective:</strong> Learner can identify at least 5 AI-powered features they
-      personally use in a typical day and name the category each falls into.
+      <strong>Learning objective:</strong> Spot at least five AI-powered features in a normal day and sort them
+      into active assistants (voice/chat) vs. quiet behind-the-scenes AI (recommendations, filters, navigation).
     </div>
 
     <section>
       <h2>Definition</h2>
       <div class="definition-box">
         <p>
-          AI already runs quietly inside many of the tools people use every day, often without any
-          "AI" label in sight. It shows up as recommendation feeds deciding what you see next,
-          voice assistants turning speech into action, conversational chatbots you type or talk
-          to directly, and a whole category of "behind-the-scenes" AI — fraud detection, spam
-          filtering, autocomplete, navigation ETAs — working invisibly in the background of
-          ordinary apps.
+          Most AI people interact with every day never wears an "AI" badge. Beyond visible
+          <strong>conversational chatbots</strong> and <strong>voice assistants</strong> you talk to directly,
+          huge amounts of <strong>recommendation feeds</strong> and <strong>behind-the-scenes AI</strong>—spam
+          filters, card fraud checks, keyboard autocorrect, and traffic ETAs—work silently inside ordinary apps.
         </p>
       </div>
     </section>
 
-    <section>
-      <h2>Subtopics</h2>
+    <section class="how-it-works">
+      <h2>How It Works (Quiet Helpers vs. On-Demand Assistants)</h2>
       <ul>
-        <li>Recommendation systems (streaming, shopping, social feeds)</li>
-        <li>Voice assistants and speech recognition</li>
-        <li>Conversational chatbots / assistants</li>
-        <li>Behind-the-scenes AI (fraud detection, spam filtering, autocomplete, navigation ETAs)</li>
+        <li><strong>Recommendation systems:</strong> Streaming rows, shopping carousels, and social feeds rank thousands of items behind the scenes to guess what you want to watch or buy next.</li>
+        <li><strong>Behind-the-scenes AI:</strong> Spam sorting, credit-card fraud blocking, Face ID, and live Maps ETAs trigger automatically without waiting for a prompt.</li>
+        <li><strong>Voice assistants &amp; Chatbots:</strong> Wait for an explicit spoken or typed request, convert speech/text into intent, and reply directly.</li>
       </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: 10 Minutes Before Morning Coffee</h3>
       <p>
-        The categories matter because they describe different relationships with the user.
-        Recommendation systems and behind-the-scenes AI act on your behalf without being asked in
-        the moment. Voice assistants and chatbots, by contrast, respond to an explicit request —
-        you talk or type, and the system reacts directly. Recognizing which bucket a given feature
-        falls into is a fast way to spot AI you might otherwise never notice.
+        Before even opening a chatbot, one ordinary morning already runs four separate AI models: (1) phone
+        <strong>Face ID</strong> verifies your face (deep vision network); (2) your inbox <strong>spam filter</strong>
+        blocks 14 junk messages silently; (3) your <strong>Maps app</strong> predicts commute time from live traffic;
+        and (4) your music app builds a personalized <strong>Daily Mix</strong> playlist.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Equating "AI" Only With Chat Windows</h3>
+      <p>
+        When people say <em>"I don't use AI,"</em> they usually mean they don't open ChatGPT. In reality, predictive
+        models quietly filter their email, approve their credit-card swipes, autocorrect their texts, and pick their
+        navigation turns all day long.
       </p>
     </section>
 
@@ -239,28 +248,48 @@
       passPercent: 70,
       questions: [
         {
-          q: "A streaming app's “Because you watched...” row is an example of:",
-          options: ["A voice assistant", "A recommendation system", "A behind-the-scenes fraud detector", "A conversational chatbot"],
+          q: "A streaming app's 'Because you watched…' carousel ranks shows to match your viewing habits. Which category does it belong to?",
+          options: [
+            "A voice assistant",
+            "A recommendation system",
+            "A behind-the-scenes fraud detector",
+            "A conversational chatbot"
+          ],
           answer: 1,
-          explanation: "It's ranking and surfacing content it predicts you'll like — the definition of a recommendation system."
+          explanation: "Recommendation systems rank and surface items (shows, songs, products) predicted to match a user's interests."
         },
         {
-          q: "Which of these is generally classified as “behind-the-scenes” AI rather than something you actively interact with?",
-          options: ["Typing a question directly into a chatbot", "Talking to a voice assistant", "Card fraud detection running silently on your purchases", "None of the above"],
+          q: "Which feature is an example of 'behind-the-scenes' AI rather than an assistant waiting for your direct prompt?",
+          options: [
+            "Asking a smart speaker to set a 10-minute pasta timer",
+            "Typing a brainstorming question into a chat window",
+            "Real-time credit-card fraud scoring running silently when you tap to pay",
+            "Using an AI meeting bot to summarize notes after you click 'Summarize'"
+          ],
           answer: 2,
-          explanation: "Fraud detection runs quietly in the background without you ever directly prompting it — that's the “behind-the-scenes” category."
+          explanation: "Card fraud detection works invisibly in the background on every transaction without you prompting it—classic behind-the-scenes AI."
         },
         {
-          q: "What converts your spoken words into text a voice assistant can act on?",
-          options: ["A recommendation algorithm", "Speech recognition", "A spam filter", "A card fraud detector"],
+          q: "When you ask a voice assistant for tomorrow's weather, which capability turns your spoken audio waves into words the assistant can understand?",
+          options: [
+            "Recommendation ranking",
+            "Speech recognition",
+            "Spam classification",
+            "Fraud anomaly scoring"
+          ],
           answer: 1,
-          explanation: "Speech recognition is the specific AI capability that turns audio of speech into text."
+          explanation: "Speech recognition models transcribe audio waveforms into text before an intent or language model decides how to respond."
         },
         {
-          q: "Why might someone use several AI systems in a day without realizing it?",
-          options: ["AI features are always clearly labeled “AI” in apps", "Many AI features run quietly in the background of everyday apps rather than being labeled as AI", "AI only exists in dedicated chatbot apps", "AI features never run without the user's active input"],
+          q: "Why do many people use dozens of AI models every week while thinking 'I never use AI'?",
+          options: [
+            "Because mobile apps disable AI features unless users opt into a developer beta",
+            "Because everyday AI like spam filters, traffic ETAs, Face ID, and autocorrect runs silently without an 'AI' label",
+            "Because most everyday apps still rely purely on fixed spreadsheet arithmetic rather than ML",
+            "Because recommendation systems only run inside dedicated chatbot websites"
+          ],
           answer: 1,
-          explanation: "A lot of everyday AI (spam filters, ETA predictions, fraud detection, autocomplete) works invisibly, with no explicit “AI” label."
+          explanation: "Most deployed AI operates invisibly inside ordinary apps (navigation, email, banking, keyboards) with no 'AI' badge shown to the user."
         }
       ]
     });
