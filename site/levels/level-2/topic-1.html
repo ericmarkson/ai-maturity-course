@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supervised vs. Unsupervised vs. Reinforcement Learning — AI Maturity Course</title>
+<meta name="description" content="The three fundamental ways machine learning systems learn, and how to tell them apart.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-1";
+</script>
+<style>
+  .sort-cards { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-5); min-height: 3em; }
+  .sort-card {
+    background: var(--color-bg); border: 2px solid var(--color-border-strong); border-radius: var(--radius-md);
+    padding: var(--space-3); width: 100%; max-width: 260px; cursor: grab; font-size: var(--font-size-sm);
+    box-shadow: var(--shadow-sm);
+  }
+  .sort-card.is-selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .sort-card:active { cursor: grabbing; }
+  .sort-bins { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+  .sort-bin {
+    background: var(--color-bg-alt); border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md);
+    padding: var(--space-3); min-height: 160px;
+  }
+  .sort-bin.is-dragover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .sort-bin h4 { margin-bottom: var(--space-2); }
+  .placed-card { border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); font-size: var(--font-size-sm); }
+  .placed-card.is-correct { background: var(--color-success-bg); border: 1px solid var(--color-success); color: var(--color-success); }
+  .placed-card.is-incorrect { background: var(--color-error-bg); border: 1px solid var(--color-error); color: var(--color-error); }
+  .placed-card .rationale { display: block; margin-top: 4px; font-weight: 400; color: var(--color-text); }
+  .sort-tally { font-weight: 700; margin-top: var(--space-4); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Supervised vs. Unsupervised vs. Reinforcement Learning</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a short description of a new ML problem, correctly classify it
+      as supervised, unsupervised, or reinforcement learning and justify why.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          There are three main ways a machine learning system can learn. In <strong>supervised
+          learning</strong>, the system studies labeled examples — inputs paired with the correct answer —
+          and learns the mapping between them. In <strong>unsupervised learning</strong>, there are no
+          labels at all; the system looks for structure or groupings hiding in the data on its own.
+          In <strong>reinforcement learning</strong>, an agent learns by acting in an environment and
+          getting rewards or penalties for the outcomes of its actions, gradually improving its behavior
+          through trial and error.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Supervised learning:</strong> labeled data, learning input→output mappings (e.g., email → spam/not spam)</li>
+        <li><strong>Unsupervised learning:</strong> no labels, finding structure (e.g., grouping similar customers)</li>
+        <li><strong>Reinforcement learning:</strong> agent, environment, reward signal, trial and error (e.g., a game-playing agent)</li>
+        <li>Quick comparison: what kind of data or feedback each approach actually needs</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var CARDS = [
+      { text: "Group customers into segments based on purchase history, with no predefined categories.", bin: "unsupervised", rationale: "No labels are given — the algorithm discovers the groupings itself." },
+      { text: "Teach a robot to walk, rewarding it when it moves forward and penalizing it when it falls.", bin: "rl", rationale: "An agent improves its behavior through trial-and-error and a reward signal — no example of \"correct walking\" is provided upfront." },
+      { text: "Predict a house's sale price from a dataset of past sales that already include the sale price.", bin: "supervised", rationale: "The historical sale prices are the labels — the model learns to map house features to a known correct answer." },
+      { text: "Classify emails as spam or not spam using emails that are already tagged spam / not spam.", bin: "supervised", rationale: "Each training email comes with a known correct label (spam or not), which is the hallmark of supervised learning." },
+      { text: "Compress images by finding recurring patterns in pixel data, with no labels attached.", bin: "unsupervised", rationale: "There's no \"correct answer\" being predicted — just structure discovered in unlabeled data." },
+      { text: "Train a game-playing agent that scores points for winning moves and loses points for losing ones.", bin: "rl", rationale: "Points won or lost are a reward signal that shapes behavior over repeated attempts — classic reinforcement learning." },
+      { text: "Flag unusual credit-card transactions by finding ones that don't fit typical patterns, with no fraud labels available.", bin: "unsupervised", rationale: "Without labeled fraud examples, the system must find structure/outliers on its own." },
+      { text: "Predict tomorrow's temperature using years of historical weather records paired with the actual temperature that occurred.", bin: "supervised", rationale: "Each historical record is paired with a known correct output (the actual temperature) — a supervised regression problem." },
+      { text: "Train a simulated car's steering policy through repeated driving attempts, rewarded for staying in its lane.", bin: "rl", rationale: "The policy improves from a reward signal (staying in lane) earned through repeated trial-and-error attempts." }
+    ];
+
+    var BIN_LABELS = { supervised: "Supervised", unsupervised: "Unsupervised", rl: "Reinforcement Learning" };
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Sort the scenario cards",
+      instructions: "Drag each scenario card into the bin you think it belongs in (or click a card, then click a bin). You'll get instant feedback and a rationale for every card.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var state = { placed: 0, correct: 0, selectedCard: null };
+
+        var cardsWrap = document.createElement("div");
+        cardsWrap.className = "sort-cards";
+        root.appendChild(cardsWrap);
+
+        var binsWrap = document.createElement("div");
+        binsWrap.className = "sort-bins";
+        root.appendChild(binsWrap);
+
+        var tally = document.createElement("p");
+        tally.className = "sort-tally";
+        root.appendChild(tally);
+
+        function updateTally() {
+          tally.textContent = "Placed " + state.placed + " / " + CARDS.length + " — " + state.correct + " correct so far.";
+        }
+        updateTally();
+
+        // Build bins
+        var binEls = {};
+        Object.keys(BIN_LABELS).forEach(function (key) {
+          var bin = document.createElement("div");
+          bin.className = "sort-bin";
+          bin.dataset.bin = key;
+          var h4 = document.createElement("h4");
+          h4.textContent = BIN_LABELS[key];
+          bin.appendChild(h4);
+          var list = document.createElement("div");
+          list.className = "sort-bin-list";
+          bin.appendChild(list);
+          binsWrap.appendChild(bin);
+          binEls[key] = { bin: bin, list: list };
+
+          bin.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            bin.classList.add("is-dragover");
+          });
+          bin.addEventListener("dragleave", function () {
+            bin.classList.remove("is-dragover");
+          });
+          bin.addEventListener("drop", function (e) {
+            e.preventDefault();
+            bin.classList.remove("is-dragover");
+            var idx = e.dataTransfer.getData("text/plain");
+            placeCard(parseInt(idx, 10), key);
+          });
+          bin.addEventListener("click", function () {
+            if (state.selectedCard !== null) {
+              placeCard(state.selectedCard, key);
+            }
+          });
+        });
+
+        // Build cards
+        CARDS.forEach(function (card, idx) {
+          var el = document.createElement("div");
+          el.className = "sort-card";
+          el.textContent = card.text;
+          el.draggable = true;
+          el.dataset.idx = idx;
+          el.setAttribute("tabindex", "0");
+          el.setAttribute("role", "button");
+          el.setAttribute("aria-label", "Scenario card: " + card.text + ". Click, then click a bin to place it.");
+
+          el.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", String(idx));
+          });
+          el.addEventListener("click", function () {
+            document.querySelectorAll(".sort-card.is-selected").forEach(function (c) { c.classList.remove("is-selected"); });
+            if (state.selectedCard === idx) {
+              state.selectedCard = null;
+            } else {
+              state.selectedCard = idx;
+              el.classList.add("is-selected");
+            }
+          });
+
+          cardsWrap.appendChild(el);
+        });
+
+        function placeCard(idx, chosenBin) {
+          var cardEl = cardsWrap.querySelector('.sort-card[data-idx="' + idx + '"]');
+          if (!cardEl) return; // already placed
+          var card = CARDS[idx];
+          var isCorrect = chosenBin === card.bin;
+
+          var placed = document.createElement("div");
+          placed.className = "placed-card " + (isCorrect ? "is-correct" : "is-incorrect");
+          placed.innerHTML = "<strong>" + (isCorrect ? "✓ Correct" : "✗ Not quite") + ".</strong> " + card.text +
+            "<span class=\"rationale\">Answer: " + BIN_LABELS[card.bin] + " — " + card.rationale + "</span>";
+          binEls[chosenBin].list.appendChild(placed);
+
+          cardEl.remove();
+          state.placed++;
+          if (isCorrect) state.correct++;
+          state.selectedCard = null;
+          updateTally();
+        }
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A model is trained on thousands of photos, each already tagged \"cat\" or \"dog.\" Which learning type is this?",
+          options: ["Supervised learning", "Unsupervised learning", "Reinforcement learning", "None of these"],
+          answer: 0,
+          explanation: "Each training photo comes with a known correct label, which is the defining feature of supervised learning."
+        },
+        {
+          q: "A system groups news articles into topic clusters without ever being told what the topics are. Which learning type is this?",
+          options: ["Supervised learning", "Unsupervised learning", "Reinforcement learning", "Labeled learning"],
+          answer: 1,
+          explanation: "With no labels provided, the system is finding structure on its own — unsupervised learning."
+        },
+        {
+          q: "What is the key signal that drives learning in reinforcement learning?",
+          options: ["A labeled training set", "A reward or penalty received from the environment", "A pre-clustered dataset", "A fixed formula with no data"],
+          answer: 1,
+          explanation: "RL agents learn by taking actions and receiving rewards or penalties, adjusting behavior through trial and error."
+        },
+        {
+          q: "Which scenario best fits unsupervised learning?",
+          options: [
+            "Predicting exam scores from labeled study-hour data",
+            "Segmenting shoppers into groups with no predefined categories",
+            "Training a chess agent that wins or loses games",
+            "Classifying tumors as benign or malignant using labeled scans"
+          ],
+          answer: 1,
+          explanation: "Segmenting shoppers with no predefined categories means there are no labels — the algorithm discovers the grouping itself."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

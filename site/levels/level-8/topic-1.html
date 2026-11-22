@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomous Agent Architecture: Planning, Self-Correction, Guardrails — AI Maturity Course</title>
+<meta name="description" content="How autonomous agents plan, execute, self-correct, and stay inside safe operating bounds.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-1";
+</script>
+<style>
+  .agent-console { display: flex; flex-direction: column; gap: var(--space-4); }
+  .agent-controls { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+  .agent-controls select { padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); }
+  .plan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .plan-step {
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    padding: var(--space-3); display: flex; align-items: center; gap: var(--space-3);
+    background: var(--color-bg);
+  }
+  .plan-step .step-num { font-family: var(--font-mono); color: var(--color-text-faint); min-width: 1.6em; }
+  .plan-step.is-pending { opacity: 0.6; }
+  .plan-step.is-running { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .plan-step.is-done { border-color: var(--color-success); background: var(--color-success-bg); }
+  .plan-step.is-blocked { border-color: var(--color-error); background: var(--color-error-bg); text-decoration: line-through; }
+  .risky-tag { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-error); background: var(--color-error-bg); padding: 1px 8px; border-radius: 999px; }
+  .guardrail-panel {
+    border: 2px solid var(--color-error); background: var(--color-warning-bg); border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .agent-log {
+    font-family: var(--font-mono); font-size: var(--font-size-sm); background: var(--color-bg-inset);
+    border-radius: var(--radius-sm); padding: var(--space-3); max-height: 160px; overflow-y: auto;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Autonomous Agent Architecture: Planning, Self-Correction, Guardrails</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Design a plan → execute → reflect loop for a sample autonomous
+      task, and specify at least two guardrails that would prevent it from taking a harmful or costly
+      action unsupervised.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Autonomous agent architecture is the overall design of how an agent breaks a goal into steps,
+          checks its own work, and stays within safe operating bounds without constant human input. It's
+          the difference between a model that answers one prompt and a system that pursues a multi-step
+          goal on its own — deciding what to do next, noticing when something went wrong, and knowing
+          when to stop and ask a human.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Planning strategies</strong> — task decomposition, plan-and-execute vs. purely reactive loops</li>
+        <li><strong>Self-correction/reflection</strong> — the agent critiquing and revising its own output</li>
+        <li><strong>Guardrails</strong> — input/output filters, permission scopes, human-in-the-loop checkpoints</li>
+        <li><strong>Termination conditions</strong> — recognizing "done," or when to stop and escalate to a human</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var PLANS = {
+      pricing: {
+        label: "Summarize competitor pricing pages",
+        steps: [
+          { text: "Decompose goal: identify competitors, fetch pricing pages, extract data, write summary.", risky: false },
+          { text: "Search the web for competitor pricing pages.", risky: false },
+          { text: "Fetch and read the contents of external URLs found in search results.", risky: true },
+          { text: "Extract pricing figures into a structured table.", risky: false },
+          { text: "Write the final summary report.", risky: false }
+        ]
+      },
+      cleanup: {
+        label: "Clean up unused files in a project directory",
+        steps: [
+          { text: "Decompose goal: scan directory, identify unused files, confirm no references, delete, log.", risky: false },
+          { text: "Scan the project directory and list candidate unused files.", risky: false },
+          { text: "Permanently delete the flagged files.", risky: true },
+          { text: "Write a changelog entry describing what was deleted.", risky: false }
+        ]
+      },
+      refund: {
+        label: "Draft and send a customer refund",
+        steps: [
+          { text: "Decompose goal: look up order, draft email, issue refund, send email.", risky: false },
+          { text: "Look up the customer's order and the refund policy.", risky: false },
+          { text: "Draft a refund confirmation email.", risky: false },
+          { text: "Issue a $450 refund to the customer's original payment method.", risky: true },
+          { text: "Send the drafted email to the customer.", risky: true }
+        ]
+      }
+    };
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Autonomous Agent Console",
+      instructions:
+        "Pick a goal and generate a plan. Click \"Run next step\" to execute the plan one step at a time. " +
+        "Whenever a step is flagged risky, the agent stops at a guardrail check and waits for you to " +
+        "approve or deny it before continuing.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "agent-console";
+
+        var controls = document.createElement("div");
+        controls.className = "agent-controls";
+        var select = document.createElement("select");
+        Object.keys(PLANS).forEach(function (key) {
+          var opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = PLANS[key].label;
+          select.appendChild(opt);
+        });
+        var startBtn = document.createElement("button");
+        startBtn.type = "button";
+        startBtn.className = "btn btn-primary";
+        startBtn.textContent = "Set goal & generate plan";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-secondary";
+        runBtn.textContent = "Run next step";
+        runBtn.disabled = true;
+        controls.appendChild(select);
+        controls.appendChild(startBtn);
+        controls.appendChild(runBtn);
+        wrap.appendChild(controls);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        status.style.margin = "0";
+        status.textContent = "Choose a goal and click \"Set goal & generate plan\" to begin.";
+        wrap.appendChild(status);
+
+        var planListEl = document.createElement("ol");
+        planListEl.className = "plan-list";
+        wrap.appendChild(planListEl);
+
+        var guardrailPanel = document.createElement("div");
+        guardrailPanel.className = "guardrail-panel";
+        guardrailPanel.style.display = "none";
+        wrap.appendChild(guardrailPanel);
+
+        var logHeading = document.createElement("h4");
+        logHeading.textContent = "Agent log";
+        wrap.appendChild(logHeading);
+        var log = document.createElement("div");
+        log.className = "agent-log";
+        wrap.appendChild(log);
+
+        root.appendChild(wrap);
+
+        var currentPlan = null;
+        var stepIndex = 0;
+
+        function addLog(msg) {
+          log.textContent += (log.textContent ? "\n" : "") + msg;
+          log.scrollTop = log.scrollHeight;
+        }
+
+        function renderPlanList() {
+          planListEl.innerHTML = "";
+          currentPlan.steps.forEach(function (step, i) {
+            var li = document.createElement("li");
+            li.className = "plan-step " + (
+              i < stepIndex ? "is-done" : (i === stepIndex ? "is-running" : "is-pending")
+            );
+            var num = document.createElement("span");
+            num.className = "step-num";
+            num.textContent = (i + 1) + ".";
+            var text = document.createElement("span");
+            text.textContent = step.text;
+            li.appendChild(num);
+            li.appendChild(text);
+            if (step.risky) {
+              var tag = document.createElement("span");
+              tag.className = "risky-tag";
+              tag.textContent = "RISKY";
+              li.appendChild(tag);
+            }
+            li.dataset.index = i;
+            planListEl.appendChild(li);
+          });
+        }
+
+        function markStepClass(i, cls) {
+          var li = planListEl.querySelector('[data-index="' + i + '"]');
+          if (li) li.className = "plan-step " + cls;
+        }
+
+        function finishIfDone() {
+          if (stepIndex >= currentPlan.steps.length) {
+            status.textContent = "Plan complete — agent reached a termination condition and stopped on its own.";
+            status.style.color = "var(--color-success)";
+            runBtn.disabled = true;
+            addLog("Agent: goal achieved. Terminating.");
+          }
+        }
+
+        function runStep() {
+          if (!currentPlan || stepIndex >= currentPlan.steps.length) return;
+          var step = currentPlan.steps[stepIndex];
+
+          if (step.risky) {
+            runBtn.disabled = true;
+            guardrailPanel.style.display = "block";
+            guardrailPanel.innerHTML = "";
+            var title = document.createElement("strong");
+            title.textContent = "Guardrail check — human approval required";
+            var desc = document.createElement("p");
+            desc.style.margin = "var(--space-2) 0";
+            desc.textContent = "Next step: \"" + step.text + "\"";
+            var btnRow = document.createElement("div");
+            btnRow.className = "agent-controls";
+            var approveBtn = document.createElement("button");
+            approveBtn.type = "button";
+            approveBtn.className = "btn btn-primary";
+            approveBtn.textContent = "Approve";
+            var denyBtn = document.createElement("button");
+            denyBtn.type = "button";
+            denyBtn.className = "btn btn-secondary";
+            denyBtn.textContent = "Deny";
+            btnRow.appendChild(approveBtn);
+            btnRow.appendChild(denyBtn);
+            guardrailPanel.appendChild(title);
+            guardrailPanel.appendChild(desc);
+            guardrailPanel.appendChild(btnRow);
+
+            addLog("Agent: step " + (stepIndex + 1) + " flagged risky — paused for human approval.");
+
+            approveBtn.addEventListener("click", function () {
+              addLog("Human: approved step " + (stepIndex + 1) + ".");
+              markStepClass(stepIndex, "is-done");
+              stepIndex++;
+              guardrailPanel.style.display = "none";
+              renderPlanList();
+              runBtn.disabled = false;
+              status.textContent = "Step approved. " + (stepIndex < currentPlan.steps.length ? "Ready to run the next step." : "");
+              finishIfDone();
+            });
+            denyBtn.addEventListener("click", function () {
+              addLog("Human: DENIED step " + (stepIndex + 1) + " — agent halted before performing this action.");
+              markStepClass(stepIndex, "is-blocked");
+              guardrailPanel.style.display = "none";
+              status.textContent = "Agent halted by guardrail denial. It will not attempt this action.";
+              status.style.color = "var(--color-error)";
+              runBtn.disabled = true;
+            });
+            return;
+          }
+
+          addLog("Agent: executing step " + (stepIndex + 1) + " — " + step.text);
+          markStepClass(stepIndex, "is-done");
+          stepIndex++;
+          renderPlanList();
+          status.textContent = stepIndex < currentPlan.steps.length
+            ? "Step complete. Click \"Run next step\" to continue."
+            : "";
+          finishIfDone();
+        }
+
+        startBtn.addEventListener("click", function () {
+          currentPlan = PLANS[select.value];
+          stepIndex = 0;
+          log.textContent = "";
+          guardrailPanel.style.display = "none";
+          renderPlanList();
+          status.textContent = "Plan generated for goal: \"" + currentPlan.label + "\". Click \"Run next step\" to begin execution.";
+          status.style.color = "";
+          runBtn.disabled = false;
+          addLog("Agent: goal received — \"" + currentPlan.label + "\". Plan generated with " + currentPlan.steps.length + " steps.");
+        });
+
+        runBtn.addEventListener("click", runStep);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In a plan → execute → reflect loop, what is the purpose of the \"reflect\" stage?",
+          options: [
+            "To decide the very first step before any execution happens",
+            "To have the agent critique and potentially revise its own output before moving on",
+            "To permanently stop the agent from taking any further action",
+            "To generate the original goal statement"
+          ],
+          answer: 1,
+          explanation: "Reflection/self-correction is the agent checking its own work — catching mistakes and revising before proceeding, rather than blindly continuing."
+        },
+        {
+          q: "Why does an autonomous agent need explicit guardrails rather than just a good plan?",
+          options: [
+            "Guardrails make the agent's plan shorter",
+            "A well-formed plan can still contain individual steps that are risky, costly, or irreversible, so guardrails add checkpoints independent of plan quality",
+            "Guardrails are only needed if the plan has an error in it",
+            "Guardrails replace the need for a plan entirely"
+          ],
+          answer: 1,
+          explanation: "Even a logically sound plan can include a step (e.g. deleting files, sending money) that should require explicit human sign-off — that's what a guardrail checkpoint is for."
+        },
+        {
+          q: "What is a \"termination condition\" in agent architecture?",
+          options: [
+            "A rule for how the agent formats its final report",
+            "The criteria the agent uses to recognize a task is done, or to know when to stop and escalate to a human",
+            "A guardrail that only applies to costly actions",
+            "The maximum number of guardrails allowed in one plan"
+          ],
+          answer: 1,
+          explanation: "Termination conditions define \"done\" (or \"stuck — hand this back to a human\") so an agent doesn't loop forever or keep acting past the point it should stop."
+        },
+        {
+          q: "In the exercise, why does the plan pause instead of executing the risky step immediately?",
+          options: [
+            "Because risky steps always fail",
+            "Because a human-in-the-loop guardrail checkpoint requires explicit approval before an irreversible or high-impact action proceeds",
+            "Because the agent ran out of steps",
+            "Because risky steps are skipped automatically"
+          ],
+          answer: 1,
+          explanation: "The pause-and-approve pattern is exactly what a human-in-the-loop guardrail does: it blocks the agent from silently taking a risky action unsupervised."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

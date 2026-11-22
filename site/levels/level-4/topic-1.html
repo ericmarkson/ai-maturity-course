@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backpropagation and Activation Functions — AI Maturity Course</title>
+<meta name="description" content="How networks learn: the forward pass, the backward pass, the chain rule, and why activation functions matter.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-1";
+</script>
+<style>
+  .bp-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .bp-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); }
+  .bp-status { min-height: 1.4em; font-weight: 600; margin-top: var(--space-3); }
+  .bp-legend { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-2); }
+  .bp-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Backpropagation and Activation Functions</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Describe the forward-pass/backward-pass cycle in a multi-layer
+      network in your own words, and explain why a network made only of linear operations (no activation
+      functions) would collapse into an equivalent single-layer model.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Backpropagation</strong> is the algorithm that figures out how much each weight in a
+          network contributed to the final error, so gradient descent knows exactly how to adjust it.
+          <strong>Activation functions</strong> are the non-linear "decision" step applied inside each
+          neuron that let networks learn complex, curved patterns instead of only straight lines.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The chain rule, intuitively: blame flows backward from the output error through each layer</li>
+        <li>Forward pass (compute a prediction) vs. backward pass (compute blame/gradients)</li>
+        <li>Common activation functions (sigmoid, ReLU, tanh) and why non-linearity matters</li>
+        <li>Vanishing gradients as a motivating problem for activation function choice</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Watch a forward pass and a backward pass light up a tiny network",
+      instructions:
+        "This toy network has 3 input neurons, 4 hidden neurons, and 2 output neurons, with fixed " +
+        "weights. Click “Run forward pass” to compute and light up each layer's values left-to-right. " +
+        "Click “Run backward pass” to compute and light up gradient values right-to-left. Swap the " +
+        "activation function and re-run to see every value change.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        // ---- fixed toy network ------------------------------------------------
+        var X = [0.8, -0.3, 0.5];
+        var W1 = [ // 3 inputs x 4 hidden
+          [0.40, -0.20, 0.10, 0.30],
+          [0.60, 0.50, -0.40, 0.20],
+          [-0.30, 0.70, 0.20, -0.50]
+        ];
+        var B1 = [0.10, -0.20, 0.05, 0.00];
+        var W2 = [ // 4 hidden x 2 output
+          [0.50, -0.60],
+          [-0.30, 0.40],
+          [0.70, 0.20],
+          [-0.40, 0.50]
+        ];
+        var B2 = [0.10, -0.10];
+        var TARGET = [1, 0]; // fixed target used to illustrate a backward pass
+
+        function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+        function relu(x) { return Math.max(0, x); }
+        function tanhf(x) { return Math.tanh(x); }
+
+        function activate(name, x) {
+          if (name === "relu") return relu(x);
+          if (name === "tanh") return tanhf(x);
+          return sigmoid(x);
+        }
+        // derivative given the PRE-activation value x and the resulting ACTIVATION a
+        function activateDeriv(name, x, a) {
+          if (name === "relu") return x > 0 ? 1 : 0;
+          if (name === "tanh") return 1 - a * a;
+          return a * (1 - a);
+        }
+
+        var state = {
+          hiddenPre: null, hiddenAct: null,
+          outPre: null, outAct: null,
+          deltaOut: null, deltaHidden: null,
+          phase: "idle" // idle | forward | backward
+        };
+
+        function computeForward(actName) {
+          var hiddenPre = [0, 0, 0, 0], hiddenAct = [0, 0, 0, 0];
+          for (var j = 0; j < 4; j++) {
+            var s = B1[j];
+            for (var i = 0; i < 3; i++) s += X[i] * W1[i][j];
+            hiddenPre[j] = s;
+            hiddenAct[j] = activate(actName, s);
+          }
+          var outPre = [0, 0], outAct = [0, 0];
+          for (var k = 0; k < 2; k++) {
+            var s2 = B2[k];
+            for (var j2 = 0; j2 < 4; j2++) s2 += hiddenAct[j2] * W2[j2][k];
+            outPre[k] = s2;
+            outAct[k] = activate(actName, s2);
+          }
+          state.hiddenPre = hiddenPre; state.hiddenAct = hiddenAct;
+          state.outPre = outPre; state.outAct = outAct;
+        }
+
+        function computeBackward(actName) {
+          var deltaOut = [0, 0];
+          for (var k = 0; k < 2; k++) {
+            var err = state.outAct[k] - TARGET[k];
+            deltaOut[k] = err * activateDeriv(actName, state.outPre[k], state.outAct[k]);
+          }
+          var deltaHidden = [0, 0, 0, 0];
+          for (var j = 0; j < 4; j++) {
+            var s = 0;
+            for (var k2 = 0; k2 < 2; k2++) s += deltaOut[k2] * W2[j][k2];
+            deltaHidden[j] = s * activateDeriv(actName, state.hiddenPre[j], state.hiddenAct[j]);
+          }
+          state.deltaOut = deltaOut;
+          state.deltaHidden = deltaHidden;
+        }
+
+        // ---- DOM ---------------------------------------------------------------
+        var wrap = document.createElement("div");
+
+        var controls = document.createElement("div");
+        controls.className = "bp-controls";
+
+        var actLabel = document.createElement("label");
+        actLabel.textContent = "Activation function: ";
+        actLabel.style.fontWeight = "600";
+        var actSelect = document.createElement("select");
+        [["sigmoid", "Sigmoid"], ["relu", "ReLU"], ["tanh", "Tanh"]].forEach(function (pair) {
+          var opt = document.createElement("option");
+          opt.value = pair[0]; opt.textContent = pair[1];
+          actSelect.appendChild(opt);
+        });
+        actLabel.appendChild(actSelect);
+
+        var fwdBtn = document.createElement("button");
+        fwdBtn.type = "button"; fwdBtn.className = "btn btn-primary";
+        fwdBtn.textContent = "Run forward pass →";
+
+        var bwdBtn = document.createElement("button");
+        bwdBtn.type = "button"; bwdBtn.className = "btn btn-secondary";
+        bwdBtn.textContent = "← Run backward pass";
+        bwdBtn.disabled = true;
+
+        controls.appendChild(actLabel);
+        controls.appendChild(fwdBtn);
+        controls.appendChild(bwdBtn);
+        wrap.appendChild(controls);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "bp-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 640; canvas.height = 320;
+        canvas.style.width = "100%"; canvas.style.maxWidth = "640px"; canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var legend = document.createElement("div");
+        legend.className = "bp-legend";
+        legend.innerHTML =
+          '<span><span class="bp-swatch" style="background:#b7c0d8"></span>not yet computed</span>' +
+          '<span><span class="bp-swatch" style="background:#2952e3"></span>forward pass value</span>' +
+          '<span><span class="bp-swatch" style="background:#b3261e"></span>backward pass gradient</span>';
+        wrap.appendChild(legend);
+
+        var status = document.createElement("p");
+        status.className = "bp-status";
+        status.setAttribute("role", "status");
+        status.textContent = "Click “Run forward pass” to begin.";
+        wrap.appendChild(status);
+
+        root.appendChild(wrap);
+
+        var g = canvas.getContext("2d");
+
+        var layerX = [90, 320, 550];
+        var layerCounts = [3, 4, 2];
+        var layerLabels = ["Input", "Hidden", "Output"];
+
+        function nodePositions(layerIdx) {
+          var count = layerCounts[layerIdx];
+          var positions = [];
+          var top = 40, bottom = 280;
+          var span = bottom - top;
+          for (var i = 0; i < count; i++) {
+            var y = count === 1 ? (top + bottom) / 2 : top + (span * i) / (count - 1);
+            positions.push({ x: layerX[layerIdx], y: y });
+          }
+          return positions;
+        }
+
+        function draw(revealForward, revealBackward) {
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+
+          var positions = [nodePositions(0), nodePositions(1), nodePositions(2)];
+
+          // connections
+          g.lineWidth = 1;
+          for (var L = 0; L < 2; L++) {
+            for (var a = 0; a < positions[L].length; a++) {
+              for (var b = 0; b < positions[L + 1].length; b++) {
+                g.strokeStyle = "#dde2f0";
+                g.beginPath();
+                g.moveTo(positions[L][a].x, positions[L][a].y);
+                g.lineTo(positions[L + 1][b].x, positions[L + 1][b].y);
+                g.stroke();
+              }
+            }
+          }
+
+          // layer captions
+          g.fillStyle = "#6b7290";
+          g.font = "13px sans-serif";
+          g.textAlign = "center";
+          for (var Lc = 0; Lc < 3; Lc++) {
+            g.fillText(layerLabels[Lc], layerX[Lc], 20);
+          }
+
+          function nodeValueText(layerIdx, idx) {
+            if (layerIdx === 0) return revealForward ? X[idx].toFixed(2) : "";
+            if (layerIdx === 1) {
+              if (revealBackward && state.deltaHidden) return "∇" + state.deltaHidden[idx].toFixed(2);
+              if (revealForward && state.hiddenAct) return state.hiddenAct[idx].toFixed(2);
+              return "";
+            }
+            if (layerIdx === 2) {
+              if (revealBackward && state.deltaOut) return "∇" + state.deltaOut[idx].toFixed(2);
+              if (revealForward && state.outAct) return state.outAct[idx].toFixed(2);
+              return "";
+            }
+            return "";
+          }
+
+          function nodeColor(layerIdx, idx) {
+            if (layerIdx === 0) return revealForward ? "#2952e3" : "#b7c0d8";
+            if (layerIdx === 1) {
+              if (revealBackward) return "#b3261e";
+              if (revealForward) return "#2952e3";
+              return "#b7c0d8";
+            }
+            if (layerIdx === 2) {
+              if (revealBackward) return "#b3261e";
+              if (revealForward) return "#2952e3";
+              return "#b7c0d8";
+            }
+            return "#b7c0d8";
+          }
+
+          for (var Ln = 0; Ln < 3; Ln++) {
+            for (var n = 0; n < positions[Ln].length; n++) {
+              var p = positions[Ln][n];
+              g.beginPath();
+              g.arc(p.x, p.y, 22, 0, Math.PI * 2);
+              g.fillStyle = nodeColor(Ln, n);
+              g.fill();
+              g.fillStyle = "#fff";
+              g.font = "bold 11px sans-serif";
+              g.textAlign = "center";
+              g.textBaseline = "middle";
+              g.fillText(nodeValueText(Ln, n), p.x, p.y);
+            }
+          }
+          g.textBaseline = "alphabetic";
+        }
+
+        draw(false, false);
+
+        var animTimer = null;
+        function setButtonsEnabled(enabled) {
+          fwdBtn.disabled = !enabled;
+          bwdBtn.disabled = !enabled || state.phase !== "forward";
+          actSelect.disabled = !enabled;
+        }
+
+        fwdBtn.addEventListener("click", function () {
+          if (animTimer) return;
+          computeForward(actSelect.value);
+          state.phase = "forward-animating";
+          setButtonsEnabled(false);
+          var step = 0;
+          status.textContent = "Forward pass: computing input layer…";
+          draw(false, false);
+          animTimer = setInterval(function () {
+            step++;
+            if (step === 1) {
+              status.textContent = "Forward pass: input values loaded.";
+              draw(true, false);
+            } else if (step === 2) {
+              status.textContent = "Forward pass: hidden layer computed with " + actSelect.value + ".";
+              draw(true, false);
+            } else if (step === 3) {
+              status.textContent = "Forward pass: output layer computed — prediction = [" +
+                state.outAct[0].toFixed(2) + ", " + state.outAct[1].toFixed(2) + "].";
+              draw(true, false);
+              clearInterval(animTimer);
+              animTimer = null;
+              state.phase = "forward";
+              setButtonsEnabled(true);
+            }
+          }, 650);
+        });
+
+        bwdBtn.addEventListener("click", function () {
+          if (animTimer || state.phase !== "forward") return;
+          computeBackward(actSelect.value);
+          setButtonsEnabled(false);
+          var step = 0;
+          status.textContent = "Backward pass: computing output-layer gradients…";
+          animTimer = setInterval(function () {
+            step++;
+            if (step === 1) {
+              status.textContent = "Backward pass: output gradients = [" +
+                state.deltaOut[0].toFixed(3) + ", " + state.deltaOut[1].toFixed(3) + "].";
+              draw(true, true);
+            } else if (step === 2) {
+              status.textContent = "Backward pass: hidden-layer blame computed via the chain rule.";
+              draw(true, true);
+              clearInterval(animTimer);
+              animTimer = null;
+              state.phase = "backward";
+              setButtonsEnabled(true);
+              bwdBtn.disabled = true;
+            }
+          }, 650);
+        });
+
+        actSelect.addEventListener("change", function () {
+          state.phase = "idle";
+          state.hiddenAct = null; state.outAct = null; state.deltaOut = null; state.deltaHidden = null;
+          bwdBtn.disabled = true;
+          status.textContent = "Activation changed to " + actSelect.value + ". Click “Run forward pass” again.";
+          draw(false, false);
+        });
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What does backpropagation actually compute for each weight in the network?",
+          options: [
+            "The weight's final trained value",
+            "How much that weight contributed to the output error (its gradient)",
+            "The number of neurons in the next layer",
+            "The learning rate"
+          ],
+          answer: 1,
+          explanation: "Backpropagation uses the chain rule to compute, for every weight, the gradient of the loss with respect to that weight — i.e. how much it's “to blame” for the error."
+        },
+        {
+          q: "Why would a network built only from linear operations (no activation functions) collapse into an equivalent single-layer model, no matter how many layers it has?",
+          options: [
+            "Because linear layers train too slowly",
+            "Because the composition of linear functions is itself just another linear function",
+            "Because linear layers can't be backpropagated through",
+            "Because linear layers require more memory"
+          ],
+          answer: 1,
+          explanation: "Stacking linear transformations only ever produces another linear transformation — non-linear activation functions are what let depth add real representational power."
+        },
+        {
+          q: "In the exercise, which direction does the backward pass compute values, relative to the forward pass?",
+          options: ["The same direction, left to right", "Right to left, from output back toward input", "Top to bottom", "It computes both directions simultaneously with no order"],
+          answer: 1,
+          explanation: "The backward pass starts from the output error and propagates gradients back through each layer toward the input, the reverse order of the forward pass."
+        },
+        {
+          q: "Vanishing gradients are primarily a motivating problem for which design choice?",
+          options: [
+            "How many training examples to collect",
+            "The choice of activation function (e.g. preferring ReLU over sigmoid in deep networks)",
+            "The file format used to save the model",
+            "The size of the test set"
+          ],
+          answer: 1,
+          explanation: "Some activation functions (like sigmoid) squash gradients toward zero across many layers, which motivated alternatives like ReLU that suffer from this less."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

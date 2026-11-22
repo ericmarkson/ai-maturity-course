@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linear and Logistic Regression — AI Maturity Course</title>
+<meta name="description" content="Fitting a straight line to predict numbers, and an S-curve to predict categories.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-3";
+</script>
+<style>
+  .mode-toggle { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); }
+  .mode-toggle .btn.is-active { background: var(--color-primary-dark); }
+  .reg-canvas-wrap { position: relative; max-width: 480px; }
+  #reg-canvas { width: 100%; max-width: 480px; display: block; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; touch-action: none; cursor: grab; }
+  .reg-score { font-weight: 700; margin-top: var(--space-3); }
+  .reg-hint { color: var(--color-text-muted); font-size: var(--font-size-sm); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Linear and Logistic Regression</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Look at a scatter plot and correctly decide whether linear or
+      logistic regression is the appropriate tool for the prediction task shown.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Linear regression</strong> predicts a continuous number — like a price — by fitting a
+          straight line through the data. <strong>Logistic regression</strong> predicts a category — like
+          yes/no — by fitting an S-shaped curve that squashes any input into a probability between 0 and 1.
+          Both work by finding weights that best relate the inputs to the output; they just differ in what
+          kind of output they're built to produce.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Linear regression: fitting a line to predict a numeric value</li>
+        <li>Logistic regression: converting a line into a probability curve for classification</li>
+        <li>Coefficients/weights as "how much each input matters" (conceptually, no calculus needed)</li>
+        <li>Real-world examples: house price prediction vs. pass/fail prediction</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Drag the line (or curve) to fit the data",
+      instructions: "Drag the two blue handles to fit a line to the scatter points and watch the error score update live. Switch to \"Logistic\" mode to drag a threshold curve over yes/no labeled data instead.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        var toggleRow = document.createElement("div");
+        toggleRow.className = "mode-toggle";
+        var linBtn = document.createElement("button");
+        linBtn.type = "button"; linBtn.className = "btn btn-secondary is-active"; linBtn.textContent = "Linear regression";
+        var logBtn = document.createElement("button");
+        logBtn.type = "button"; logBtn.className = "btn btn-secondary"; logBtn.textContent = "Logistic regression";
+        toggleRow.appendChild(linBtn); toggleRow.appendChild(logBtn);
+        wrap.appendChild(toggleRow);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "reg-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.id = "reg-canvas";
+        canvas.width = 480; canvas.height = 280;
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var scoreEl = document.createElement("p");
+        scoreEl.className = "reg-score";
+        wrap.appendChild(scoreEl);
+
+        var hint = document.createElement("p");
+        hint.className = "reg-hint";
+        hint.textContent = "Drag either blue handle up or down.";
+        wrap.appendChild(hint);
+
+        var c = canvas.getContext("2d");
+        var W = canvas.width, H = canvas.height;
+        var marginX = 30, marginY = 24;
+        var plotW = W - marginX * 2, plotH = H - marginY * 2;
+
+        // ----- Linear regression toy data (x: 0-10, y: 0-10) -----
+        var linPoints = [];
+        (function genLin() {
+          for (var i = 0; i < 14; i++) {
+            var x = Math.random() * 10;
+            var y = 1.5 + x * 0.7 + (Math.random() - 0.5) * 2.2;
+            y = Math.max(0, Math.min(10, y));
+            linPoints.push({ x: x, y: y });
+          }
+        })();
+        var linHandles = { y0: 3, y1: 7 }; // y-values of line at x=0 and x=10, in data units 0-10
+
+        // ----- Logistic toy data (x: 0-10, label 0/1) -----
+        var logPoints = [];
+        (function genLog() {
+          for (var i = 0; i < 18; i++) {
+            var x = Math.random() * 10;
+            var label = x > 5 + (Math.random() - 0.5) * 3 ? 1 : 0;
+            logPoints.push({ x: x, label: label });
+          }
+        })();
+        var logState = { midpoint: 5, steepness: 1.5 }; // midpoint drag, steepness via slider
+
+        function dataToPx(x, y) {
+          return { x: marginX + (x / 10) * plotW, y: (H - marginY) - (y / 10) * plotH };
+        }
+        function pxToDataY(py) {
+          return ((H - marginY) - py) / plotH * 10;
+        }
+
+        var mode = "linear"; // or "logistic"
+        var dragTarget = null; // "y0" | "y1" | "mid"
+
+        function drawAxes() {
+          c.strokeStyle = "#b7c0d8";
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(marginX, H - marginY); c.lineTo(W - 10, H - marginY);
+          c.moveTo(marginX, H - marginY); c.lineTo(marginX, 10);
+          c.stroke();
+        }
+
+        function renderLinear() {
+          c.clearRect(0, 0, W, H);
+          drawAxes();
+
+          // points
+          c.fillStyle = "#0f9d78";
+          linPoints.forEach(function (p) {
+            var px = dataToPx(p.x, p.y);
+            c.beginPath(); c.arc(px.x, px.y, 4, 0, Math.PI * 2); c.fill();
+          });
+
+          // line
+          var p0 = dataToPx(0, linHandles.y0);
+          var p1 = dataToPx(10, linHandles.y1);
+          c.strokeStyle = "#2952e3";
+          c.lineWidth = 3;
+          c.beginPath();
+          c.moveTo(p0.x, p0.y); c.lineTo(p1.x, p1.y);
+          c.stroke();
+
+          // handles
+          [p0, p1].forEach(function (p) {
+            c.fillStyle = "#2952e3";
+            c.beginPath(); c.arc(p.x, p.y, 8, 0, Math.PI * 2); c.fill();
+            c.strokeStyle = "#fff"; c.lineWidth = 2; c.stroke();
+          });
+
+          // MSE: interpolate line at each point's x
+          var sse = 0;
+          linPoints.forEach(function (p) {
+            var lineY = linHandles.y0 + (linHandles.y1 - linHandles.y0) * (p.x / 10);
+            sse += Math.pow(lineY - p.y, 2);
+          });
+          var mse = sse / linPoints.length;
+          scoreEl.textContent = "Mean squared error: " + mse.toFixed(3) + (mse < 0.9 ? "  (nice fit!)" : mse < 2 ? "  (getting closer)" : "  (try dragging the handles)");
+        }
+
+        function sigmoid(x, mid, k) {
+          return 1 / (1 + Math.exp(-k * (x - mid)));
+        }
+
+        function renderLogistic() {
+          c.clearRect(0, 0, W, H);
+          drawAxes();
+
+          // points at y=0 (label 0) or y=10 (label 1) rows, jittered slightly for visibility
+          logPoints.forEach(function (p) {
+            var y = p.label === 1 ? 9 : 1;
+            var px = dataToPx(p.x, y);
+            c.fillStyle = p.label === 1 ? "#0f9d78" : "#b3261e";
+            c.beginPath(); c.arc(px.x, px.y, 4, 0, Math.PI * 2); c.fill();
+          });
+
+          // S-curve
+          c.strokeStyle = "#2952e3";
+          c.lineWidth = 3;
+          c.beginPath();
+          for (var xi = 0; xi <= 100; xi++) {
+            var xd = (xi / 100) * 10;
+            var prob = sigmoid(xd, logState.midpoint, logState.steepness);
+            var yd = prob * 10;
+            var px = dataToPx(xd, yd);
+            if (xi === 0) c.moveTo(px.x, px.y); else c.lineTo(px.x, px.y);
+          }
+          c.stroke();
+
+          // midpoint handle (draggable vertical marker at prob=0.5)
+          var midPx = dataToPx(logState.midpoint, 5);
+          c.fillStyle = "#2952e3";
+          c.beginPath(); c.arc(midPx.x, midPx.y, 8, 0, Math.PI * 2); c.fill();
+          c.strokeStyle = "#fff"; c.lineWidth = 2; c.stroke();
+
+          // accuracy at threshold 0.5
+          var correct = 0;
+          logPoints.forEach(function (p) {
+            var predicted = sigmoid(p.x, logState.midpoint, logState.steepness) >= 0.5 ? 1 : 0;
+            if (predicted === p.label) correct++;
+          });
+          var acc = (correct / logPoints.length) * 100;
+          scoreEl.textContent = "Classification accuracy at 0.5 threshold: " + acc.toFixed(0) + "%";
+        }
+
+        function render() {
+          if (mode === "linear") renderLinear(); else renderLogistic();
+        }
+
+        function getPointerPos(e) {
+          var rect = canvas.getBoundingClientRect();
+          var scaleX = canvas.width / rect.width;
+          var scaleY = canvas.height / rect.height;
+          var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+        }
+
+        canvas.addEventListener("pointerdown", function (e) {
+          var pos = getPointerPos(e);
+          if (mode === "linear") {
+            var p0 = dataToPx(0, linHandles.y0);
+            var p1 = dataToPx(10, linHandles.y1);
+            var d0 = Math.hypot(pos.x - p0.x, pos.y - p0.y);
+            var d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+            if (d0 < 20 && d0 <= d1) dragTarget = "y0";
+            else if (d1 < 20) dragTarget = "y1";
+          } else {
+            var midPx = dataToPx(logState.midpoint, 5);
+            if (Math.hypot(pos.x - midPx.x, pos.y - midPx.y) < 25 || Math.abs(pos.x - midPx.x) < 30) {
+              dragTarget = "mid";
+            }
+          }
+          if (dragTarget) {
+            canvas.setPointerCapture(e.pointerId);
+            canvas.style.cursor = "grabbing";
+          }
+        });
+
+        canvas.addEventListener("pointermove", function (e) {
+          if (!dragTarget) return;
+          var pos = getPointerPos(e);
+          if (dragTarget === "y0") {
+            linHandles.y0 = Math.max(0, Math.min(10, pxToDataY(pos.y)));
+            renderLinear();
+          } else if (dragTarget === "y1") {
+            linHandles.y1 = Math.max(0, Math.min(10, pxToDataY(pos.y)));
+            renderLinear();
+          } else if (dragTarget === "mid") {
+            var dataX = ((pos.x - marginX) / plotW) * 10;
+            logState.midpoint = Math.max(0, Math.min(10, dataX));
+            renderLogistic();
+          }
+        });
+
+        function endDrag() {
+          dragTarget = null;
+          canvas.style.cursor = "grab";
+        }
+        canvas.addEventListener("pointerup", endDrag);
+        canvas.addEventListener("pointercancel", endDrag);
+
+        // steepness slider for logistic mode
+        var steepRow = document.createElement("div");
+        steepRow.className = "slider-row";
+        steepRow.style.marginTop = "var(--space-3)";
+        var steepLabel = document.createElement("label");
+        steepLabel.textContent = "Curve steepness";
+        var steepSlider = document.createElement("input");
+        steepSlider.type = "range"; steepSlider.min = "0.4"; steepSlider.max = "4"; steepSlider.step = "0.1"; steepSlider.value = "1.5";
+        var steepReadout = document.createElement("span");
+        steepReadout.className = "readout";
+        steepReadout.textContent = "1.5";
+        steepRow.appendChild(steepLabel); steepRow.appendChild(steepSlider); steepRow.appendChild(steepReadout);
+        steepRow.style.display = "none";
+        wrap.appendChild(steepRow);
+
+        steepSlider.addEventListener("input", function () {
+          logState.steepness = parseFloat(steepSlider.value);
+          steepReadout.textContent = logState.steepness.toFixed(1);
+          renderLogistic();
+        });
+
+        linBtn.addEventListener("click", function () {
+          mode = "linear";
+          linBtn.classList.add("is-active"); logBtn.classList.remove("is-active");
+          steepRow.style.display = "none";
+          hint.textContent = "Drag either blue handle up or down.";
+          render();
+        });
+        logBtn.addEventListener("click", function () {
+          mode = "logistic";
+          logBtn.classList.add("is-active"); linBtn.classList.remove("is-active");
+          steepRow.style.display = "";
+          hint.textContent = "Drag the blue handle left/right to move the S-curve's midpoint; use the slider to change how sharply it switches.";
+          render();
+        });
+
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "You need to predict a house's exact sale price in dollars. Which is the right tool?",
+          options: ["Linear regression", "Logistic regression", "Either works identically", "Neither — this needs clustering"],
+          answer: 0,
+          explanation: "Predicting a continuous number like price is exactly what linear regression is built for."
+        },
+        {
+          q: "You need to predict whether a loan applicant will default (yes/no). Which is the right tool?",
+          options: ["Linear regression", "Logistic regression", "Both are equally wrong", "k-means clustering"],
+          answer: 1,
+          explanation: "A yes/no outcome is a classification problem, which logistic regression handles by outputting a probability."
+        },
+        {
+          q: "In the exercise, what did dragging the two line handles change?",
+          options: [
+            "The underlying data points",
+            "The fitted line's position, which changed the mean squared error",
+            "Nothing measurable",
+            "The labels of the data points"
+          ],
+          answer: 1,
+          explanation: "The handles set the line's y-values at x=0 and x=10; moving them changes how well the line matches the points, shown by the live MSE."
+        },
+        {
+          q: "What does logistic regression's output represent?",
+          options: [
+            "A raw, unbounded number",
+            "A probability between 0 and 1 that gets converted into a category",
+            "The exact predicted price",
+            "A cluster assignment"
+          ],
+          answer: 1,
+          explanation: "Logistic regression squashes its input into a 0-1 probability via an S-shaped curve, then a threshold turns that into a class label."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generative Models: GANs, VAEs, and Diffusion Models — AI Maturity Course</title>
+<meta name="description" content="How GANs, VAEs, and diffusion models each learn to generate new data, and how their core mechanisms differ.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-9";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Generative Models: GANs, VAEs, and Diffusion Models</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can distinguish the core generation mechanism of a
+      GAN (adversarial generator vs. discriminator), a VAE (encode to a latent distribution, then
+      decode/sample), and a diffusion model (iterative denoising), and can describe at a high level
+      what "generating a sample" looks like for each.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A <strong>generative model</strong> learns the underlying patterns in a set of training data
+          (images, text, audio, etc.) well enough to produce brand-new, realistic-looking samples —
+          rather than just labeling or predicting something about existing data. GANs, VAEs, and
+          diffusion models are three different mechanisms for doing this, each with its own training
+          dynamics and trade-offs between sample quality, diversity, and training stability.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>GANs (Generative Adversarial Networks)</strong> — a <em>generator</em> network
+          tries to produce fake samples realistic enough to fool a <em>discriminator</em> network,
+          while the discriminator tries to tell real from fake; the two improve together in an
+          adversarial game.</li>
+        <li><strong>VAEs (Variational Autoencoders)</strong> — an <em>encoder</em> compresses input
+          data into a compact probability distribution (the latent space), and a <em>decoder</em>
+          samples from that distribution to reconstruct or generate new data.</li>
+        <li><strong>Diffusion models</strong> — trained to gradually add noise to data step by step,
+          then learn to reverse that process, so generation starts from pure random noise and
+          "denoises" it over many steps into a realistic sample.</li>
+        <li><strong>Trade-offs</strong> — GANs can produce sharp samples but are notoriously unstable
+          to train; VAEs train more stably but samples can be blurrier; diffusion models tend to
+          produce high-quality, diverse samples but generation requires many sequential steps.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Compare how GANs, VAEs, and diffusion models generate a sample",
+      instructions:
+        "Pick a model type, then drag the slider to simulate generation progress. Click Resample to " +
+        "generate a different random target. Notice how the visualization and meters differ by model.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var modeRow = document.createElement("div");
+        modeRow.className = "slider-row";
+        var modeLabel = document.createElement("label");
+        modeLabel.setAttribute("for", "model-select");
+        modeLabel.textContent = "Model type";
+        var modeSelect = document.createElement("select");
+        modeSelect.id = "model-select";
+        modeSelect.style.padding = "0.3rem 0.5rem";
+        modeSelect.style.borderRadius = "6px";
+        modeSelect.style.border = "1px solid var(--color-border)";
+        ["gan", "vae", "diffusion"].forEach(function (v) {
+          var opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v === "gan" ? "GAN" : v === "vae" ? "VAE" : "Diffusion model";
+          modeSelect.appendChild(opt);
+        });
+        modeRow.appendChild(modeLabel);
+        modeRow.appendChild(modeSelect);
+        wrap.appendChild(modeRow);
+
+        var progRow = document.createElement("div");
+        progRow.className = "slider-row";
+        var progLabel = document.createElement("label");
+        progLabel.setAttribute("for", "prog-slider");
+        progLabel.id = "prog-label-text";
+        progLabel.textContent = "Training iterations";
+        var progSlider = document.createElement("input");
+        progSlider.type = "range"; progSlider.min = "0"; progSlider.max = "100"; progSlider.value = "30";
+        progSlider.id = "prog-slider";
+        var progReadout = document.createElement("span");
+        progReadout.className = "readout";
+        progReadout.textContent = "30%";
+        progRow.appendChild(progLabel); progRow.appendChild(progSlider); progRow.appendChild(progReadout);
+        wrap.appendChild(progRow);
+
+        var toolbar = document.createElement("div");
+        toolbar.className = "exercise-toolbar";
+        var resampleBtn = document.createElement("button");
+        resampleBtn.type = "button";
+        resampleBtn.className = "btn btn-secondary";
+        resampleBtn.textContent = "Resample (new random target)";
+        toolbar.appendChild(resampleBtn);
+        wrap.appendChild(toolbar);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 288; canvas.height = 288;
+        canvas.style.display = "block";
+        canvas.style.marginTop = "1rem";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        // GAN-only meters
+        var meterWrap = document.createElement("div");
+        meterWrap.style.marginTop = "0.9rem";
+        meterWrap.style.maxWidth = "300px";
+
+        function makeMeter(labelText) {
+          var container = document.createElement("div");
+          container.style.marginBottom = "0.5rem";
+          var lab = document.createElement("div");
+          lab.style.display = "flex";
+          lab.style.justifyContent = "space-between";
+          lab.style.fontSize = "0.85rem";
+          lab.style.fontWeight = "600";
+          var labText = document.createElement("span");
+          labText.textContent = labelText;
+          var labVal = document.createElement("span");
+          lab.appendChild(labText); lab.appendChild(labVal);
+          var barOuter = document.createElement("div");
+          barOuter.style.background = "var(--color-bg-inset)";
+          barOuter.style.border = "1px solid var(--color-border)";
+          barOuter.style.borderRadius = "999px";
+          barOuter.style.height = "10px";
+          barOuter.style.overflow = "hidden";
+          var barInner = document.createElement("div");
+          barInner.style.height = "100%";
+          barInner.style.width = "0%";
+          barInner.style.background = "var(--color-primary)";
+          barInner.style.transition = "width 0.15s ease";
+          barOuter.appendChild(barInner);
+          container.appendChild(lab);
+          container.appendChild(barOuter);
+          return { container: container, valueEl: labVal, barEl: barInner };
+        }
+
+        var genMeter = makeMeter("Generator sample quality");
+        var discMeter = makeMeter("Discriminator accuracy (real vs. fake)");
+        meterWrap.appendChild(genMeter.container);
+        meterWrap.appendChild(discMeter.container);
+        wrap.appendChild(meterWrap);
+
+        var noteText = document.createElement("p");
+        noteText.setAttribute("role", "status");
+        noteText.style.marginTop = "0.75rem";
+        noteText.style.color = "var(--color-text-muted)";
+        wrap.appendChild(noteText);
+
+        root.appendChild(wrap);
+        var c = canvas.getContext("2d");
+
+        var GRID = 24;
+        var CELL = canvas.width / GRID;
+        var shapeKind = 0; // 0 circle, 1 diamond, 2 ring
+        var shapeSeed = { cx: 12, cy: 12, r: 8 };
+
+        function randomizeTarget() {
+          shapeKind = Math.floor(Math.random() * 3);
+          shapeSeed = {
+            cx: 10 + Math.random() * 4,
+            cy: 10 + Math.random() * 4,
+            r: 6 + Math.random() * 4
+          };
+        }
+        randomizeTarget();
+
+        function isOnShape(gx, gy) {
+          var dx = gx - shapeSeed.cx, dy = gy - shapeSeed.cy;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          if (shapeKind === 0) return dist <= shapeSeed.r; // filled circle
+          if (shapeKind === 1) return (Math.abs(dx) + Math.abs(dy)) <= shapeSeed.r * 1.2; // diamond
+          return dist <= shapeSeed.r && dist >= shapeSeed.r - 2.5; // ring
+        }
+
+        function currentMode() { return modeSelect.value; }
+        function currentProgress() { return parseInt(progSlider.value, 10); }
+
+        function drawNoiseReveal(progress) {
+          var noiseProb = 1 - progress / 100;
+          for (var gy = 0; gy < GRID; gy++) {
+            for (var gx = 0; gx < GRID; gx++) {
+              var on = isOnShape(gx, gy);
+              var showNoise = Math.random() < noiseProb;
+              var color;
+              if (showNoise) {
+                var g = Math.floor(Math.random() * 200) + 30;
+                color = "rgb(" + g + "," + g + "," + g + ")";
+              } else {
+                color = on ? "#1a2033" : "#f2f4fa";
+              }
+              c.fillStyle = color;
+              c.fillRect(gx * CELL, gy * CELL, CELL, CELL);
+            }
+          }
+        }
+
+        function drawBlurReveal(progress) {
+          // VAE-style: draw the shape directly, then blur it more heavily at low progress
+          var blurPx = (1 - progress / 100) * 14;
+          c.clearRect(0, 0, canvas.width, canvas.height);
+          c.filter = blurPx > 0.2 ? ("blur(" + blurPx.toFixed(1) + "px)") : "none";
+          for (var gy = 0; gy < GRID; gy++) {
+            for (var gx = 0; gx < GRID; gx++) {
+              c.fillStyle = isOnShape(gx, gy) ? "#1a2033" : "#f2f4fa";
+              c.fillRect(gx * CELL, gy * CELL, CELL, CELL);
+            }
+          }
+          c.filter = "none";
+        }
+
+        function updateModeUI() {
+          var mode = currentMode();
+          meterWrap.style.display = mode === "gan" ? "block" : "none";
+          if (mode === "gan") {
+            document.getElementById("prog-label-text").textContent = "Training iterations";
+          } else if (mode === "vae") {
+            document.getElementById("prog-label-text").textContent = "Reconstruction fidelity";
+          } else {
+            document.getElementById("prog-label-text").textContent = "Denoising steps completed";
+          }
+        }
+
+        function redraw() {
+          var mode = currentMode();
+          var progress = currentProgress();
+          progReadout.textContent = progress + "%";
+
+          if (mode === "vae") {
+            drawBlurReveal(progress);
+          } else {
+            drawNoiseReveal(progress);
+          }
+
+          if (mode === "gan") {
+            var genQuality = progress;
+            var discAcc = Math.max(50, 92 - progress * 0.4);
+            genMeter.valueEl.textContent = genQuality + "%";
+            genMeter.barEl.style.width = genQuality + "%";
+            discMeter.valueEl.textContent = discAcc.toFixed(0) + "%";
+            discMeter.barEl.style.width = discAcc.toFixed(0) + "%";
+          }
+
+          if (mode === "gan") {
+            noteText.textContent = "As the generator trains longer, its samples get sharper and the discriminator's " +
+              "accuracy at telling real from fake drifts toward 50% (a coin flip) — a sign the generator is fooling it.";
+          } else if (mode === "vae") {
+            noteText.textContent = "The decoder reconstructs from the latent distribution. Early on the reconstruction is " +
+              "blurry; as fidelity increases it sharpens toward the encoded target. Click Resample to sample a different latent target.";
+          } else {
+            noteText.textContent = "Diffusion generation starts from pure noise (0%) and iteratively removes noise over many " +
+              "steps until a clean sample emerges at 100% — the reverse of the noising process used during training.";
+          }
+        }
+
+        modeSelect.addEventListener("change", function () {
+          updateModeUI();
+          redraw();
+        });
+        progSlider.addEventListener("input", redraw);
+        resampleBtn.addEventListener("click", function () {
+          randomizeTarget();
+          redraw();
+        });
+
+        updateModeUI();
+        redraw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In a GAN, what is the discriminator's job?",
+          options: [
+            "To generate new fake samples",
+            "To try to distinguish real training samples from the generator's fake samples",
+            "To compress data into a latent space",
+            "To add noise to training data"
+          ],
+          answer: 1,
+          explanation: "The discriminator is trained to classify samples as real or fake, while the generator tries to produce fakes realistic enough to fool it — an adversarial game where both improve together."
+        },
+        {
+          q: "What does a VAE's encoder produce?",
+          options: [
+            "A single fixed output image",
+            "A compact probability distribution (the latent representation) that the decoder can sample from",
+            "A discriminator score",
+            "A fully denoised sample directly"
+          ],
+          answer: 1,
+          explanation: "A VAE's encoder maps input data to parameters of a distribution in latent space; the decoder then samples from that distribution to reconstruct or generate data."
+        },
+        {
+          q: "How does a diffusion model generate a new sample?",
+          options: [
+            "By playing an adversarial game between two networks",
+            "By starting from random noise and iteratively removing noise over many steps, reversing the training-time noising process",
+            "By directly copying a training example",
+            "By encoding input into a fixed latent vector and decoding once"
+          ],
+          answer: 1,
+          explanation: "Diffusion models learn to reverse a gradual noising process, so generation starts at pure noise and denoises step by step into a realistic sample."
+        },
+        {
+          q: "Which trade-off is commonly associated with GANs compared to VAEs and diffusion models?",
+          options: [
+            "GANs require no training data",
+            "GANs can produce very sharp samples but are notoriously less stable to train",
+            "GANs always train faster than any other approach with no downsides",
+            "GANs cannot generate images at all"
+          ],
+          answer: 1,
+          explanation: "GANs are known for sharp, realistic outputs, but the adversarial training dynamic can be unstable (e.g., mode collapse), unlike the generally steadier training of VAEs and diffusion models."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

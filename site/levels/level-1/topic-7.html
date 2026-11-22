@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Brief History of AI: From Symbolic Systems to Deep Learning — AI Maturity Course</title>
+<meta name="description" content="An interactive timeline through AI's major eras — symbolic AI, the AI winters, expert systems, machine learning, and deep learning — with a clickable, scrubbable timeline widget.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-7";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>A Brief History of AI: From Symbolic Systems to Deep Learning</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can place the major eras of AI history in order
+      (symbolic AI, the AI winters, expert systems, statistical machine learning, deep learning) and
+      explain in plain language what approach shifted between each era and why.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          The history of AI is not one steady march of progress — it's a series of distinct eras,
+          each built around a different dominant approach, separated by both real breakthroughs and
+          "winters" where funding and enthusiasm collapsed. Early AI tried to hand-code human
+          reasoning as logical rules; modern AI instead lets algorithms learn patterns directly from
+          data, at a scale early researchers couldn't have imagined.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Symbolic AI ("GOFAI"): reasoning as logic and search over hand-coded rules</li>
+        <li>Expert systems: encoding a human expert's know-how as if-then rules for one narrow domain</li>
+        <li>The AI winters: why overpromising and underdelivering nearly stalled the field twice</li>
+        <li>The statistical machine learning shift: letting algorithms learn patterns from data instead of hand-written rules</li>
+        <li>The deep learning breakthrough: bigger datasets, GPU compute, and neural networks that scale</li>
+        <li>Where generative AI and large language models fit into this story</li>
+      </ul>
+      <p>
+        It's tempting to picture AI as a single continuous invention, but it has really been rebuilt
+        from different foundations more than once. The first wave assumed intelligence was mostly
+        about logic: if you could write down enough rules and let a program search through their
+        consequences, you'd get reasoning. That assumption ran out of road twice — first with
+        general-purpose symbolic reasoning, then with narrower expert systems — because hand-written
+        rules can't cover every messy real-world case and can't improve from experience on their own.
+        The idea that eventually broke through was almost the opposite: instead of writing the rules
+        yourself, show an algorithm enough examples and let it find the patterns. That statistical
+        shift made AI far more robust, and when it was combined with far larger datasets and GPU
+        hardware capable of the matrix math neural networks need, it produced the deep learning
+        systems — and now the large language and image-generating models — that define the current
+        era.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var TIMELINE_START = 1950;
+    var TIMELINE_END = 2026;
+
+    var ERAS = [
+      {
+        start: 1950,
+        years: "1950 – 1956",
+        title: "The Dawn: Turing and Dartmouth",
+        body: "In 1950, Alan Turing asked “Can machines think?” and proposed what's now called " +
+          "the Turing Test. In the summer of 1956, a small workshop at Dartmouth College coined the " +
+          "term “artificial intelligence” and set the field's founding ambition: building " +
+          "machines that reason the way people do.",
+        keyFact: "The word “AI” itself dates only to 1956 — younger than the transistor."
+      },
+      {
+        start: 1956,
+        years: "1956 – 1974",
+        title: "Symbolic AI (“GOFAI”)",
+        body: "Early AI treated intelligence as symbol manipulation: represent knowledge as logical " +
+          "statements and search through possibilities to find an answer. Programs like the Logic " +
+          "Theorist and General Problem Solver proved math theorems and solved puzzles, fueling huge " +
+          "optimism that human-level AI was just a decade away.",
+        keyFact: "GOFAI stands for “Good Old-Fashioned AI” — a label coined later, once other approaches took over."
+      },
+      {
+        start: 1974,
+        years: "1974 – 1980",
+        title: "The First AI Winter",
+        body: "Symbolic systems turned out to be brittle: they worked on toy problems but collapsed on " +
+          "messy real-world input, and couldn't handle uncertainty or learn from experience. " +
+          "Government reports (like the UK's 1973 Lighthill report) concluded AI had overpromised, and " +
+          "funding for AI research dried up worldwide.",
+        keyFact: "“AI winter” is a play on “nuclear winter” — coined by researchers living through the funding freeze."
+      },
+      {
+        start: 1980,
+        years: "1980 – 1987",
+        title: "Expert Systems Boom",
+        body: "AI research regrouped around a narrower, more commercially useful idea: encode a human " +
+          "expert's know-how as hundreds of if-then rules for one specific domain. Systems like MYCIN " +
+          "(medical diagnosis) and XCON (computer configuration) showed real business value, and an " +
+          "entire expert-systems industry — hardware, software, consulting — boomed.",
+        keyFact: "XCON reportedly saved Digital Equipment Corporation an estimated $40 million a year by the mid-1980s."
+      },
+      {
+        start: 1987,
+        years: "1987 – 1993",
+        title: "The Second AI Winter",
+        body: "Expert systems shared the same brittleness as their symbolic ancestors: every new " +
+          "situation needed another hand-written rule, and maintaining thousands of rules became " +
+          "unmanageable. When cheaper general-purpose computers made specialized “LISP machine” " +
+          "hardware obsolete almost overnight, the expert-systems industry collapsed and funding froze " +
+          "again.",
+        keyFact: "The LISP machine market — once worth hundreds of millions of dollars — largely evaporated within a few years."
+      },
+      {
+        start: 1993,
+        years: "1993 – 2006",
+        title: "The Statistical Machine Learning Shift",
+        body: "Instead of hand-coding rules, researchers increasingly let algorithms learn patterns " +
+          "directly from data — decision trees, support vector machines, statistical language models. " +
+          "This quieter, less hyped approach proved far more robust to messy real-world data than " +
+          "symbolic rule sets ever had. In 1997, IBM's Deep Blue beat world chess champion Garry " +
+          "Kasparov, blending brute-force search with learned evaluation.",
+        keyFact: "Many everyday 1990s–2000s tools — spam filters, search ranking, recommendation engines — were quietly built on this statistical ML wave, with none of the earlier hype."
+      },
+      {
+        start: 2006,
+        years: "2006 – 2012",
+        title: "Deep Learning Re-emerges",
+        body: "Neural networks had existed since the 1950s–80s but were considered impractical to " +
+          "train at scale. Around 2006, researchers found better ways to train many-layered " +
+          "(“deep”) networks, and cheap GPU hardware — originally built for video games — turned " +
+          "out to be perfect for the matrix math neural networks need. In 2012, a deep network called " +
+          "AlexNet dramatically won the ImageNet image-recognition competition, stunning the field.",
+        keyFact: "AlexNet roughly halved the ImageNet error rate compared to the next-best, non-deep-learning entry in 2012."
+      },
+      {
+        start: 2012,
+        years: "2012 – present",
+        title: "Scaling Up: Transformers and Generative AI",
+        body: "AlexNet's success kicked off a race to build bigger neural networks trained on more " +
+          "data with more compute. The 2017 invention of the Transformer architecture made it " +
+          "practical to train on massive amounts of text, leading to large language models (like GPT) " +
+          "and, alongside them, image- and audio-generating diffusion models — the generative AI wave " +
+          "defining AI today.",
+        keyFact: "The 2017 paper that introduced the Transformer architecture is titled “Attention Is All You Need.”"
+      }
+    ];
+
+    function eraEnd(idx) {
+      return idx + 1 < ERAS.length ? ERAS[idx + 1].start : TIMELINE_END;
+    }
+
+    function yearToPercent(year) {
+      return ((year - TIMELINE_START) / (TIMELINE_END - TIMELINE_START)) * 100;
+    }
+
+    function findEraIndexForYear(year) {
+      var idx = 0;
+      for (var i = 0; i < ERAS.length; i++) {
+        if (ERAS[i].start <= year) idx = i;
+      }
+      return idx;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Scrub through AI history",
+      instructions:
+        "Click a marker on the timeline, or drag the year slider, to move through AI's major eras " +
+        "— from symbolic AI in the 1950s to today's deep learning and generative AI. The detail " +
+        "panel below updates live with each era's story and a key fact.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var activeIndex = 1; // start on Symbolic AI, a good default landing era
+
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        // --- Year scrubber slider ---
+        var sliderRow = document.createElement("div");
+        sliderRow.className = "slider-row";
+        var sliderLabel = document.createElement("label");
+        sliderLabel.textContent = "Year";
+        sliderLabel.style.flex = "0 0 auto";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = String(TIMELINE_START);
+        slider.max = String(TIMELINE_END);
+        slider.value = String(ERAS[activeIndex].start);
+        slider.style.flex = "1 1 260px";
+        var yearReadout = document.createElement("span");
+        yearReadout.className = "readout";
+        yearReadout.textContent = slider.value;
+        sliderRow.appendChild(sliderLabel);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(yearReadout);
+        wrap.appendChild(sliderRow);
+
+        // --- Timeline track with clickable era markers ---
+        var track = document.createElement("div");
+        track.style.position = "relative";
+        track.style.width = "100%";
+        track.style.height = "70px";
+        track.style.margin = "20px 0 8px 0";
+        wrap.appendChild(track);
+
+        var trackLine = document.createElement("div");
+        trackLine.style.position = "absolute";
+        trackLine.style.left = "0";
+        trackLine.style.right = "0";
+        trackLine.style.top = "30px";
+        trackLine.style.height = "3px";
+        trackLine.style.background = "var(--color-border-strong)";
+        trackLine.style.borderRadius = "2px";
+        track.appendChild(trackLine);
+
+        var markers = ERAS.map(function (era, idx) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.setAttribute("aria-label", era.years + ": " + era.title);
+          btn.style.position = "absolute";
+          btn.style.left = yearToPercent(era.start) + "%";
+          btn.style.top = "16px";
+          btn.style.transform = "translateX(-50%)";
+          btn.style.width = "24px";
+          btn.style.height = "24px";
+          btn.style.borderRadius = "50%";
+          btn.style.border = "2px solid var(--color-primary)";
+          btn.style.background = "#fff";
+          btn.style.cursor = "pointer";
+          btn.style.padding = "0";
+
+          var yearLabel = document.createElement("div");
+          yearLabel.textContent = era.start;
+          yearLabel.style.position = "absolute";
+          yearLabel.style.left = yearToPercent(era.start) + "%";
+          yearLabel.style.top = "44px";
+          yearLabel.style.transform = "translateX(-50%)";
+          yearLabel.style.fontSize = "0.7rem";
+          yearLabel.style.color = "var(--color-text-faint)";
+          yearLabel.style.whiteSpace = "nowrap";
+          track.appendChild(yearLabel);
+
+          btn.addEventListener("click", function () {
+            setActiveEra(idx);
+          });
+
+          track.appendChild(btn);
+          return btn;
+        });
+
+        // --- Detail pane ---
+        var pane = document.createElement("div");
+        pane.style.background = "var(--color-bg)";
+        pane.style.border = "1px solid var(--color-border)";
+        pane.style.borderRadius = "8px";
+        pane.style.padding = "16px";
+        pane.style.marginTop = "12px";
+
+        var eraYearsEl = document.createElement("p");
+        eraYearsEl.className = "card-eyebrow";
+        eraYearsEl.style.margin = "0 0 4px 0";
+
+        var eraTitleEl = document.createElement("h3");
+        eraTitleEl.style.margin = "0 0 8px 0";
+
+        var eraBodyEl = document.createElement("p");
+        eraBodyEl.style.margin = "0 0 10px 0";
+
+        var eraFactEl = document.createElement("p");
+        eraFactEl.style.margin = "0";
+        eraFactEl.style.fontWeight = "600";
+        eraFactEl.style.color = "var(--color-accent-dark)";
+
+        pane.appendChild(eraYearsEl);
+        pane.appendChild(eraTitleEl);
+        pane.appendChild(eraBodyEl);
+        pane.appendChild(eraFactEl);
+        wrap.appendChild(pane);
+
+        root.appendChild(wrap);
+
+        function setActiveEra(idx) {
+          activeIndex = idx;
+          var era = ERAS[idx];
+
+          markers.forEach(function (m, i) {
+            var isActive = i === idx;
+            m.style.background = isActive ? "var(--color-primary)" : "#fff";
+            m.style.width = isActive ? "30px" : "24px";
+            m.style.height = isActive ? "30px" : "24px";
+            m.style.boxShadow = isActive ? "0 0 0 4px var(--color-primary-light)" : "none";
+          });
+
+          eraYearsEl.textContent = era.years;
+          eraTitleEl.textContent = era.title;
+          eraBodyEl.textContent = era.body;
+          eraFactEl.textContent = "Key fact: " + era.keyFact;
+
+          // Keep the slider in sync with the clicked era, without re-firing
+          // the era lookup (avoids feedback jitter while dragging).
+          slider.value = String(era.start);
+          yearReadout.textContent = era.start;
+        }
+
+        slider.addEventListener("input", function () {
+          var year = parseInt(slider.value, 10);
+          yearReadout.textContent = year;
+          var idx = findEraIndexForYear(year);
+          if (idx !== activeIndex) {
+            activeIndex = idx;
+            var era = ERAS[idx];
+            markers.forEach(function (m, i) {
+              var isActive = i === idx;
+              m.style.background = isActive ? "var(--color-primary)" : "#fff";
+              m.style.width = isActive ? "30px" : "24px";
+              m.style.height = isActive ? "30px" : "24px";
+              m.style.boxShadow = isActive ? "0 0 0 4px var(--color-primary-light)" : "none";
+            });
+            eraYearsEl.textContent = era.years;
+            eraTitleEl.textContent = era.title;
+            eraBodyEl.textContent = era.body;
+            eraFactEl.textContent = "Key fact: " + era.keyFact;
+          }
+        });
+
+        setActiveEra(activeIndex);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What happened at the 1956 Dartmouth workshop?",
+          options: [
+            "The term “artificial intelligence” was coined and the field was formally founded",
+            "The first neural network was trained on GPUs",
+            "The first commercial expert system was sold",
+            "The Transformer architecture was introduced"
+          ],
+          answer: 0,
+          explanation: "The 1956 Dartmouth workshop is where “artificial intelligence” was coined as a term and the field's founding ambitions were set out."
+        },
+        {
+          q: "What key weakness of both symbolic AI and expert systems contributed to the AI winters?",
+          options: [
+            "They were brittle — reliant on hand-written rules that failed on messy real-world cases and couldn't learn from experience",
+            "They required too much electricity to operate at all",
+            "They generalized too well to new situations",
+            "They could only run on quantum computers, which didn't exist yet"
+          ],
+          answer: 0,
+          explanation: "Both approaches depended on hand-coded rules. Rules that don't cover a new situation simply fail, and neither approach could learn or adapt from data on its own."
+        },
+        {
+          q: "What two things enabled the deep learning breakthrough around 2006–2012?",
+          options: [
+            "Better techniques for training many-layered networks, plus GPU hardware for large-scale matrix computation",
+            "The invention of the internet and the first personal computer",
+            "A government ban on symbolic AI research",
+            "The complete elimination of the need for training data"
+          ],
+          answer: 0,
+          explanation: "Improved training methods for deep (many-layered) networks combined with GPU hardware capable of the needed matrix math made large-scale neural networks practical for the first time."
+        },
+        {
+          q: "Which architecture, introduced in 2017, made it practical to train large language models on massive text datasets?",
+          options: ["The Transformer", "The Expert System", "The Perceptron", "The LISP machine"],
+          answer: 0,
+          explanation: "The 2017 paper “Attention Is All You Need” introduced the Transformer architecture, which underlies today's large language models."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

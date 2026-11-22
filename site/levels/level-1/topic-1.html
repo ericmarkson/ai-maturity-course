@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What AI, ML, and Deep Learning Actually Are (and How They Differ) — AI Maturity Course</title>
+<meta name="description" content="How Artificial Intelligence, Machine Learning, and Deep Learning relate as nested fields, with a drag-and-drop sorting exercise.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-1";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>What AI, ML, and Deep Learning Actually Are (and How They Differ)</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can correctly place a given real-world system
+      (e.g., a spam filter, a spreadsheet formula, ChatGPT) into the right layer of the AI/ML/DL
+      nesting diagram and explain why.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          These three terms get used almost interchangeably in headlines, but they describe three
+          nested fields, not three separate ones. <strong>Artificial Intelligence (AI)</strong> is
+          the broad goal: building machines that behave intelligently, however that behavior is
+          produced. <strong>Machine Learning (ML)</strong> is the subset of AI that reaches that
+          goal by learning patterns from data instead of following rules a person wrote by hand.
+          <strong>Deep Learning (DL)</strong> is the subset of ML that learns those patterns using
+          neural networks stacked into many layers. Every deep learning system is machine
+          learning; every machine learning system is AI. The reverse isn't true — plenty of AI is
+          neither ML nor deep learning.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The nesting relationship: AI ⊃ ML ⊃ Deep Learning — three concentric circles, not three separate boxes</li>
+        <li>Rule-based / symbolic AI (the pre-ML era, where humans hand-wrote the logic) vs. learning-based AI (where the system infers the logic from examples)</li>
+        <li>Why "deep" refers to having many layers of neurons stacked on top of each other — not to how sophisticated or "smart" the system feels</li>
+        <li>Common confusions: marketing uses "AI" loosely for almost any automation, while the technical term is much narrower and more specific</li>
+      </ul>
+      <p>
+        A useful gut-check: if a system's behavior comes entirely from logic a person wrote (if
+        this, then that), it's AI but not ML, no matter how clever the rules are. If it improves
+        by looking at data and adjusting internal numbers, it's ML. And if those internal numbers
+        live inside a neural network with several stacked layers, it's deep learning specifically.
+        A neural network with just one shallow layer is still ML — it only earns the "deep" label
+        once it has real depth.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var ZONES = [
+      { key: "notai", label: "Not AI at all", hint: "No intelligence, no learning — just fixed logic/arithmetic." },
+      { key: "ai", label: "AI (rule-based / symbolic)", hint: "Hand-written rules produce intelligent-seeming behavior — no learning from data." },
+      { key: "ml", label: "Machine Learning (not deep)", hint: "Learns patterns from data, but not with a deep neural network." },
+      { key: "dl", label: "Deep Learning", hint: "Learns patterns using a neural network with many stacked layers." }
+    ];
+
+    var ITEMS = [
+      { id: "calc", label: "Spreadsheet SUM formula", zone: "notai", note: "Just fixed arithmetic — no intelligence, no learning. Not AI at all." },
+      { id: "chess", label: "1970s rule-based chess program", zone: "ai", note: "Hand-written if/then rules play chess — intelligent behavior, but nothing is learned from data, so it's AI without being ML." },
+      { id: "expert", label: "Medical expert system (rule book)", zone: "ai", note: "Encodes a doctor's rules as if/then logic. Classic symbolic AI — no training data involved." },
+      { id: "spam", label: "1990s Naive Bayes spam filter", zone: "ml", note: "Learns spam-vs-not patterns from a dataset of labeled emails — that's ML, but a shallow statistical model, not deep learning." },
+      { id: "reco", label: "Collaborative-filtering recommender", zone: "ml", note: "Learns from ratings data using matrix math, not a stacked neural network — ML without depth." },
+      { id: "digits", label: "Single-hidden-layer digit recognizer", zone: "ml", note: "Technically a tiny neural network, but with only one shallow layer it doesn't count as “deep” — still just ML." },
+      { id: "imgnet", label: "CNN image recognizer (e.g. ResNet)", zone: "dl", note: "Many stacked convolutional layers learning features automatically — this is deep learning." },
+      { id: "gpt", label: "GPT-style chatbot", zone: "dl", note: "A deep transformer network with dozens of layers trained on huge datasets — deep learning." },
+      { id: "voice", label: "Modern voice-assistant speech recognizer", zone: "dl", note: "Uses deep neural networks to convert audio to text — deep learning under the hood." }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Sort each system into AI, ML, or Deep Learning",
+      instructions: "Drag each chip below onto the zone you think it belongs in (or click/press Enter on a " +
+        "chip to pick it up, then click/press Enter on a zone to place it there). AI, ML, and DL are " +
+        "nested (AI ⊃ ML ⊃ DL), so pick the innermost/most-specific zone that still applies. " +
+        "Correct drops turn green and lock in place with an explanation; wrong drops bounce back.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var solved = {};
+        var selectedItemId = null;
+
+        var zonesWrap = document.createElement("div");
+        zonesWrap.style.display = "flex";
+        zonesWrap.style.flexWrap = "wrap";
+        zonesWrap.style.gap = "12px";
+        zonesWrap.style.marginBottom = "16px";
+
+        var zoneEls = {};
+
+        ZONES.forEach(function (z, i) {
+          var box = document.createElement("div");
+          box.dataset.zone = z.key;
+          box.style.flex = "1 1 200px";
+          box.style.minHeight = "150px";
+          box.style.border = "2px dashed var(--color-border-strong)";
+          box.style.borderRadius = "10px";
+          box.style.padding = "10px";
+          box.style.background = i === 0 ? "#f5f7fb" : i === 1 ? "#eef1f8" : i === 2 ? "#e3eafc" : "#dce6ff";
+
+          var title = document.createElement("div");
+          title.textContent = z.label;
+          title.style.fontWeight = "700";
+          title.style.marginBottom = "4px";
+          box.appendChild(title);
+
+          var hint = document.createElement("div");
+          hint.textContent = z.hint;
+          hint.style.fontSize = "0.8rem";
+          hint.style.color = "var(--color-text-faint)";
+          hint.style.marginBottom = "8px";
+          box.appendChild(hint);
+
+          var dropArea = document.createElement("div");
+          dropArea.style.minHeight = "70px";
+          box.appendChild(dropArea);
+
+          box.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            box.style.borderColor = "var(--color-primary)";
+          });
+          box.addEventListener("dragleave", function () {
+            box.style.borderColor = "var(--color-border-strong)";
+          });
+          box.addEventListener("drop", function (e) {
+            e.preventDefault();
+            box.style.borderColor = "var(--color-border-strong)";
+            var itemId = e.dataTransfer.getData("text/plain");
+            handleDrop(itemId, z.key, dropArea);
+          });
+
+          // Keyboard/click fallback: tab to a zone, press Enter/Space (or click) to drop
+          // whichever chip is currently "picked up" into this zone.
+          box.tabIndex = 0;
+          box.style.cursor = "pointer";
+          box.setAttribute("role", "button");
+          box.setAttribute("aria-label", "Drop zone: " + z.label + ". " + z.hint +
+            " Pick up a chip first, then activate this zone to place it here.");
+          box.addEventListener("click", function () {
+            if (selectedItemId === null) return;
+            var placedId = selectedItemId;
+            selectedItemId = null;
+            handleDrop(placedId, z.key, dropArea);
+          });
+          box.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              box.click();
+            }
+          });
+
+          zoneEls[z.key] = dropArea;
+          zonesWrap.appendChild(box);
+        });
+
+        root.appendChild(zonesWrap);
+
+        var pool = document.createElement("div");
+        pool.style.display = "flex";
+        pool.style.flexWrap = "wrap";
+        pool.style.gap = "8px";
+        pool.style.padding = "10px";
+        pool.style.border = "1px solid var(--color-border)";
+        pool.style.borderRadius = "8px";
+        pool.style.background = "#fff";
+        root.appendChild(pool);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.marginTop = "10px";
+        status.style.fontWeight = "600";
+        root.appendChild(status);
+
+        var chipEls = {};
+
+        ITEMS.forEach(function (item) {
+          var chip = document.createElement("div");
+          chip.textContent = item.label;
+          chip.draggable = true;
+          chip.dataset.id = item.id;
+          chip.style.padding = "8px 12px";
+          chip.style.borderRadius = "999px";
+          chip.style.border = "1px solid var(--color-border-strong)";
+          chip.style.background = "#fff";
+          chip.style.cursor = "grab";
+          chip.style.fontSize = "0.9rem";
+
+          chip.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", item.id);
+          });
+
+          // Keyboard/click fallback: tab to a chip, press Enter/Space (or click) to pick it up,
+          // then tab to a zone and press Enter/Space (or click) to place it there.
+          chip.tabIndex = 0;
+          chip.setAttribute("role", "button");
+          chip.setAttribute("aria-label", item.label + ". Click or press Enter to pick up, then " +
+            "activate a zone to place it there.");
+          chip.addEventListener("click", function () {
+            if (solved[item.id]) return;
+            if (selectedItemId === item.id) {
+              selectedItemId = null;
+              chip.style.boxShadow = "";
+              chip.style.borderColor = "var(--color-border-strong)";
+              return;
+            }
+            Object.keys(chipEls).forEach(function (id) {
+              if (!solved[id]) {
+                chipEls[id].style.boxShadow = "";
+                chipEls[id].style.borderColor = "var(--color-border-strong)";
+              }
+            });
+            selectedItemId = item.id;
+            chip.style.boxShadow = "0 0 0 3px var(--color-primary-light)";
+            chip.style.borderColor = "var(--color-primary)";
+          });
+          chip.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              chip.click();
+            }
+          });
+
+          chipEls[item.id] = chip;
+          pool.appendChild(chip);
+        });
+
+        function updateStatus() {
+          var count = Object.keys(solved).length;
+          if (count === ITEMS.length) {
+            status.textContent = "All " + ITEMS.length + " systems sorted correctly! Nice work.";
+            status.style.color = "var(--color-success)";
+          } else {
+            status.textContent = count + " / " + ITEMS.length + " placed correctly.";
+            status.style.color = "var(--color-text-muted)";
+          }
+        }
+
+        function handleDrop(itemId, zoneKey, dropArea) {
+          if (solved[itemId]) return;
+          var item = ITEMS.filter(function (i) { return i.id === itemId; })[0];
+          var chip = chipEls[itemId];
+          if (!item || !chip) return;
+
+          if (item.zone === zoneKey) {
+            solved[itemId] = true;
+            chip.style.background = "var(--color-success-bg)";
+            chip.style.borderColor = "var(--color-success)";
+            chip.style.cursor = "default";
+            chip.draggable = false;
+            var note = document.createElement("div");
+            note.textContent = "✓ " + item.label + " — " + item.note;
+            note.style.fontSize = "0.78rem";
+            note.style.color = "var(--color-success)";
+            note.style.marginTop = "2px";
+            chip.appendChild(note);
+            dropArea.appendChild(chip);
+          } else {
+            chip.style.background = "var(--color-error-bg)";
+            chip.style.borderColor = "var(--color-error)";
+            status.textContent = "Not quite — " + item.label + " doesn't belong there. Try another zone.";
+            status.style.color = "var(--color-error)";
+            setTimeout(function () {
+              chip.style.background = "#fff";
+              chip.style.borderColor = "var(--color-border-strong)";
+              updateStatus();
+            }, 900);
+          }
+          updateStatus();
+        }
+
+        updateStatus();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which nesting relationship between the three fields is correct?",
+          options: ["AI ⊃ ML ⊃ Deep Learning", "ML ⊃ AI ⊃ Deep Learning", "Deep Learning ⊃ ML ⊃ AI", "They are three separate, unrelated fields"],
+          answer: 0,
+          explanation: "AI is the broadest goal; ML is the subset that learns from data; deep learning is the subset of ML that uses many-layered neural networks."
+        },
+        {
+          q: "A 1970s chess program that follows only hand-written if/then rules and never looks at data is best classified as:",
+          options: ["Deep learning", "Machine learning, but not deep", "AI, but not ML", "Not AI at all"],
+          answer: 2,
+          explanation: "It behaves intelligently (so it's AI) but never learns from data (so it isn't ML, and therefore can't be deep learning either)."
+        },
+        {
+          q: "What does the word “deep” in “deep learning” actually refer to?",
+          options: ["How sophisticated or smart the system seems", "Having many stacked layers in the neural network", "Requiring deep math expertise to build", "Using an especially large dataset"],
+          answer: 1,
+          explanation: "“Deep” is a structural term — it means the network has many layers stacked between input and output, not a claim about intelligence."
+        },
+        {
+          q: "A neural network with just one shallow hidden layer, trained on labeled data, is:",
+          options: ["Not AI", "AI but not ML", "ML, but not deep enough to be called deep learning", "Automatically deep learning because it's a neural network"],
+          answer: 2,
+          explanation: "It learns from data, so it's ML — but with only one shallow layer it doesn't have the depth needed to be called deep learning."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

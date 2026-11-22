@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pretrained Language Models (BERT/GPT-style) — AI Maturity Course</title>
+<meta name="description" content="How masked (BERT-style) and autoregressive (GPT-style) pretraining differ, and when each is the right fit.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-2";
+</script>
+<style>
+  .plm-panels { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4); }
+  @media (max-width: 680px) { .plm-panels { grid-template-columns: 1fr; } }
+  .plm-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-bg-alt); }
+  .plm-panel h3 { margin-top: 0; }
+  .plm-context { font-family: var(--font-mono); background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2); margin: var(--space-2) 0; }
+  .plm-candidate { display: flex; justify-content: space-between; padding: 3px 0; font-family: var(--font-mono); font-size: var(--font-size-sm); }
+  .plm-candidate.top { font-weight: 700; color: var(--color-primary-dark); }
+  .plm-bar-track { background: var(--color-bg-inset); border-radius: 6px; height: 8px; overflow: hidden; margin: 2px 0 8px 0; }
+  .plm-bar-fill { height: 100%; background: var(--color-primary); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Pretrained Language Models (BERT/GPT-style)</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Correctly classify a given model or task as better suited to a BERT-style
+      vs. GPT-style pretraining objective, and explain why.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Pretrained language models</strong> are transformers trained once on huge amounts of general text
+          so they already "know" language patterns, then reused for many different tasks instead of training from
+          scratch each time. <strong>BERT-style</strong> models are trained with masked language modeling — predict a
+          hidden word using context from <em>both</em> sides — which makes them strong at understanding tasks.
+          <strong>GPT-style</strong> models are trained with next-token prediction — predict the next word using only
+          the words <em>before</em> it — which makes them naturally suited to open-ended text generation.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Masked language modeling (BERT-style, bidirectional understanding) vs. next-token prediction (GPT-style, autoregressive generation)</li>
+        <li>Pretraining vs. downstream task adaptation</li>
+        <li>Model families and scale (small/base/large variants, why parameter count matters)</li>
+        <li>Why "pretrained + adapt" beat training every model from scratch</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Fill the blank: BERT-style (both sides) vs. GPT-style (left only)",
+      instructions:
+        "Write a sentence with one word replaced by ____ (or use the default). Click Predict and compare a " +
+        "BERT-style prediction — which is allowed to use words on BOTH sides of the blank — against a GPT-style " +
+        "prediction, which is only allowed to use the words BEFORE the blank.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var DEFAULT_SENTENCE = "I drank a hot ____ this morning";
+
+        // Toy "vocabulary" standing in for a real model's learned associations.
+        var VOCAB = [
+          { word: "coffee", neighbors: ["drank", "hot", "morning", "cup", "brewed", "mug"] },
+          { word: "tea", neighbors: ["drank", "hot", "morning", "cup", "brewed", "kettle"] },
+          { word: "mat", neighbors: ["cat", "sat", "the", "rug", "floor"] },
+          { word: "park", neighbors: ["dog", "walked", "ran", "play", "outside"] },
+          { word: "movie", neighbors: ["watched", "theater", "popcorn", "night", "film"] },
+          { word: "umbrella", neighbors: ["rain", "wet", "cloudy", "storm", "carried"] },
+          { word: "pizza", neighbors: ["ate", "cheese", "slice", "delivery", "hot", "hungry"] },
+          { word: "book", neighbors: ["read", "pages", "library", "story", "chapter"] },
+          { word: "homework", neighbors: ["finished", "school", "teacher", "assignment", "studied"] },
+          { word: "beach", neighbors: ["swam", "sand", "sun", "ocean", "vacation"] },
+          { word: "dog", neighbors: ["barked", "leash", "walked", "yard", "bone", "mailman", "loudly"] },
+          { word: "cat", neighbors: ["meowed", "purred", "whiskers", "kitten", "scratched", "sat"] },
+          { word: "phone", neighbors: ["rang", "called", "screen", "battery", "charger", "text"] },
+          { word: "music", neighbors: ["played", "song", "loud", "concert", "band", "listened"] },
+          { word: "snow", neighbors: ["cold", "winter", "melted", "shoveled", "white", "storm"] },
+          { word: "car", neighbors: ["drove", "engine", "parked", "garage", "keys", "traffic"] }
+        ];
+
+        var wrap = document.createElement("div");
+
+        var inputRow = document.createElement("div");
+        inputRow.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "plm-sentence");
+        label.textContent = "Sentence with ____";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.id = "plm-sentence";
+        input.value = DEFAULT_SENTENCE;
+        input.style.flex = "1";
+        input.style.minWidth = "240px";
+        input.style.padding = "6px 8px";
+        var predictBtn = document.createElement("button");
+        predictBtn.type = "button";
+        predictBtn.className = "btn btn-primary";
+        predictBtn.textContent = "Predict";
+        inputRow.appendChild(label);
+        inputRow.appendChild(input);
+        inputRow.appendChild(predictBtn);
+        wrap.appendChild(inputRow);
+
+        var hint = document.createElement("p");
+        hint.className = "attn-legend";
+        hint.style.color = "var(--color-text-muted)";
+        hint.style.fontSize = "var(--font-size-sm)";
+        hint.textContent = "Try: \"The ____ barked loudly at the mailman in the park\" or \"I ____ two slices of pizza because I was hungry\".";
+        wrap.appendChild(hint);
+
+        var panels = document.createElement("div");
+        panels.className = "plm-panels";
+
+        var bertPanel = document.createElement("div");
+        bertPanel.className = "plm-panel";
+        bertPanel.innerHTML = "<h3>BERT-style (bidirectional)</h3><p style='color:var(--color-text-muted); font-size:var(--font-size-sm); margin-top:-8px;'>Sees words before AND after the blank.</p>";
+        var bertContext = document.createElement("div");
+        bertContext.className = "plm-context";
+        bertPanel.appendChild(bertContext);
+        var bertResults = document.createElement("div");
+        bertPanel.appendChild(bertResults);
+
+        var gptPanel = document.createElement("div");
+        gptPanel.className = "plm-panel";
+        gptPanel.innerHTML = "<h3>GPT-style (autoregressive)</h3><p style='color:var(--color-text-muted); font-size:var(--font-size-sm); margin-top:-8px;'>Only sees words BEFORE the blank.</p>";
+        var gptContext = document.createElement("div");
+        gptContext.className = "plm-context";
+        gptPanel.appendChild(gptContext);
+        var gptResults = document.createElement("div");
+        gptPanel.appendChild(gptResults);
+
+        panels.appendChild(bertPanel);
+        panels.appendChild(gptPanel);
+        wrap.appendChild(panels);
+
+        root.appendChild(wrap);
+
+        function cleanWords(str) {
+          return str.toLowerCase().split(/\s+/).map(function (w) { return w.replace(/[^\w']/g, ""); }).filter(Boolean);
+        }
+
+        function scoreCandidates(contextWords) {
+          return VOCAB.map(function (entry) {
+            var overlap = entry.neighbors.filter(function (n) { return contextWords.indexOf(n) !== -1; }).length;
+            return { word: entry.word, score: overlap };
+          }).sort(function (a, b) { return b.score - a.score; });
+        }
+
+        function renderResults(container, ranked) {
+          container.innerHTML = "";
+          var maxScore = Math.max(1, ranked[0].score);
+          ranked.slice(0, 4).forEach(function (r, i) {
+            var row = document.createElement("div");
+            row.className = "plm-candidate" + (i === 0 ? " top" : "");
+            var name = document.createElement("span");
+            name.textContent = (i === 0 ? "→ " : "") + r.word;
+            var score = document.createElement("span");
+            score.textContent = r.score + " context match" + (r.score === 1 ? "" : "es");
+            row.appendChild(name);
+            row.appendChild(score);
+            container.appendChild(row);
+            var track = document.createElement("div");
+            track.className = "plm-bar-track";
+            var fill = document.createElement("div");
+            fill.className = "plm-bar-fill";
+            fill.style.width = Math.round((r.score / maxScore) * 100) + "%";
+            track.appendChild(fill);
+            container.appendChild(track);
+          });
+        }
+
+        function predict() {
+          var raw = input.value.trim() || DEFAULT_SENTENCE;
+          if (raw.indexOf("____") === -1) raw += " ____";
+          var blankIdx = raw.split(/\s+/).findIndex(function (w) { return w.indexOf("____") !== -1; });
+          var words = raw.split(/\s+/);
+          var leftRaw = words.slice(0, blankIdx).join(" ");
+          var rightRaw = words.slice(blankIdx + 1).join(" ");
+
+          bertContext.textContent = (leftRaw ? leftRaw + " " : "") + "[ ? ]" + (rightRaw ? " " + rightRaw : "");
+          gptContext.textContent = (leftRaw ? leftRaw + " " : "") + "[ ? ]  (everything after is invisible to GPT-style)";
+
+          var leftWords = cleanWords(leftRaw);
+          var rightWords = cleanWords(rightRaw);
+
+          var bertRanked = scoreCandidates(leftWords.concat(rightWords));
+          var gptRanked = scoreCandidates(leftWords);
+
+          renderResults(bertResults, bertRanked);
+          renderResults(gptResults, gptRanked);
+        }
+
+        predictBtn.addEventListener("click", predict);
+        input.addEventListener("keydown", function (e) { if (e.key === "Enter") predict(); });
+
+        predict();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A masked language model (BERT-style) predicting a hidden word can use context from:",
+          options: ["Only the words before the mask", "Only the words after the mask", "Words on both sides of the mask", "No context at all"],
+          answer: 2,
+          explanation: "BERT-style masked language modeling is bidirectional — it uses context from both the left and right of the masked token."
+        },
+        {
+          q: "Which task is more naturally suited to a GPT-style (autoregressive, left-to-right) model?",
+          options: ["Filling in a single missing word using surrounding sentence context", "Generating the next sentence of an open-ended story", "Classifying whether two sentences mean the same thing", "None of these — BERT and GPT are interchangeable"],
+          answer: 1,
+          explanation: "GPT-style next-token prediction naturally extends text left-to-right, making it well suited to open-ended generation like continuing a story."
+        },
+        {
+          q: "Why do practitioners usually reuse a pretrained model instead of training from scratch for every new task?",
+          options: [
+            "Pretraining is illegal to repeat",
+            "Pretrained models already encode general language patterns learned from huge datasets, so adapting them is far cheaper than learning language from zero",
+            "Training from scratch always produces a better model",
+            "Pretrained models require no data at all for the downstream task"
+          ],
+          answer: 1,
+          explanation: "The pretrain-then-adapt approach lets a downstream task benefit from patterns learned over massive general corpora, requiring far less task-specific data and compute."
+        },
+        {
+          q: "In the exercise, why does the GPT-style panel ignore words that appear after the blank even when they are present in the sentence?",
+          options: [
+            "It's a rendering bug",
+            "It simulates the autoregressive constraint: a GPT-style model only ever conditions on tokens generated so far, not future tokens",
+            "GPT-style models can't process punctuation",
+            "The right-hand words are always irrelevant to meaning"
+          ],
+          answer: 1,
+          explanation: "GPT-style models generate one token at a time based only on previous tokens, so at prediction time future words are unavailable by design — the exercise simulates that constraint directly."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intro to Evals for ML/LLM Systems — AI Maturity Course</title>
+<meta name="description" content="Learn why LLM systems need systematic evals, how rubric-based grading works, and what a regression is — then build and run your own mini eval suite.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-5";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Intro to Evals for ML/LLM Systems</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can design a minimal eval set (5-10 test cases
+      with expected criteria) for a simple task (e.g., a summarization prompt) and explain what
+      "regression" means in an eval context.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Evals</strong> are systematic tests that measure how well an ML or LLM system
+          performs on tasks that matter, going beyond a single accuracy number to catch failure
+          modes before real users do. Instead of eyeballing a few outputs, you run the system
+          against a fixed set of test cases and score each one against explicit criteria — so you
+          can compare runs objectively, and re-run the same suite after any change.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why evals matter more for LLMs — open-ended, non-deterministic outputs vs. fixed-label classification</li>
+        <li>Reference-based metrics (exact match, similarity to a gold answer) vs. rubric/criteria-based grading</li>
+        <li>Building a small eval set: representative test cases plus deliberately tricky edge cases</li>
+        <li>Automated eval runs as regression tests — catching quality drops when a prompt or model changes</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // ---- A pool of test cases the learner can pick for their eval set ----
+    var TEST_CASES = [
+      { id: 1, product: "UltraBlend 3000 Blender", rating: 5, sentiment: "positive",
+        review: "This blender crushed ice like it was nothing and cleanup was a breeze. Best purchase this year." },
+      { id: 2, product: "UltraBlend 3000 Blender", rating: 2, sentiment: "negative",
+        review: "The motor burned out after two weeks. Very disappointing for the price." },
+      { id: 3, product: "AeroFit Running Shoes", rating: 4, sentiment: "positive",
+        review: "Comfortable for long runs, though the laces are a bit short." },
+      { id: 4, product: "AeroFit Running Shoes", rating: 1, sentiment: "negative",
+        review: "Sole separated from the shoe after one run. Returning immediately." },
+      { id: 5, product: "NimbusCloud Backpack", rating: 5, sentiment: "positive",
+        review: "Waterproof, roomy, and the back support is excellent on long hikes." },
+      { id: 6, product: "NimbusCloud Backpack", rating: 3, sentiment: "neutral",
+        review: "Good storage but the zippers feel flimsy. Works fine for now." }
+    ];
+
+    var RUBRIC = [
+      { key: "product", label: "Summary names the specific product" },
+      { key: "sentiment", label: "Summary states the sentiment (positive / negative / neutral)" },
+      { key: "rating", label: "Summary includes the numeric star rating" },
+      { key: "oneSentence", label: "Summary is a single sentence (no run-on with extra sentences)" }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Build a mini eval suite for a summarization prompt",
+      instructions:
+        "Pick which test cases to include and which rubric criteria must pass. Edit the prompt " +
+        "template so a simulated model follows your instructions, then click \"Run Eval Suite\" " +
+        "and watch the pass-rate bar. Set a baseline, then edit the prompt again to see whether " +
+        "your change is an improvement or a regression.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- Prompt template textarea ----
+        var promptLabel = document.createElement("label");
+        promptLabel.setAttribute("for", "prompt-template");
+        promptLabel.style.fontWeight = "600";
+        promptLabel.style.display = "block";
+        promptLabel.style.marginBottom = "0.4rem";
+        promptLabel.textContent = "Prompt template (this drives the simulated model's output):";
+        wrap.appendChild(promptLabel);
+
+        var textarea = document.createElement("textarea");
+        textarea.id = "prompt-template";
+        textarea.rows = 3;
+        textarea.style.width = "100%";
+        textarea.style.fontFamily = "var(--font-mono)";
+        textarea.style.padding = "0.5rem";
+        textarea.style.border = "1px solid var(--color-border)";
+        textarea.style.borderRadius = "6px";
+        textarea.value = "Summarize this product review.";
+        wrap.appendChild(textarea);
+
+        var hint = document.createElement("p");
+        hint.style.fontSize = "var(--font-size-sm)";
+        hint.style.color = "var(--color-text-muted)";
+        hint.innerHTML =
+          "Hint: the simulated model looks for phrases like <em>\"product name\"</em>, " +
+          "<em>\"sentiment\"</em>, <em>\"star rating\"</em>, or <em>\"in detail\"</em> in your " +
+          "instructions and changes its output accordingly.";
+        wrap.appendChild(hint);
+
+        // ---- Test case picker ----
+        var caseFieldset = document.createElement("fieldset");
+        caseFieldset.style.border = "1px solid var(--color-border)";
+        caseFieldset.style.borderRadius = "8px";
+        caseFieldset.style.margin = "1rem 0";
+        caseFieldset.style.padding = "0.75rem 1rem";
+        var caseLegend = document.createElement("legend");
+        caseLegend.style.fontWeight = "600";
+        caseLegend.textContent = "Test cases in this eval set";
+        caseFieldset.appendChild(caseLegend);
+
+        var caseCheckboxes = {};
+        TEST_CASES.forEach(function (tc) {
+          var row = document.createElement("label");
+          row.style.display = "flex";
+          row.style.alignItems = "flex-start";
+          row.style.gap = "0.5rem";
+          row.style.marginBottom = "0.4rem";
+          row.style.cursor = "pointer";
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = true;
+          cb.dataset.caseId = tc.id;
+          caseCheckboxes[tc.id] = cb;
+          var txt = document.createElement("span");
+          txt.innerHTML = "<strong>#" + tc.id + " " + tc.product + "</strong> — “" + tc.review + "”";
+          row.appendChild(cb);
+          row.appendChild(txt);
+          caseFieldset.appendChild(row);
+        });
+        wrap.appendChild(caseFieldset);
+
+        // ---- Rubric picker ----
+        var rubricFieldset = document.createElement("fieldset");
+        rubricFieldset.style.border = "1px solid var(--color-border)";
+        rubricFieldset.style.borderRadius = "8px";
+        rubricFieldset.style.margin = "1rem 0";
+        rubricFieldset.style.padding = "0.75rem 1rem";
+        var rubricLegend = document.createElement("legend");
+        rubricLegend.style.fontWeight = "600";
+        rubricLegend.textContent = "Grading rubric — a test case passes only if ALL checked criteria are met";
+        rubricFieldset.appendChild(rubricLegend);
+
+        var rubricCheckboxes = {};
+        RUBRIC.forEach(function (r) {
+          var row = document.createElement("label");
+          row.style.display = "flex";
+          row.style.alignItems = "center";
+          row.style.gap = "0.5rem";
+          row.style.marginBottom = "0.4rem";
+          row.style.cursor = "pointer";
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = true;
+          cb.dataset.key = r.key;
+          rubricCheckboxes[r.key] = cb;
+          var txt = document.createElement("span");
+          txt.textContent = r.label;
+          row.appendChild(cb);
+          row.appendChild(txt);
+          rubricFieldset.appendChild(row);
+        });
+        wrap.appendChild(rubricFieldset);
+
+        // ---- Buttons ----
+        var toolbar = document.createElement("div");
+        toolbar.style.display = "flex";
+        toolbar.style.gap = "0.75rem";
+        toolbar.style.flexWrap = "wrap";
+        toolbar.style.marginBottom = "1rem";
+
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run Eval Suite";
+
+        var baselineBtn = document.createElement("button");
+        baselineBtn.type = "button";
+        baselineBtn.className = "btn btn-secondary";
+        baselineBtn.textContent = "Set current score as baseline";
+
+        toolbar.appendChild(runBtn);
+        toolbar.appendChild(baselineBtn);
+        wrap.appendChild(toolbar);
+
+        // ---- Pass-rate bar ----
+        var barWrap = document.createElement("div");
+        barWrap.className = "progress-bar";
+        barWrap.style.marginBottom = "0.5rem";
+        var barFill = document.createElement("div");
+        barFill.className = "progress-bar-fill";
+        barFill.style.width = "0%";
+        barWrap.appendChild(barFill);
+        wrap.appendChild(barWrap);
+
+        var scoreLine = document.createElement("p");
+        scoreLine.style.fontWeight = "700";
+        scoreLine.textContent = "No eval run yet.";
+        wrap.appendChild(scoreLine);
+
+        var baselineLine = document.createElement("p");
+        baselineLine.setAttribute("role", "status");
+        baselineLine.style.fontWeight = "600";
+        baselineLine.style.minHeight = "1.2em";
+        wrap.appendChild(baselineLine);
+
+        // ---- Results table ----
+        var resultsHost = document.createElement("div");
+        wrap.appendChild(resultsHost);
+
+        root.appendChild(wrap);
+
+        var baselinePercent = null;
+
+        function simulateOutput(template, tc) {
+          var t = template.toLowerCase();
+          var parts = [];
+          if (t.indexOf("product name") !== -1 || t.indexOf("{product}") !== -1) {
+            parts.push(tc.product);
+          }
+          if (t.indexOf("sentiment") !== -1 || t.indexOf("tone") !== -1) {
+            parts.push(tc.sentiment + " review");
+          }
+          if (t.indexOf("rating") !== -1 || t.indexOf("star") !== -1) {
+            parts.push(tc.rating + " star" + (tc.rating === 1 ? "" : "s"));
+          }
+          var base = parts.length ? parts.join(", ") : "a review of a product";
+          var output = "Summary: " + base.charAt(0).toUpperCase() + base.slice(1) + ".";
+          if (t.indexOf("in detail") !== -1 || t.indexOf("paragraph") !== -1) {
+            output += " The reviewer also described their full experience over several additional sentences.";
+          }
+          return output;
+        }
+
+        function grade(output, tc, activeRubricKeys) {
+          var checks = {
+            product: output.indexOf(tc.product) !== -1,
+            sentiment: output.toLowerCase().indexOf(tc.sentiment) !== -1,
+            rating: output.indexOf(tc.rating + " star") !== -1,
+            oneSentence: output.split(".").filter(function (s) { return s.trim().length > 0; }).length <= 1
+          };
+          var pass = true;
+          activeRubricKeys.forEach(function (key) {
+            if (!checks[key]) pass = false;
+          });
+          return { checks: checks, pass: pass };
+        }
+
+        function renderResults(rows) {
+          resultsHost.innerHTML = "";
+          var table = document.createElement("table");
+          table.style.width = "100%";
+          table.style.borderCollapse = "collapse";
+          table.style.marginTop = "0.5rem";
+
+          var thead = document.createElement("tr");
+          ["Case", "Simulated output", "Result"].forEach(function (h) {
+            var th = document.createElement("th");
+            th.textContent = h;
+            th.style.textAlign = "left";
+            th.style.padding = "0.4rem";
+            th.style.borderBottom = "2px solid var(--color-border)";
+            thead.appendChild(th);
+          });
+          table.appendChild(thead);
+
+          rows.forEach(function (row) {
+            var tr = document.createElement("tr");
+            tr.style.borderBottom = "1px solid var(--color-border)";
+
+            var tdCase = document.createElement("td");
+            tdCase.style.padding = "0.4rem";
+            tdCase.textContent = "#" + row.tc.id + " " + row.tc.product;
+            tr.appendChild(tdCase);
+
+            var tdOut = document.createElement("td");
+            tdOut.style.padding = "0.4rem";
+            tdOut.style.fontFamily = "var(--font-mono)";
+            tdOut.style.fontSize = "var(--font-size-sm)";
+            tdOut.textContent = row.output;
+            tr.appendChild(tdOut);
+
+            var tdResult = document.createElement("td");
+            tdResult.style.padding = "0.4rem";
+            tdResult.style.fontWeight = "700";
+            tdResult.style.color = row.pass ? "var(--color-success)" : "var(--color-error)";
+            tdResult.textContent = row.pass ? "PASS" : "FAIL";
+            tr.appendChild(tdResult);
+
+            table.appendChild(tr);
+          });
+
+          resultsHost.appendChild(table);
+        }
+
+        function runEval() {
+          var template = textarea.value;
+          var activeCases = TEST_CASES.filter(function (tc) { return caseCheckboxes[tc.id].checked; });
+          var activeRubricKeys = RUBRIC
+            .filter(function (r) { return rubricCheckboxes[r.key].checked; })
+            .map(function (r) { return r.key; });
+
+          if (activeCases.length === 0) {
+            scoreLine.textContent = "Select at least one test case to run the eval.";
+            scoreLine.style.color = "var(--color-error)";
+            barFill.style.width = "0%";
+            resultsHost.innerHTML = "";
+            return;
+          }
+
+          var rows = activeCases.map(function (tc) {
+            var output = simulateOutput(template, tc);
+            var g = grade(output, tc, activeRubricKeys);
+            return { tc: tc, output: output, pass: g.pass };
+          });
+
+          var passCount = rows.filter(function (r) { return r.pass; }).length;
+          var percent = Math.round((passCount / rows.length) * 100);
+
+          barFill.style.width = percent + "%";
+          barFill.style.background = percent >= 70 ? "var(--color-accent)" : (percent >= 40 ? "#e0a300" : "var(--color-error)");
+          scoreLine.style.color = "var(--color-text)";
+          scoreLine.textContent = passCount + " / " + rows.length + " test cases passed (" + percent + "%).";
+
+          if (baselinePercent === null) {
+            baselineLine.textContent = "No baseline set yet — click \"Set current score as baseline\" to track regressions.";
+            baselineLine.style.color = "var(--color-text-muted)";
+          } else if (percent < baselinePercent) {
+            baselineLine.textContent = "⚠ Regression detected: score dropped from " + baselinePercent + "% to " + percent + "%.";
+            baselineLine.style.color = "var(--color-error)";
+          } else if (percent > baselinePercent) {
+            baselineLine.textContent = "✓ Improvement: score rose from " + baselinePercent + "% to " + percent + "%.";
+            baselineLine.style.color = "var(--color-success)";
+          } else {
+            baselineLine.textContent = "No change from baseline (" + baselinePercent + "%).";
+            baselineLine.style.color = "var(--color-text-muted)";
+          }
+
+          renderResults(rows);
+          return percent;
+        }
+
+        runBtn.addEventListener("click", runEval);
+        baselineBtn.addEventListener("click", function () {
+          var p = runEval();
+          if (typeof p === "number") {
+            baselinePercent = p;
+            baselineLine.textContent = "Baseline set at " + p + "%. Edit the prompt and re-run to compare.";
+            baselineLine.style.color = "var(--color-text-muted)";
+          }
+        });
+
+        // initial run so the widget isn't empty
+        runEval();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why do LLM systems typically need more than a single 'accuracy' number, unlike a fixed-label classifier?",
+          options: [
+            "LLM outputs are open-ended and non-deterministic, so exact-match scoring misses many valid answers",
+            "LLMs never produce incorrect output",
+            "Accuracy cannot be computed for any software system",
+            "LLMs only ever produce numeric outputs"
+          ],
+          answer: 0,
+          explanation: "Open-ended generation means many different phrasings can all be correct, so evals usually need rubric/criteria-based grading in addition to (or instead of) exact match."
+        },
+        {
+          q: "What does 'regression' mean in the context of an eval suite?",
+          options: [
+            "A statistical model used to predict future eval scores",
+            "A drop in measured performance after a change to the prompt, model, or system",
+            "A test case that uses numeric inputs only",
+            "The process of rebuilding an eval set from nothing"
+          ],
+          answer: 1,
+          explanation: "Re-running the same eval suite after a change lets you catch a regression — a quality drop you might otherwise ship unnoticed."
+        },
+        {
+          q: "In the exercise, if you loosen the prompt so it no longer asks the model to state the sentiment, and the rubric still requires stating sentiment, what happens to the pass rate on that criterion?",
+          options: [
+            "It increases, because the model has more freedom",
+            "It decreases, because the simulated output will stop mentioning sentiment",
+            "It stays exactly the same regardless of the prompt",
+            "The rubric automatically removes that criterion"
+          ],
+          answer: 1,
+          explanation: "The simulated output only includes sentiment wording when the prompt asks for it, so removing that instruction makes the sentiment criterion fail more often."
+        },
+        {
+          q: "Which of the following are good properties of a hands-on eval set? (Select all that apply.)",
+          options: [
+            "It includes edge cases, not just easy examples",
+            "It contains at least one test case, total",
+            "Each test case has a clear, explicit criterion for what counts as passing",
+            "It can be re-run automatically to catch regressions when something changes"
+          ],
+          answer: [0, 2, 3],
+          explanation: "A useful eval set is small but representative, includes tricky edge cases, has explicit pass criteria per case, and is cheap enough to automate and re-run — a single easy test case is not sufficient."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

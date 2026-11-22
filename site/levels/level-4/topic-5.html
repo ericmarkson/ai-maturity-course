@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluation Metrics: Precision, Recall, F1, ROC-AUC — AI Maturity Course</title>
+<meta name="description" content="How to judge a classifier beyond raw accuracy using the confusion matrix, precision, recall, F1, and ROC-AUC.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-5";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Evaluation Metrics: Precision, Recall, F1, ROC-AUC</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Construct a confusion matrix from a small set of
+      predictions vs. true labels and compute precision, recall, and F1 from it by hand, and explain
+      a real-world scenario (e.g. medical screening) where recall matters more than precision, or
+      vice versa.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          "Percent correct" (accuracy) can be badly misleading, especially when one class is rare —
+          a model that always predicts "healthy" can be 99% accurate on a rare-disease dataset while
+          being useless. The standard set of numbers used to judge a classifier more honestly all
+          start from the <strong>confusion matrix</strong>: how many predictions were true positives,
+          false positives, true negatives, and false negatives.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The confusion matrix (true/false positives/negatives) as the foundation</li>
+        <li><strong>Precision</strong>: of everything the model predicted positive, how much was
+          actually positive? vs. <strong>recall</strong>: of everything that was actually positive,
+          how much did the model catch?</li>
+        <li><strong>F1 score</strong> as a single number balancing precision and recall (their
+          harmonic mean)</li>
+        <li><strong>ROC-AUC</strong> as a threshold-independent measure of how well a model separates
+          the two classes, across every possible decision threshold at once</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Drag the threshold, watch every metric move",
+      instructions:
+        "16 labeled examples each have a fixed model score (0-100). Drag the threshold slider: " +
+        "everything scoring at or above the threshold gets predicted positive. Watch the confusion " +
+        "matrix, precision/recall/F1, and the ROC curve marker all update live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        // Fixed toy dataset: true label (1 = actually positive) + model score.
+        var data = [
+          { label: 1, score: 90 }, { label: 1, score: 85 }, { label: 1, score: 78 }, { label: 1, score: 65 },
+          { label: 1, score: 60 }, { label: 1, score: 55 }, { label: 1, score: 40 }, { label: 1, score: 20 },
+          { label: 0, score: 85 }, { label: 0, score: 70 }, { label: 0, score: 55 }, { label: 0, score: 45 },
+          { label: 0, score: 30 }, { label: 0, score: 25 }, { label: 0, score: 15 }, { label: 0, score: 5 }
+        ];
+        var totalPos = data.filter(function (d) { return d.label === 1; }).length;
+        var totalNeg = data.filter(function (d) { return d.label === 0; }).length;
+
+        function confusionAt(threshold) {
+          var tp = 0, fp = 0, tn = 0, fn = 0;
+          data.forEach(function (d) {
+            var predPos = d.score >= threshold;
+            if (d.label === 1 && predPos) tp++;
+            else if (d.label === 1 && !predPos) fn++;
+            else if (d.label === 0 && predPos) fp++;
+            else tn++;
+          });
+          return { tp: tp, fp: fp, tn: tn, fn: fn };
+        }
+
+        function metricsFrom(c) {
+          var precision = (c.tp + c.fp) > 0 ? c.tp / (c.tp + c.fp) : null;
+          var recall = (c.tp + c.fn) > 0 ? c.tp / (c.tp + c.fn) : null;
+          var f1 = (precision !== null && recall !== null && (precision + recall) > 0)
+            ? 2 * precision * recall / (precision + recall) : null;
+          var fpr = totalNeg > 0 ? c.fp / totalNeg : 0;
+          var tpr = totalPos > 0 ? c.tp / totalPos : 0;
+          return { precision: precision, recall: recall, f1: f1, fpr: fpr, tpr: tpr };
+        }
+
+        function pct(v) { return v === null ? "—" : (v * 100).toFixed(0) + "%"; }
+
+        var wrap = document.createElement("div");
+
+        // ---- slider ----
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "threshold-slider-45");
+        label.textContent = "Decision threshold";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "100";
+        slider.value = "50";
+        slider.id = "threshold-slider-45";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "50";
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(readout);
+        wrap.appendChild(row);
+
+        // ---- layout: confusion matrix (left) + ROC canvas (right) ----
+        var flexRow = document.createElement("div");
+        flexRow.style.display = "flex";
+        flexRow.style.flexWrap = "wrap";
+        flexRow.style.gap = "1.5rem";
+        flexRow.style.alignItems = "flex-start";
+        wrap.appendChild(flexRow);
+
+        var matrixCol = document.createElement("div");
+        matrixCol.style.flex = "1 1 260px";
+
+        var table = document.createElement("table");
+        table.style.borderCollapse = "collapse";
+        table.style.width = "100%";
+        table.innerHTML =
+          "<tr><th></th><th style='padding:6px;font-size:0.85rem;'>Actual positive</th><th style='padding:6px;font-size:0.85rem;'>Actual negative</th></tr>" +
+          "<tr><th style='padding:6px;font-size:0.85rem;text-align:right;'>Predicted positive</th>" +
+          "<td id='cell-tp' style='padding:10px;text-align:center;border:1px solid var(--color-border);background:var(--color-success-bg);font-weight:700;'></td>" +
+          "<td id='cell-fp' style='padding:10px;text-align:center;border:1px solid var(--color-border);background:var(--color-error-bg);font-weight:700;'></td></tr>" +
+          "<tr><th style='padding:6px;font-size:0.85rem;text-align:right;'>Predicted negative</th>" +
+          "<td id='cell-fn' style='padding:10px;text-align:center;border:1px solid var(--color-border);background:var(--color-error-bg);font-weight:700;'></td>" +
+          "<td id='cell-tn' style='padding:10px;text-align:center;border:1px solid var(--color-border);background:var(--color-success-bg);font-weight:700;'></td></tr>";
+        matrixCol.appendChild(table);
+
+        var metricsP = document.createElement("p");
+        metricsP.style.marginTop = "1rem";
+        metricsP.style.fontFamily = "var(--font-mono)";
+        metricsP.style.lineHeight = "1.9";
+        matrixCol.appendChild(metricsP);
+
+        flexRow.appendChild(matrixCol);
+
+        var rocCol = document.createElement("div");
+        rocCol.style.flex = "1 1 260px";
+        var rocHeading = document.createElement("p");
+        rocHeading.style.fontWeight = "600";
+        rocHeading.style.margin = "0 0 0.5rem 0";
+        rocHeading.textContent = "ROC curve (traced across all thresholds)";
+        rocCol.appendChild(rocHeading);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 280;
+        canvas.height = 280;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "280px";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        rocCol.appendChild(canvas);
+        flexRow.appendChild(rocCol);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+        var pad = 28;
+        var plotSize = canvas.width - pad * 2;
+
+        function toXY(fpr, tpr) {
+          return { x: pad + fpr * plotSize, y: canvas.height - pad - tpr * plotSize };
+        }
+
+        // Precompute the full ROC path by sweeping threshold 100 -> 0.
+        var rocPoints = [];
+        for (var t = 100; t >= 0; t--) {
+          var m = metricsFrom(confusionAt(t));
+          rocPoints.push({ fpr: m.fpr, tpr: m.tpr });
+        }
+
+        function drawROC(currentFpr, currentTpr) {
+          ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+
+          // axes
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(pad, pad);
+          ctx2d.lineTo(pad, canvas.height - pad);
+          ctx2d.lineTo(canvas.width - pad, canvas.height - pad);
+          ctx2d.stroke();
+
+          ctx2d.fillStyle = "#4c5470";
+          ctx2d.font = "10px sans-serif";
+          ctx2d.textAlign = "center";
+          ctx2d.fillText("FPR", canvas.width / 2, canvas.height - 6);
+          ctx2d.save();
+          ctx2d.translate(10, canvas.height / 2);
+          ctx2d.rotate(-Math.PI / 2);
+          ctx2d.fillText("TPR", 0, 0);
+          ctx2d.restore();
+
+          // diagonal reference (random classifier)
+          ctx2d.strokeStyle = "#d7dcea";
+          ctx2d.setLineDash([3, 3]);
+          ctx2d.beginPath();
+          var o = toXY(0, 0), d = toXY(1, 1);
+          ctx2d.moveTo(o.x, o.y);
+          ctx2d.lineTo(d.x, d.y);
+          ctx2d.stroke();
+          ctx2d.setLineDash([]);
+
+          // ROC curve
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          rocPoints.forEach(function (p, i) {
+            var c = toXY(p.fpr, p.tpr);
+            if (i === 0) ctx2d.moveTo(c.x, c.y); else ctx2d.lineTo(c.x, c.y);
+          });
+          ctx2d.stroke();
+
+          // current threshold marker
+          var cm = toXY(currentFpr, currentTpr);
+          ctx2d.beginPath();
+          ctx2d.arc(cm.x, cm.y, 6, 0, Math.PI * 2);
+          ctx2d.fillStyle = "#d3390c";
+          ctx2d.fill();
+        }
+
+        // rough trapezoidal AUC estimate from the precomputed points
+        function estimateAUC() {
+          var sorted = rocPoints.slice().sort(function (a, b) { return a.fpr - b.fpr; });
+          var area = 0;
+          for (var i = 1; i < sorted.length; i++) {
+            var x1 = sorted[i - 1].fpr, x2 = sorted[i].fpr;
+            var y1 = sorted[i - 1].tpr, y2 = sorted[i].tpr;
+            area += (x2 - x1) * (y1 + y2) / 2;
+          }
+          return area;
+        }
+
+        function update() {
+          var threshold = parseInt(slider.value, 10);
+          readout.textContent = String(threshold);
+          var c = confusionAt(threshold);
+          var m = metricsFrom(c);
+
+          document.getElementById("cell-tp").textContent = c.tp;
+          document.getElementById("cell-fp").textContent = c.fp;
+          document.getElementById("cell-fn").textContent = c.fn;
+          document.getElementById("cell-tn").textContent = c.tn;
+
+          metricsP.innerHTML =
+            "Precision: <strong>" + pct(m.precision) + "</strong><br>" +
+            "Recall: <strong>" + pct(m.recall) + "</strong><br>" +
+            "F1: <strong>" + pct(m.f1) + "</strong><br>" +
+            "Approx. AUC (this dataset): <strong>" + estimateAUC().toFixed(2) + "</strong>";
+
+          drawROC(m.fpr, m.tpr);
+        }
+
+        slider.addEventListener("input", update);
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A false negative happens when the model predicts...",
+          options: [
+            "Positive, and the true label is actually positive",
+            "Negative, and the true label is actually positive",
+            "Positive, and the true label is actually negative",
+            "Negative, and the true label is actually negative"
+          ],
+          answer: 1,
+          explanation: "False negative = the model said 'negative' but missed an actual positive case — e.g. a disease screening test that says 'healthy' for a sick patient."
+        },
+        {
+          q: "A model has high recall but low precision. What does that tell you?",
+          options: [
+            "It catches most of the actual positives, but also raises a lot of false alarms",
+            "It never makes a mistake",
+            "It misses most actual positives but rarely raises false alarms",
+            "Recall and precision can never both be measured on the same model"
+          ],
+          answer: 0,
+          explanation: "High recall means few false negatives (it catches almost everything positive); low precision means many of its positive predictions are wrong (lots of false positives) — a noisy-but-thorough detector."
+        },
+        {
+          q: "For screening a rare, serious, and treatable disease, which mistake is usually worse: a false negative (missed case) or a false positive (unnecessary follow-up test)?",
+          options: [
+            "False positive — extra tests are far more costly than a missed diagnosis",
+            "False negative — missing an actual case can mean a real health outcome lost, so recall is prioritized even at some cost to precision",
+            "They are always equally costly in every screening scenario",
+            "Neither matters if accuracy is high"
+          ],
+          answer: 1,
+          explanation: "In screening contexts, missing a real case (false negative) is usually far more costly than a false alarm that gets ruled out with a follow-up test, so these systems are tuned for high recall."
+        },
+        {
+          q: "What makes ROC-AUC different from precision, recall, or F1 at a single cutoff?",
+          options: [
+            "It's computed without any labeled data at all",
+            "It summarizes how well the model separates the two classes across every possible decision threshold, not just one",
+            "It only works for regression models, not classifiers",
+            "It is always equal to accuracy"
+          ],
+          answer: 1,
+          explanation: "Precision/recall/F1 depend on wherever you set the threshold. ROC-AUC sweeps the threshold from one extreme to the other and measures overall separability, so it doesn't depend on picking one cutoff."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

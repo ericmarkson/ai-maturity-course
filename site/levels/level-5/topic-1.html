@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer Architecture and Attention — AI Maturity Course</title>
+<meta name="description" content="How transformers use self-attention to decide which earlier tokens matter most when producing the next token.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-1";
+</script>
+<style>
+  .attn-tokens { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--space-4) 0; }
+  .attn-token { border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); padding: 6px 10px; background: #fff; cursor: pointer; font: inherit; font-family: var(--font-mono); }
+  .attn-token:hover { border-color: var(--color-primary); }
+  .attn-token[aria-pressed="true"] { border-color: var(--color-primary); border-width: 2px; font-weight: 700; }
+  .attn-legend { color: var(--color-text-muted); font-size: var(--font-size-sm); margin-top: var(--space-2); }
+  .attn-canvas-wrap { margin-top: var(--space-4); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Transformer Architecture and Attention</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain, in plain language and with a diagram, how a transformer decides
+      which earlier words matter most when producing the next word, and why this replaced RNNs for most large-scale NLP.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A <strong>transformer</strong> is a neural network design that processes an entire sequence at once using
+          <strong>attention</strong> to weigh how much every other token should influence each token, instead of
+          reading one word at a time like older recurrent models (RNNs). Attention lets the model directly connect
+          "it" in a sentence back to the noun it refers to, even many words earlier, without passing information
+          step by step through every word in between.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Self-attention and the query/key/value mechanism</li>
+        <li>Multi-head attention (why multiple attention "views" help)</li>
+        <li>Encoder vs. decoder blocks and encoder-decoder vs. decoder-only designs</li>
+        <li>Why transformers parallelize better than RNNs (no sequential bottleneck)</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Attention heatmap: click a word, switch heads",
+      instructions:
+        "Type a short sentence, click any word to make it the \"query\" token, and watch a simulated " +
+        "attention-weight overlay light up the other words it attends to. Drag the head slider to see how " +
+        "different simulated attention heads (local, long-range, lexical) redistribute the weights.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var DEFAULT_SENTENCE = "The cat sat on the mat because it was tired";
+
+        var wrap = document.createElement("div");
+
+        var inputRow = document.createElement("div");
+        inputRow.className = "slider-row";
+        var inputLabel = document.createElement("label");
+        inputLabel.setAttribute("for", "attn-sentence");
+        inputLabel.textContent = "Sentence";
+        var sentenceInput = document.createElement("input");
+        sentenceInput.type = "text";
+        sentenceInput.id = "attn-sentence";
+        sentenceInput.value = DEFAULT_SENTENCE;
+        sentenceInput.style.flex = "1";
+        sentenceInput.style.minWidth = "220px";
+        sentenceInput.style.padding = "6px 8px";
+        var renderBtn = document.createElement("button");
+        renderBtn.type = "button";
+        renderBtn.className = "btn btn-secondary";
+        renderBtn.textContent = "Tokenize";
+        inputRow.appendChild(inputLabel);
+        inputRow.appendChild(sentenceInput);
+        inputRow.appendChild(renderBtn);
+        wrap.appendChild(inputRow);
+
+        var headRow = document.createElement("div");
+        headRow.className = "slider-row";
+        var headLabel = document.createElement("label");
+        headLabel.setAttribute("for", "attn-head");
+        headLabel.textContent = "Attention head";
+        var headSlider = document.createElement("input");
+        headSlider.type = "range";
+        headSlider.min = "1";
+        headSlider.max = "4";
+        headSlider.step = "1";
+        headSlider.value = "1";
+        headSlider.id = "attn-head";
+        var headReadout = document.createElement("span");
+        headReadout.className = "readout";
+        headReadout.id = "attn-head-readout";
+        var headNames = ["", "Head 1: local/nearby", "Head 2: long-range", "Head 3: broad/uniform", "Head 4: lexical match"];
+        headReadout.textContent = headNames[1];
+        headRow.appendChild(headLabel);
+        headRow.appendChild(headSlider);
+        headRow.appendChild(headReadout);
+        wrap.appendChild(headRow);
+
+        var tokensBox = document.createElement("div");
+        tokensBox.className = "attn-tokens";
+        wrap.appendChild(tokensBox);
+
+        var legend = document.createElement("p");
+        legend.className = "attn-legend";
+        legend.textContent = "Click a word above to see which other words it attends to. Darker blue = higher simulated attention weight.";
+        wrap.appendChild(legend);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "attn-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 600;
+        canvas.height = 160;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "600px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        root.appendChild(wrap);
+        var cvsCtx = canvas.getContext("2d");
+
+        var tokens = [];
+        var selectedIndex = null;
+
+        function hashStr(s) {
+          var h = 2166136261;
+          for (var i = 0; i < s.length; i++) {
+            h = h ^ s.charCodeAt(i);
+            h = (h * 16777619) >>> 0;
+          }
+          return h;
+        }
+
+        function pseudoRand(seedStr) {
+          var h = hashStr(seedStr);
+          return Math.abs(Math.sin(h)) % 1;
+        }
+
+        function computeAttention(idx, head) {
+          var weights = tokens.map(function (tok, i) {
+            var base = pseudoRand(tok.toLowerCase() + "|" + idx + "|" + head + "|" + i);
+            var dist = Math.abs(i - idx);
+            var w = base;
+            if (head === 1) {
+              // local head: strongly favors nearby tokens
+              w = base * (1 / (1 + dist * dist));
+            } else if (head === 2) {
+              // long-range head: suppresses immediate neighbors, favors distant tokens
+              w = base * (dist === 0 ? 0.08 : Math.min(1, 0.3 + dist * 0.15));
+            } else if (head === 3) {
+              // broad/uniform head: nearly flat with mild randomness
+              w = base * 0.7 + 0.3;
+            } else if (head === 4) {
+              // lexical head: boosts tokens sharing a first letter with the query token
+              var sameLetter = tokens[i].charAt(0).toLowerCase() === tokens[idx].charAt(0).toLowerCase();
+              w = base * (sameLetter ? 1.8 : 0.5);
+            }
+            if (i === idx) w = Math.max(w, 0.15);
+            return w;
+          });
+          var sum = weights.reduce(function (a, b) { return a + b; }, 0) || 1;
+          return weights.map(function (w) { return w / sum; });
+        }
+
+        function drawBars(weights, idx) {
+          var w = canvas.width, h = canvas.height;
+          cvsCtx.clearRect(0, 0, w, h);
+          var n = tokens.length;
+          if (n === 0) return;
+          var marginX = 10, marginBottom = 34;
+          var barGap = 6;
+          var barW = Math.max(8, (w - marginX * 2 - barGap * (n - 1)) / n);
+          var maxBarH = h - marginBottom - 10;
+
+          for (var i = 0; i < n; i++) {
+            var x = marginX + i * (barW + barGap);
+            var barH = weights[i] * maxBarH;
+            var y = h - marginBottom - barH;
+            cvsCtx.fillStyle = i === idx ? "#0f9d78" : "#2952e3";
+            cvsCtx.globalAlpha = 0.35 + weights[i] * 0.65;
+            cvsCtx.fillRect(x, y, barW, barH);
+            cvsCtx.globalAlpha = 1;
+            cvsCtx.fillStyle = "#1a2033";
+            cvsCtx.font = "10px monospace";
+            cvsCtx.textAlign = "center";
+            var label = tokens[i].length > 6 ? tokens[i].slice(0, 5) + "…" : tokens[i];
+            cvsCtx.fillText(label, x + barW / 2, h - marginBottom + 14);
+            cvsCtx.fillText(Math.round(weights[i] * 100) + "%", x + barW / 2, y - 4 < 8 ? 10 : y - 4);
+          }
+        }
+
+        function updateOverlay() {
+          var head = parseInt(headSlider.value, 10);
+          headReadout.textContent = headNames[head];
+          var buttons = tokensBox.querySelectorAll(".attn-token");
+          if (selectedIndex === null) {
+            buttons.forEach(function (b) { b.style.background = "#fff"; b.setAttribute("aria-pressed", "false"); });
+            drawBars(tokens.map(function () { return 0; }), -1);
+            legend.textContent = "Click a word above to see which other words it attends to. Darker blue = higher simulated attention weight.";
+            return;
+          }
+          var weights = computeAttention(selectedIndex, head);
+          buttons.forEach(function (b, i) {
+            var alpha = weights[i];
+            b.style.background = "rgba(41, 82, 227, " + Math.min(0.85, alpha * 2.2) + ")";
+            b.style.color = alpha > 0.25 ? "#fff" : "#1a2033";
+            b.setAttribute("aria-pressed", i === selectedIndex ? "true" : "false");
+          });
+          drawBars(weights, selectedIndex);
+          legend.textContent = "\"" + tokens[selectedIndex] + "\" attends most to: " +
+            weights
+              .map(function (w, i) { return { w: w, t: tokens[i] }; })
+              .sort(function (a, b) { return b.w - a.w; })
+              .slice(0, 3)
+              .map(function (o) { return o.t + " (" + Math.round(o.w * 100) + "%)"; })
+              .join(", ");
+        }
+
+        function tokenize() {
+          var raw = sentenceInput.value.trim();
+          if (!raw) raw = DEFAULT_SENTENCE;
+          tokens = raw.split(/\s+/).map(function (t) { return t.replace(/[^\w']/g, ""); }).filter(Boolean);
+          selectedIndex = null;
+          tokensBox.innerHTML = "";
+          tokens.forEach(function (tok, i) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "attn-token";
+            btn.textContent = tok;
+            btn.setAttribute("aria-pressed", "false");
+            btn.addEventListener("click", function () {
+              selectedIndex = i;
+              updateOverlay();
+            });
+            tokensBox.appendChild(btn);
+          });
+          updateOverlay();
+        }
+
+        renderBtn.addEventListener("click", tokenize);
+        sentenceInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") tokenize();
+        });
+        headSlider.addEventListener("input", updateOverlay);
+
+        tokenize();
+        if (tokens.length > 6) {
+          selectedIndex = 6; // pre-select "it" in the default sentence to show something immediately
+          updateOverlay();
+        }
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What does self-attention let a transformer do that a word-by-word RNN struggles with?",
+          options: [
+            "Directly relate any two tokens in a sequence regardless of distance between them",
+            "Store the entire vocabulary in memory",
+            "Guarantee the output is always grammatically correct",
+            "Avoid needing any training data"
+          ],
+          answer: 0,
+          explanation: "Self-attention computes a direct weighted connection between every pair of tokens in one step, instead of passing information sequentially through every token in between."
+        },
+        {
+          q: "In the query/key/value mechanism, what is the query roughly used for?",
+          options: [
+            "It is the vocabulary size",
+            "It represents 'what this token is looking for' when comparing against other tokens' keys",
+            "It is the final output word",
+            "It only matters during multi-head attention, never single-head"
+          ],
+          answer: 1,
+          explanation: "Each token produces a query vector that is compared against every other token's key vector to compute attention scores; those scores weight the values that get combined."
+        },
+        {
+          q: "Why do transformers use multiple attention heads instead of just one?",
+          options: [
+            "To make the model slower on purpose",
+            "Because one head can only look at the first word in a sentence",
+            "Different heads can learn to attend to different kinds of relationships (e.g. nearby words vs. long-range references) in parallel",
+            "Multiple heads are required to run on a GPU at all"
+          ],
+          answer: 2,
+          explanation: "Multiple heads let the model capture several different attention patterns simultaneously — like the local vs. long-range vs. lexical heads simulated in the exercise."
+        },
+        {
+          q: "Why do transformers generally parallelize better than RNNs during training?",
+          options: [
+            "Transformers process the whole sequence's attention computations at once, while RNNs must process tokens one at a time in order",
+            "Transformers don't need GPUs",
+            "RNNs use more attention heads",
+            "Transformers only work on sequences of length 1"
+          ],
+          answer: 0,
+          explanation: "RNNs have a sequential bottleneck — each step depends on the previous one's hidden state — while transformer attention over a whole sequence can be computed in parallel."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

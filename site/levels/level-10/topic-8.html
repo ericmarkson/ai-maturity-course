@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Defining State of the Art in a Subfield — AI Maturity Course</title>
+<meta name="description" content="Being the person or team whose work others cite as the current best-known approach — setting the bar the rest of the field measures itself against.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-8";
+</script>
+<style>
+  .sf-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .sf-sliders { display: flex; flex-direction: column; gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .sf-slider-row { display: grid; grid-template-columns: 200px 1fr 60px; align-items: center; gap: var(--space-3); }
+  .sf-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
+  .sf-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .sf-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .sf-verdict { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); font-weight: 700; font-size: var(--font-size-md); }
+  .sf-verdict.advance { background: var(--color-success-bg); color: var(--color-success); }
+  .sf-verdict.match { background: var(--color-warning-bg); color: #7a5a00; }
+  .sf-verdict.behind { background: var(--color-error-bg); color: var(--color-error); }
+  .sf-actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); flex-wrap: wrap; align-items: center; }
+  .sf-hint { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Defining State of the Art in a Subfield</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a subfield and its current leading approach, assess whether the field's chosen SOTA metric still reflects genuine progress or has become a Goodharted target, and propose what should replace or supplement it.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Defining state of the art in a subfield means being the person or team whose work others cite as the
+          current best-known approach — setting the bar the rest of the field measures itself against. It is a
+          position that shifts constantly, and holding it durably requires more than a single high leaderboard score.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>How "state of the art" gets established</strong> — leaderboards, benchmark suites, and
+          community consensus vs. marketing claims.</li>
+        <li><strong>The half-life of SOTA claims</strong> in fast-moving subfields, and what that implies about
+          durable vs. fashionable contributions.</li>
+        <li><strong>Building durable influence</strong> — reproducible results, open benchmarks/tooling that outlive
+          a single paper, and mentorship/citation networks.</li>
+        <li><strong>Recognizing when a subfield's "state of the art" framing itself is going stale</strong> (e.g.,
+          context-length races giving way to inference-time-scaling framing in 2026).</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "SOTA-frontier plotter",
+      instructions:
+        "The gray dots and connecting line are the current Pareto frontier of known methods (lower cost, higher " +
+        "capability is better). Use the sliders to position your candidate method on the capability-vs-cost chart " +
+        "and see whether it advances, matches, or falls behind the frontier. If it advances the frontier, you can " +
+        "lock it in and watch the frontier itself move.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "sf-wrap";
+
+        var points = [
+          { cost: 8, capability: 28, label: "Method A" },
+          { cost: 22, capability: 48, label: "Method B" },
+          { cost: 38, capability: 64, label: "Method C" },
+          { cost: 58, capability: 76, label: "Method D" },
+          { cost: 82, capability: 87, label: "Method E" }
+        ];
+        var lockedCount = 0;
+
+        var sliderContainer = document.createElement("div");
+        sliderContainer.className = "sf-sliders";
+
+        var capRow = document.createElement("div");
+        capRow.className = "sf-slider-row";
+        var capLabel = document.createElement("label");
+        capLabel.textContent = "Your method's capability score";
+        capLabel.setAttribute("for", "sf-cap");
+        var capSlider = document.createElement("input");
+        capSlider.type = "range";
+        capSlider.min = "0";
+        capSlider.max = "100";
+        capSlider.value = "55";
+        capSlider.id = "sf-cap";
+        var capReadout = document.createElement("span");
+        capReadout.className = "sf-readout";
+        capRow.appendChild(capLabel);
+        capRow.appendChild(capSlider);
+        capRow.appendChild(capReadout);
+        sliderContainer.appendChild(capRow);
+
+        var costRow = document.createElement("div");
+        costRow.className = "sf-slider-row";
+        var costLabel = document.createElement("label");
+        costLabel.textContent = "Your method's cost (compute/latency)";
+        costLabel.setAttribute("for", "sf-cost");
+        var costSlider = document.createElement("input");
+        costSlider.type = "range";
+        costSlider.min = "0";
+        costSlider.max = "100";
+        costSlider.value = "45";
+        costSlider.id = "sf-cost";
+        var costReadout = document.createElement("span");
+        costReadout.className = "sf-readout";
+        costRow.appendChild(costLabel);
+        costRow.appendChild(costSlider);
+        costRow.appendChild(costReadout);
+        sliderContainer.appendChild(costRow);
+
+        wrap.appendChild(sliderContainer);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "sf-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 560;
+        canvas.height = 300;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "560px";
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var verdict = document.createElement("p");
+        verdict.className = "sf-verdict";
+        wrap.appendChild(verdict);
+
+        var actions = document.createElement("div");
+        actions.className = "sf-actions";
+        var lockBtn = document.createElement("button");
+        lockBtn.type = "button";
+        lockBtn.className = "btn btn-primary";
+        lockBtn.textContent = "Lock in as new frontier point";
+        var hint = document.createElement("span");
+        hint.className = "sf-hint";
+        actions.appendChild(lockBtn);
+        actions.appendChild(hint);
+        wrap.appendChild(actions);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function computeFrontier(pts) {
+          var sorted = pts.slice().sort(function (a, b) {
+            return a.cost - b.cost || b.capability - a.capability;
+          });
+          var frontier = [];
+          var maxCap = -Infinity;
+          sorted.forEach(function (p) {
+            if (p.capability > maxCap) {
+              frontier.push(p);
+              maxCap = p.capability;
+            }
+          });
+          return frontier;
+        }
+
+        function frontierCapabilityAt(frontier, cost) {
+          if (cost <= frontier[0].cost) return frontier[0].capability;
+          var last = frontier[frontier.length - 1];
+          if (cost >= last.cost) return last.capability;
+          for (var i = 0; i < frontier.length - 1; i++) {
+            var p1 = frontier[i], p2 = frontier[i + 1];
+            if (cost >= p1.cost && cost <= p2.cost) {
+              var t = (cost - p1.cost) / (p2.cost - p1.cost);
+              return p1.capability + t * (p2.capability - p1.capability);
+            }
+          }
+          return last.capability;
+        }
+
+        function pointFor(marginL, marginT, plotW, plotH, cost, capability) {
+          return {
+            x: marginL + (cost / 100) * plotW,
+            y: marginT + (1 - capability / 100) * plotH
+          };
+        }
+
+        var currentVerdictAdvances = false;
+
+        function draw() {
+          var cap = parseInt(capSlider.value, 10);
+          var cost = parseInt(costSlider.value, 10);
+          capReadout.textContent = cap;
+          costReadout.textContent = cost;
+
+          var frontier = computeFrontier(points);
+
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+
+          var marginL = 45, marginR = 20, marginT = 20, marginB = 35;
+          var plotW = w - marginL - marginR;
+          var plotH = h - marginT - marginB;
+
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginL, marginT);
+          ctx2d.lineTo(marginL, h - marginB);
+          ctx2d.lineTo(w - marginR, h - marginB);
+          ctx2d.stroke();
+
+          ctx2d.fillStyle = "#6b7390";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.fillText("cost (compute / latency) →", marginL + plotW / 2 - 70, h - 8);
+          ctx2d.save();
+          ctx2d.translate(14, marginT + plotH / 2 + 35);
+          ctx2d.rotate(-Math.PI / 2);
+          ctx2d.fillText("capability →", 0, 0);
+          ctx2d.restore();
+
+          // frontier line
+          ctx2d.strokeStyle = "#0f9d78";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          frontier.forEach(function (p, i) {
+            var pt = pointFor(marginL, marginT, plotW, plotH, p.cost, p.capability);
+            if (i === 0) ctx2d.moveTo(pt.x, pt.y); else ctx2d.lineTo(pt.x, pt.y);
+          });
+          ctx2d.stroke();
+
+          // frontier / all points
+          points.forEach(function (p) {
+            var pt = pointFor(marginL, marginT, plotW, plotH, p.cost, p.capability);
+            var onFrontier = frontier.indexOf(p) !== -1;
+            ctx2d.fillStyle = onFrontier ? "#0f9d78" : "#b7c0d8";
+            ctx2d.beginPath();
+            ctx2d.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+            ctx2d.fill();
+            ctx2d.fillStyle = "#4c5470";
+            ctx2d.font = "10px sans-serif";
+            ctx2d.fillText(p.label, pt.x + 8, pt.y + 3);
+          });
+
+          // your point
+          var yourPt = pointFor(marginL, marginT, plotW, plotH, cost, cap);
+          var frontierCap = frontierCapabilityAt(frontier, cost);
+          var epsilon = 1.5;
+
+          var color, label, cls;
+          if (cap > frontierCap + epsilon) {
+            color = "#2952e3"; label = "Advances the state of the art at this cost point"; cls = "advance";
+            currentVerdictAdvances = true;
+          } else if (Math.abs(cap - frontierCap) <= epsilon) {
+            color = "#c98a12"; label = "Matches current SOTA — not a clear advance"; cls = "match";
+            currentVerdictAdvances = false;
+          } else {
+            color = "#b3261e"; label = "Below the current frontier — dominated by existing methods"; cls = "behind";
+            currentVerdictAdvances = false;
+          }
+
+          // dotted line to frontier reference at same cost
+          var refPt = pointFor(marginL, marginT, plotW, plotH, cost, frontierCap);
+          ctx2d.setLineDash([4, 4]);
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1.5;
+          ctx2d.beginPath();
+          ctx2d.moveTo(yourPt.x, yourPt.y);
+          ctx2d.lineTo(refPt.x, refPt.y);
+          ctx2d.stroke();
+          ctx2d.setLineDash([]);
+
+          ctx2d.fillStyle = color;
+          ctx2d.beginPath();
+          ctx2d.arc(yourPt.x, yourPt.y, 9, 0, Math.PI * 2);
+          ctx2d.fill();
+          ctx2d.strokeStyle = "#1a2033";
+          ctx2d.lineWidth = 1.5;
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#1a2033";
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.fillText("your method", yourPt.x + 12, yourPt.y - 10);
+
+          verdict.className = "sf-verdict " + cls;
+          verdict.textContent = label + " (frontier capability at this cost ≈ " + Math.round(frontierCap) + ").";
+
+          lockBtn.disabled = !currentVerdictAdvances;
+          hint.textContent = currentVerdictAdvances
+            ? "This position beats the current frontier — lock it in to make the frontier move."
+            : "Only positions that clearly advance the frontier can be locked in.";
+        }
+
+        lockBtn.addEventListener("click", function () {
+          if (!currentVerdictAdvances) return;
+          lockedCount++;
+          points.push({
+            cost: parseInt(costSlider.value, 10),
+            capability: parseInt(capSlider.value, 10),
+            label: "Your method #" + lockedCount + " (locked)"
+          });
+          draw();
+        });
+
+        capSlider.addEventListener("input", draw);
+        costSlider.addEventListener("input", draw);
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What determines whether a subfield genuinely recognizes a result as 'state of the art', as opposed to just a marketing claim?",
+          options: [
+            "Any press release from a lab automatically counts",
+            "Leaderboards, benchmark suites, and community consensus — reproducible results the field independently verifies and adopts",
+            "Whichever result is published first, regardless of verification",
+            "The number of social media mentions a result receives"
+          ],
+          answer: 1,
+          explanation: "Durable SOTA recognition comes from independently verifiable, reproducible results accepted through community consensus and benchmark adoption, not simply a claim."
+        },
+        {
+          q: "What does the 'half-life of SOTA claims' concept imply about how a researcher should build lasting influence?",
+          options: [
+            "Chase every new leaderboard topper regardless of durability",
+            "In fast-moving subfields, a single high score decays quickly, so durable influence comes from reproducible results and lasting tools/benchmarks rather than one score alone",
+            "SOTA claims never lose relevance once published",
+            "Half-life only applies to nuclear physics, not AI research"
+          ],
+          answer: 1,
+          explanation: "Because SOTA claims in fast-moving subfields are frequently surpassed, durable influence is better built through reproducibility and lasting infrastructure/benchmarks than through a single leaderboard win."
+        },
+        {
+          q: "In the SOTA-frontier plotter exercise, what does it mean when your method's point falls exactly on the dotted reference line to the frontier?",
+          options: [
+            "Your method is far below the frontier",
+            "Your method roughly matches the current frontier's capability at that cost level — not a clear advance",
+            "Your method has zero cost",
+            "The frontier has become invalid"
+          ],
+          answer: 1,
+          explanation: "When your capability score is within a small margin of the interpolated frontier capability at your chosen cost, the tool reports a 'match' rather than an advance — you haven't moved the frontier."
+        },
+        {
+          q: "What does it mean for a subfield's 'state of the art framing' itself to go stale, as illustrated by context-length races giving way to inference-time-scaling framing?",
+          options: [
+            "The underlying metric people optimize for can itself stop reflecting genuine progress, prompting the field to adopt a different framing altogether",
+            "Context length is always the correct metric forever",
+            "Subfields never change what they measure",
+            "Inference-time scaling was proven irrelevant"
+          ],
+          answer: 0,
+          explanation: "Sometimes the SOTA race itself is optimizing the wrong proxy; recognizing this and shifting to a better framing (e.g., from raw context length to effective, inference-time-scaling-aware measures) is part of leading a subfield."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

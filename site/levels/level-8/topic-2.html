@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production ML Systems at Scale — AI Maturity Course</title>
+<meta name="description" content="Serving patterns, latency vs throughput vs cost tradeoffs, rollout strategies, and graceful failure handling for ML systems in production.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-2";
+</script>
+<style>
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+  .metric-tile { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg); text-align: center; }
+  .metric-tile .metric-value { font-size: var(--font-size-lg); font-weight: 800; color: var(--color-primary); }
+  .metric-tile .metric-label { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .canary-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .canary-compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .canary-card { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg); }
+  .canary-card h4 { margin-bottom: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Production ML Systems at Scale</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain the difference between optimizing for latency and
+      optimizing for throughput, and choose an appropriate rollout strategy (canary, shadow, or full)
+      for a given risk scenario.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Production ML systems at scale is the engineering discipline of running ML/LLM systems
+          reliably for real users — serving infrastructure, load, cost, and failure handling — not just
+          model quality. A model that scores well offline is only useful if it can also be served fast
+          enough, cheaply enough, and safely enough for real traffic.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Serving patterns</strong> — batching, caching, streaming responses, load balancing across model instances</li>
+        <li><strong>Latency vs. throughput vs. cost tradeoffs</strong></li>
+        <li><strong>Rollout strategies</strong> — canary releases, shadow deployment, A/B testing model versions</li>
+        <li><strong>Graceful failure handling</strong> — fallback models, timeouts, rate limiting, circuit breakers</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Traffic Dashboard: Batching, Caching & Canary Rollouts",
+      instructions:
+        "Drag the batch size and cache-hit rate sliders to see simulated latency, throughput, and cost " +
+        "update live. Then enable a canary release, set the traffic split, and click \"Send traffic\" " +
+        "repeatedly to compare the canary's live error rate against the control version.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- Serving metrics sliders ----
+        var batchRow = document.createElement("div");
+        batchRow.className = "slider-row";
+        var batchLabel = document.createElement("label");
+        batchLabel.textContent = "Batch size";
+        batchLabel.setAttribute("for", "batch-slider");
+        var batchSlider = document.createElement("input");
+        batchSlider.type = "range";
+        batchSlider.min = "1";
+        batchSlider.max = "64";
+        batchSlider.value = "8";
+        batchSlider.id = "batch-slider";
+        var batchReadout = document.createElement("span");
+        batchReadout.className = "readout";
+        batchReadout.textContent = "8";
+        batchRow.appendChild(batchLabel);
+        batchRow.appendChild(batchSlider);
+        batchRow.appendChild(batchReadout);
+
+        var cacheRow = document.createElement("div");
+        cacheRow.className = "slider-row";
+        var cacheLabel = document.createElement("label");
+        cacheLabel.textContent = "Cache-hit rate";
+        cacheLabel.setAttribute("for", "cache-slider");
+        var cacheSlider = document.createElement("input");
+        cacheSlider.type = "range";
+        cacheSlider.min = "0";
+        cacheSlider.max = "100";
+        cacheSlider.value = "30";
+        cacheSlider.id = "cache-slider";
+        var cacheReadout = document.createElement("span");
+        cacheReadout.className = "readout";
+        cacheReadout.textContent = "30%";
+        cacheRow.appendChild(cacheLabel);
+        cacheRow.appendChild(cacheSlider);
+        cacheRow.appendChild(cacheReadout);
+
+        wrap.appendChild(batchRow);
+        wrap.appendChild(cacheRow);
+
+        var metricsGrid = document.createElement("div");
+        metricsGrid.className = "metrics-grid";
+        function makeTile(id, label) {
+          var tile = document.createElement("div");
+          tile.className = "metric-tile";
+          var val = document.createElement("div");
+          val.className = "metric-value";
+          val.id = id;
+          var lab = document.createElement("div");
+          lab.className = "metric-label";
+          lab.textContent = label;
+          tile.appendChild(val);
+          tile.appendChild(lab);
+          return tile;
+        }
+        var latencyTile = makeTile("metric-latency", "p50 latency (ms)");
+        var throughputTile = makeTile("metric-throughput", "throughput (req/s)");
+        var costTile = makeTile("metric-cost", "cost ($ / 1,000 req)");
+        metricsGrid.appendChild(latencyTile);
+        metricsGrid.appendChild(throughputTile);
+        metricsGrid.appendChild(costTile);
+        wrap.appendChild(metricsGrid);
+
+        var note = document.createElement("p");
+        note.style.fontSize = "var(--font-size-sm)";
+        note.style.color = "var(--color-text-muted)";
+        note.textContent = "Simulated figures: larger batches raise per-request queueing delay but improve throughput and amortize cost; cache hits skip compute entirely, cutting latency and cost.";
+        wrap.appendChild(note);
+
+        root.appendChild(wrap);
+
+        var latencyEl = document.getElementById("metric-latency");
+        var throughputEl = document.getElementById("metric-throughput");
+        var costEl = document.getElementById("metric-cost");
+
+        function updateMetrics() {
+          var batchSize = parseInt(batchSlider.value, 10);
+          var cacheHit = parseInt(cacheSlider.value, 10);
+          batchReadout.textContent = String(batchSize);
+          cacheReadout.textContent = cacheHit + "%";
+
+          var baseLatency = 250;
+          var cacheSavings = (cacheHit / 100) * 0.65;
+          var batchingOverhead = (batchSize - 1) * 3;
+          var latency = baseLatency * (1 - cacheSavings) + batchingOverhead;
+          var throughput = (batchSize / (latency / 1000));
+          var cost = (12 / batchSize) * (1 - (cacheHit / 100) * 0.5);
+          if (cost < 0.5) cost = 0.5;
+
+          latencyEl.textContent = Math.round(latency);
+          throughputEl.textContent = Math.round(throughput);
+          costEl.textContent = "$" + cost.toFixed(2);
+        }
+
+        batchSlider.addEventListener("input", updateMetrics);
+        cacheSlider.addEventListener("input", updateMetrics);
+        updateMetrics();
+
+        // ---- Canary rollout section ----
+        var hr = document.createElement("hr");
+        hr.style.margin = "var(--space-5) 0";
+        hr.style.border = "none";
+        hr.style.borderTop = "1px solid var(--color-border)";
+        root.appendChild(hr);
+
+        var canaryHeading = document.createElement("h4");
+        canaryHeading.textContent = "Canary release";
+        root.appendChild(canaryHeading);
+
+        var canaryRow = document.createElement("div");
+        canaryRow.className = "canary-row";
+        var canaryToggle = document.createElement("input");
+        canaryToggle.type = "checkbox";
+        canaryToggle.id = "canary-toggle";
+        var canaryToggleLabel = document.createElement("label");
+        canaryToggleLabel.setAttribute("for", "canary-toggle");
+        canaryToggleLabel.textContent = "Enable canary release";
+        canaryRow.appendChild(canaryToggle);
+        canaryRow.appendChild(canaryToggleLabel);
+        root.appendChild(canaryRow);
+
+        var canarySliderRow = document.createElement("div");
+        canarySliderRow.className = "slider-row";
+        var canarySliderLabel = document.createElement("label");
+        canarySliderLabel.textContent = "% traffic to canary";
+        canarySliderLabel.setAttribute("for", "canary-pct-slider");
+        var canarySlider = document.createElement("input");
+        canarySlider.type = "range";
+        canarySlider.min = "0";
+        canarySlider.max = "100";
+        canarySlider.value = "10";
+        canarySlider.id = "canary-pct-slider";
+        canarySlider.disabled = true;
+        var canaryPctReadout = document.createElement("span");
+        canaryPctReadout.className = "readout";
+        canaryPctReadout.textContent = "10%";
+        canarySliderRow.appendChild(canarySliderLabel);
+        canarySliderRow.appendChild(canarySlider);
+        canarySliderRow.appendChild(canaryPctReadout);
+        root.appendChild(canarySliderRow);
+
+        var sendBtn = document.createElement("button");
+        sendBtn.type = "button";
+        sendBtn.className = "btn btn-primary";
+        sendBtn.textContent = "Send traffic batch (1,000 requests)";
+        sendBtn.disabled = true;
+        sendBtn.style.marginBottom = "var(--space-4)";
+        root.appendChild(sendBtn);
+
+        var compareGrid = document.createElement("div");
+        compareGrid.className = "canary-compare";
+        var controlCard = document.createElement("div");
+        controlCard.className = "canary-card";
+        controlCard.innerHTML = "<h4>Control (stable version)</h4><p id=\"control-stats\">No traffic sent yet.</p>";
+        var canaryCard = document.createElement("div");
+        canaryCard.className = "canary-card";
+        canaryCard.innerHTML = "<h4>Canary (new version)</h4><p id=\"canary-stats\">No traffic sent yet.</p>";
+        compareGrid.appendChild(controlCard);
+        compareGrid.appendChild(canaryCard);
+        root.appendChild(compareGrid);
+
+        var controlStatsEl = controlCard.querySelector("#control-stats");
+        var canaryStatsEl = canaryCard.querySelector("#canary-stats");
+
+        var totals = { controlReq: 0, controlErr: 0, canaryReq: 0, canaryErr: 0 };
+
+        canaryToggle.addEventListener("change", function () {
+          canarySlider.disabled = !canaryToggle.checked;
+          sendBtn.disabled = !canaryToggle.checked;
+        });
+
+        canarySlider.addEventListener("input", function () {
+          canaryPctReadout.textContent = canarySlider.value + "%";
+        });
+
+        sendBtn.addEventListener("click", function () {
+          var canaryPct = parseInt(canarySlider.value, 10) / 100;
+          var CONTROL_TRUE_ERROR_RATE = 0.02;
+          var CANARY_TRUE_ERROR_RATE = 0.055; // hidden regression baked into the canary on purpose
+          var n = 1000;
+          for (var i = 0; i < n; i++) {
+            if (Math.random() < canaryPct) {
+              totals.canaryReq++;
+              if (Math.random() < CANARY_TRUE_ERROR_RATE) totals.canaryErr++;
+            } else {
+              totals.controlReq++;
+              if (Math.random() < CONTROL_TRUE_ERROR_RATE) totals.controlErr++;
+            }
+          }
+          renderCanaryStats();
+        });
+
+        function pct(numerator, denominator) {
+          if (denominator === 0) return "0.0";
+          return ((numerator / denominator) * 100).toFixed(2);
+        }
+
+        function renderCanaryStats() {
+          controlStatsEl.textContent = totals.controlReq === 0
+            ? "No traffic sent yet."
+            : totals.controlReq + " requests served — " + totals.controlErr + " errors — error rate " + pct(totals.controlErr, totals.controlReq) + "%";
+          canaryStatsEl.textContent = totals.canaryReq === 0
+            ? "No traffic sent yet."
+            : totals.canaryReq + " requests served — " + totals.canaryErr + " errors — error rate " + pct(totals.canaryErr, totals.canaryReq) + "%";
+
+          if (totals.canaryReq > 50) {
+            var canaryRate = totals.canaryErr / totals.canaryReq;
+            var controlRate = totals.controlReq > 0 ? totals.controlErr / totals.controlReq : 0;
+            if (canaryRate > controlRate * 1.5) {
+              canaryStatsEl.style.color = "var(--color-error)";
+              canaryStatsEl.textContent += " — noticeably worse than control!";
+            } else {
+              canaryStatsEl.style.color = "";
+            }
+          }
+        }
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Increasing batch size in the exercise tends to do what to per-request latency and throughput?",
+          options: [
+            "Decreases both latency and throughput",
+            "Increases per-request latency (more queueing) but increases overall throughput",
+            "Has no effect on either metric",
+            "Increases latency and decreases throughput"
+          ],
+          answer: 1,
+          explanation: "Bigger batches mean a request waits longer for the batch to fill (higher latency) but the server processes more requests per second overall (higher throughput) — a classic tradeoff."
+        },
+        {
+          q: "What is the main purpose of a canary release?",
+          options: [
+            "To permanently replace the old model version immediately",
+            "To route a small percentage of real traffic to a new version so problems surface on limited exposure before a full rollout",
+            "To reduce serving cost by skipping the new model entirely",
+            "To increase batch size automatically"
+          ],
+          answer: 1,
+          explanation: "A canary limits the blast radius: only a slice of traffic sees the new version, so a regression is caught while affecting few users."
+        },
+        {
+          q: "In the exercise, why does the canary's error rate stay noisy with only a handful of requests sent to it?",
+          options: [
+            "Because the canary model is broken by design",
+            "Because small sample sizes produce noisy rate estimates — more traffic is needed before the observed rate reliably reflects the true rate",
+            "Because the control version is also canary traffic",
+            "Because caching is disabled during canary tests"
+          ],
+          answer: 1,
+          explanation: "With few requests, random variation dominates the observed error rate; only after enough traffic accumulates does the estimate stabilize near the true underlying rate."
+        },
+        {
+          q: "A circuit breaker in a production ML serving system is best described as:",
+          options: [
+            "A hardware component that powers the GPU cluster",
+            "A mechanism that stops sending requests to a failing dependency for a period, to avoid cascading failures",
+            "A setting that increases the cache-hit rate",
+            "A rollout strategy that mirrors production traffic without affecting real users"
+          ],
+          answer: 1,
+          explanation: "Circuit breakers detect repeated failures and temporarily stop calling a failing component, giving it time to recover and preventing failures from cascading through the system."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

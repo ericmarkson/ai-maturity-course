@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Systems for Frontier-Scale Training — AI Maturity Course</title>
+<meta name="description" content="Why network topology, not raw device count, determines effective throughput when training across tens of thousands of accelerators.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-4";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Distributed Systems for Frontier-Scale Training</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a hypothetical cluster size and model size, reason about which
+      parallelism strategy (or combination) is appropriate and why communication topology, not just device count,
+      determines effective training throughput.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Distributed training systems engineering is the discipline of coordinating tens of thousands of
+          accelerators (GPUs/TPUs) to train a single model without communication overhead dominating compute
+          time. Adding more devices only helps if the network fabric between them can keep them fed with
+          synchronized gradients and activations fast enough — past a certain point, more devices with a weak
+          interconnect can train <em>slower</em>, not faster.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Parallelism strategies: data, tensor, pipeline, and expert parallelism, and why frontier runs combine
+          several simultaneously (3D/4D parallelism)</li>
+        <li>Interconnect and topology: why network bandwidth/latency (InfiniBand/RoCE, all-reduce patterns) becomes
+          the bottleneck, not raw FLOPs, at frontier scale</li>
+        <li>Fault tolerance at scale: checkpointing cadence and straggler/failure handling when a training run spans
+          10,000+ devices for weeks</li>
+        <li>The 2026 reality: compute-crunch dynamics (multi-month GPU lead times), and clusters scaling toward
+          hundreds of thousands of accelerators across sites</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "3D-parallelism planner: partition a 70B-parameter model across a GPU grid",
+      instructions:
+        "Drag the Data-Parallel (DP), Tensor-Parallel (TP), and Pipeline-Parallel (PP) sliders to partition a " +
+        "toy 70B-parameter model across a cluster. Watch the GPU grid, memory-per-device, pipeline bubble, and " +
+        "utilization update live as you change the split.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var MODEL_PARAMS = 70e9;           // 70B params, fixed for this toy example
+        var BYTES_PER_PARAM = 12;          // illustrative mixed-precision Adam footprint (weights+grad+optimizer states)
+        var GPU_MEM_LIMIT_GB = 80;         // e.g. one H100-class accelerator
+        var MICROBATCHES = 8;              // fixed pipeline microbatch count for this toy example
+
+        var wrap = document.createElement("div");
+
+        function makeSliderRow(idPrefix, labelText, min, max, val) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.setAttribute("for", idPrefix + "-slider");
+          label.textContent = labelText;
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = String(min);
+          slider.max = String(max);
+          slider.step = "1";
+          slider.value = String(val);
+          slider.id = idPrefix + "-slider";
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.id = idPrefix + "-readout";
+          readout.textContent = "×" + val;
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+          return { slider: slider, readout: readout };
+        }
+
+        var dpCtl = makeSliderRow("dp", "Data parallel (DP)", 1, 8, 2);
+        var tpCtl = makeSliderRow("tp", "Tensor parallel (TP)", 1, 8, 2);
+        var ppCtl = makeSliderRow("pp", "Pipeline parallel (PP)", 1, 8, 2);
+
+        var note = document.createElement("p");
+        note.style.fontSize = "var(--font-size-sm)";
+        note.style.color = "var(--color-text-muted)";
+        note.textContent = "Toy model: 70B parameters, ~12 bytes/parameter of training memory (mixed-precision " +
+          "weights + gradients + optimizer states), 8 microbatches per pipeline pass, 80GB per accelerator.";
+        wrap.appendChild(note);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 320;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "640px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.marginTop = "var(--space-3)";
+        wrap.appendChild(canvas);
+
+        var statsGrid = document.createElement("div");
+        statsGrid.style.display = "grid";
+        statsGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(190px, 1fr))";
+        statsGrid.style.gap = "0.75rem";
+        statsGrid.style.marginTop = "0.75rem";
+        wrap.appendChild(statsGrid);
+
+        function statBox(id, label) {
+          var box = document.createElement("div");
+          box.style.border = "1px solid var(--color-border)";
+          box.style.borderRadius = "8px";
+          box.style.padding = "0.5rem 0.75rem";
+          var l = document.createElement("div");
+          l.style.fontSize = "var(--font-size-sm)";
+          l.style.color = "var(--color-text-muted)";
+          l.textContent = label;
+          var v = document.createElement("div");
+          v.style.fontWeight = "700";
+          v.id = id;
+          box.appendChild(l);
+          box.appendChild(v);
+          statsGrid.appendChild(box);
+          return v;
+        }
+
+        var totalDevicesVal = statBox("stat-total", "Total devices (DP×TP×PP)");
+        var memPerDeviceVal = statBox("stat-mem", "Memory per device");
+        var bubbleVal = statBox("stat-bubble", "Pipeline bubble overhead");
+        var commVal = statBox("stat-comm", "Communication overhead");
+        var utilVal = statBox("stat-util", "Utilization");
+        var throughputVal = statBox("stat-throughput", "Effective throughput");
+
+        var warning = document.createElement("p");
+        warning.setAttribute("role", "status");
+        warning.style.marginTop = "0.75rem";
+        warning.style.fontWeight = "600";
+        wrap.appendChild(warning);
+
+        root.appendChild(wrap);
+        var g = canvas.getContext("2d");
+
+        function stats(dp, tp, pp) {
+          var totalDevices = dp * tp * pp;
+          var totalMemGB = (MODEL_PARAMS * BYTES_PER_PARAM) / 1e9;
+          var memPerDeviceGB = totalMemGB / (tp * pp); // DP replicates the (tp*pp)-sharded model, doesn't shard further
+          var bubbleFrac = (pp - 1) / (pp - 1 + MICROBATCHES);
+          var tpCommOverhead = (tp - 1) * 0.05;
+          var dpCommOverhead = (dp - 1) * 0.02;
+          var totalOverhead = Math.min(0.9, bubbleFrac + tpCommOverhead + dpCommOverhead);
+          var utilization = 1 - totalOverhead;
+          var effectiveThroughput = totalDevices * utilization;
+          return {
+            totalDevices: totalDevices,
+            memPerDeviceGB: memPerDeviceGB,
+            bubbleFrac: bubbleFrac,
+            commOverhead: tpCommOverhead + dpCommOverhead,
+            utilization: utilization,
+            effectiveThroughput: effectiveThroughput
+          };
+        }
+
+        function memColor(ratio) {
+          if (ratio > 0.95) return "#b3261e";
+          if (ratio > 0.65) return "#c98a00";
+          return "#0f7a4a";
+        }
+
+        function draw(dp, tp, pp) {
+          var s = stats(dp, tp, pp);
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+
+          var gridX = 30, gridY = 40, gridW = w - 60, gridH = h - 90;
+          var cellW = gridW / pp, cellH = gridH / tp;
+          var memRatio = s.memPerDeviceGB / GPU_MEM_LIMIT_GB;
+
+          g.fillStyle = "#1a2033";
+          g.font = "13px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Pipeline stage →", gridX, 18);
+          g.save();
+          g.translate(14, gridY + gridH / 2);
+          g.rotate(-Math.PI / 2);
+          g.textAlign = "center";
+          g.fillText("Tensor-parallel rank", 0, 0);
+          g.restore();
+
+          for (var r = 0; r < tp; r++) {
+            for (var c = 0; c < pp; c++) {
+              var cx = gridX + c * cellW, cy = gridY + r * cellH;
+              g.fillStyle = memColor(memRatio);
+              g.globalAlpha = 0.85;
+              g.fillRect(cx + 2, cy + 2, cellW - 4, cellH - 4);
+              g.globalAlpha = 1;
+              g.strokeStyle = "#fff";
+              g.strokeRect(cx + 2, cy + 2, cellW - 4, cellH - 4);
+              g.fillStyle = "#fff";
+              g.font = "12px sans-serif";
+              g.textAlign = "center";
+              g.fillText("×" + dp + " DP", cx + cellW / 2, cy + cellH / 2 + 4);
+            }
+          }
+
+          g.strokeStyle = "#b7c0d8";
+          g.strokeRect(gridX, gridY, gridW, gridH);
+
+          g.fillStyle = "#1a2033";
+          g.font = "12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Each cell = one (pipeline-stage, tensor-rank) group holding " + dp + " data-parallel replicas. " +
+            "Color = memory pressure per device.", gridX, gridY + gridH + 20);
+
+          totalDevicesVal.textContent = s.totalDevices.toLocaleString();
+          memPerDeviceVal.textContent = s.memPerDeviceGB.toFixed(1) + " GB";
+          memPerDeviceVal.style.color = memColor(memRatio);
+          bubbleVal.textContent = (s.bubbleFrac * 100).toFixed(1) + "%";
+          commVal.textContent = (s.commOverhead * 100).toFixed(1) + "%";
+          utilVal.textContent = (s.utilization * 100).toFixed(1) + "%";
+          throughputVal.textContent = s.effectiveThroughput.toFixed(1) + " device-equiv.";
+
+          if (memRatio > 1) {
+            warning.textContent = "Memory per device (" + s.memPerDeviceGB.toFixed(1) + " GB) exceeds the " +
+              GPU_MEM_LIMIT_GB + " GB accelerator limit — this split would OOM. Raise TP or PP to shard further.";
+            warning.style.color = "#b3261e";
+          } else if (s.utilization < 0.6) {
+            warning.textContent = "Utilization has dropped to " + (s.utilization * 100).toFixed(0) + "% — " +
+              "communication and pipeline-bubble overhead are eating most of the benefit of adding devices.";
+            warning.style.color = "#9a6b00";
+          } else {
+            warning.textContent = "This split fits in memory and keeps utilization reasonably high.";
+            warning.style.color = "#0f7a4a";
+          }
+        }
+
+        function currentVals() {
+          return {
+            dp: parseInt(dpCtl.slider.value, 10),
+            tp: parseInt(tpCtl.slider.value, 10),
+            pp: parseInt(ppCtl.slider.value, 10)
+          };
+        }
+
+        [dpCtl, tpCtl, ppCtl].forEach(function (ctl, i) {
+          var labelPrefix = ["dp", "tp", "pp"][i];
+          ctl.slider.addEventListener("input", function () {
+            ctl.readout.textContent = "×" + ctl.slider.value;
+            var v = currentVals();
+            draw(v.dp, v.tp, v.pp);
+          });
+        });
+
+        draw(2, 2, 2);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why does communication topology (not just device count) determine effective training throughput at frontier scale?",
+          options: [
+            "Because more devices always trains proportionally faster regardless of the network",
+            "Because GPUs cannot communicate with each other at all",
+            "Because network bandwidth/latency between accelerators becomes the bottleneck that limits how fast gradients and activations can be synchronized, not raw FLOPs",
+            "Because only single-device training is used at frontier scale"
+          ],
+          answer: 2,
+          explanation: "At 10,000+ device scale, all-reduce and pipeline communication overhead dominates; naive scaling stalls unless the parallelism strategy matches the cluster's interconnect topology."
+        },
+        {
+          q: "What causes 'pipeline bubble' overhead in pipeline parallelism?",
+          options: [
+            "GPUs overheating",
+            "Idle time on later pipeline stages while waiting for the first microbatch to fill the whole pipeline",
+            "Tensor-parallel all-reduce traffic",
+            "Data-parallel gradient averaging"
+          ],
+          answer: 1,
+          explanation: "Pipeline stages sit idle until microbatches fill the pipe; more stages relative to microbatch count means a bigger bubble fraction, as the simulator's bubble-overhead readout shows."
+        },
+        {
+          q: "Why do frontier training runs typically combine multiple parallelism strategies simultaneously (3D/4D parallelism) rather than relying on just one?",
+          options: [
+            "Because using only one strategy is not technically possible",
+            "Because it makes checkpointing unnecessary",
+            "Because a single GPU can hold the entire model regardless of size",
+            "Because no single strategy alone can both fit an enormous model in memory and communicate efficiently across tens of thousands of devices"
+          ],
+          answer: 3,
+          explanation: "Data, tensor, pipeline, and expert parallelism each trade off memory sharding against communication cost differently; combining them balances both constraints against real cluster topology."
+        },
+        {
+          q: "In a frontier run spanning 10,000+ devices over weeks, what is a critical fault-tolerance concern?",
+          options: [
+            "Making sure all devices use different model architectures",
+            "Avoiding any use of GPUs",
+            "Checkpointing cadence and handling stragglers/failures without restarting the entire run from scratch",
+            "Increasing the learning rate to compensate for hardware failures"
+          ],
+          answer: 2,
+          explanation: "At that scale, hardware failures are a near-certainty during any given run; efficient checkpoint/restart and straggler handling are what keep the run practically completable."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

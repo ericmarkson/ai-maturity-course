@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basic AI Ethics: Bias and Privacy — AI Maturity Course</title>
+<meta name="description" content="How AI systems can inherit unfairness from training data, and how they raise privacy trade-offs — with an interactive hiring-threshold bias simulator.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-6";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>Basic AI Ethics: Bias and Privacy</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can give one concrete example of how biased
+      training data could lead to an unfair AI outcome, and one example of a privacy trade-off in
+      an everyday AI tool.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          AI systems can inherit unfairness from their training data (<strong>bias</strong>) and can
+          raise concerns about how personal data is collected and used (<strong>privacy</strong>) —
+          two of the most immediate real-world consequences of AI to be aware of. Neither problem
+          requires a system to be "broken": a model can work exactly as designed and still produce
+          unfair outcomes or collect more personal data than most users realize.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Where bias comes from: skewed or unrepresentative training data</li>
+        <li>Real-world examples of biased outcomes (hiring tools, facial recognition, lending)</li>
+        <li>Privacy: what data AI systems collect and how it may be used or retained</li>
+        <li>Why "the AI decided it" doesn't remove human responsibility for outcomes</li>
+      </ul>
+      <p>
+        A model learns whatever pattern is in its training data — including patterns nobody
+        intended to teach it. If a hiring model is trained mostly on résumés of people who were
+        historically hired into a role, it can learn to favor whatever made those résumés look
+        similar, even if that similarity has nothing to do with actual job performance. The model
+        isn't "deciding to be unfair" in any deliberate sense; it is faithfully reproducing a skew
+        that was already present in the data it was shown. This is why bias audits look at the
+        training data and the outcomes, not just the code. Privacy raises a related but separate
+        question: many AI tools work better the more personal data they collect (voice recordings,
+        location history, browsing habits), which creates a real trade-off between convenience and
+        how much of your data is gathered, stored, and potentially reused. And because a company,
+        not the model, chose what data to use and decided to ship the system, responsibility for
+        the outcome stays with the people who built and deployed it — "the algorithm did it" is not
+        an excuse that makes accountability disappear.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy fixed candidate scores (0-100), purely illustrative — not real ML.
+    // Group A: pool the historical hiring model happened to favor.
+    var GROUP_A = [52, 58, 61, 63, 65, 66, 68, 69, 70, 71, 72, 73, 75, 76, 78, 80, 82, 85, 88, 91];
+    // Group B: pool systematically scored lower because the training data
+    // that shaped the model skewed against them, not because they are less
+    // qualified.
+    var GROUP_B_BASE = [30, 34, 36, 38, 40, 42, 44, 45, 47, 48, 50, 51, 53, 55, 57, 59, 61, 64, 67, 70];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Hiring-threshold bias simulator",
+      instructions:
+        "20 toy candidates per group are scored 0-100 by a mock hiring model. Drag the decision " +
+        "threshold to see who clears the bar for an interview. Then drag the bias-correction " +
+        "slider to see what happens when you counteract the skew in Group B's scores — the " +
+        "threshold rule itself never changes, only the underlying scores do.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var threshold = 60;
+        var correction = 0;
+
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        // --- Threshold slider ---
+        var row1 = document.createElement("div");
+        row1.className = "slider-row";
+        var label1 = document.createElement("label");
+        label1.textContent = "Decision threshold (score needed for an interview)";
+        label1.style.flex = "1 1 260px";
+        var slider1 = document.createElement("input");
+        slider1.type = "range";
+        slider1.min = "0";
+        slider1.max = "100";
+        slider1.value = String(threshold);
+        var readout1 = document.createElement("span");
+        readout1.className = "readout";
+        readout1.textContent = threshold;
+        row1.appendChild(label1);
+        row1.appendChild(slider1);
+        row1.appendChild(readout1);
+        wrap.appendChild(row1);
+
+        // --- Bias-correction slider ---
+        var row2 = document.createElement("div");
+        row2.className = "slider-row";
+        var label2 = document.createElement("label");
+        label2.textContent = "Bias correction applied to Group B's scores";
+        label2.style.flex = "1 1 260px";
+        var slider2 = document.createElement("input");
+        slider2.type = "range";
+        slider2.min = "0";
+        slider2.max = "30";
+        slider2.value = String(correction);
+        var readout2 = document.createElement("span");
+        readout2.className = "readout";
+        readout2.textContent = "+" + correction;
+        row2.appendChild(label2);
+        row2.appendChild(slider2);
+        row2.appendChild(readout2);
+        wrap.appendChild(row2);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 600;
+        canvas.height = 190;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "600px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.marginTop = "8px";
+        wrap.appendChild(canvas);
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        var noteText = document.createElement("p");
+        noteText.style.color = "var(--color-text-muted)";
+        noteText.style.fontSize = "0.9rem";
+        wrap.appendChild(noteText);
+
+        root.appendChild(wrap);
+
+        var cx = canvas.getContext("2d");
+        var marginX = 30;
+        var axisW = canvas.width - marginX * 2;
+        var rowA_Y = 55;
+        var rowB_Y = 135;
+
+        function scoreToX(score) {
+          return marginX + (score / 100) * axisW;
+        }
+
+        function drawAxis(y, label) {
+          cx.strokeStyle = "#b7c0d8";
+          cx.lineWidth = 2;
+          cx.beginPath();
+          cx.moveTo(marginX, y);
+          cx.lineTo(canvas.width - marginX, y);
+          cx.stroke();
+          cx.fillStyle = "#4c5470";
+          cx.font = "12px sans-serif";
+          cx.textAlign = "left";
+          cx.fillText(label, marginX, y - 22);
+        }
+
+        function drawDots(scores, y) {
+          scores.forEach(function (score) {
+            var x = scoreToX(score);
+            var accepted = score >= threshold;
+            cx.fillStyle = accepted ? "#0f9d78" : "#b3261e";
+            cx.beginPath();
+            cx.arc(x, y, 6, 0, Math.PI * 2);
+            cx.fill();
+          });
+        }
+
+        function draw() {
+          cx.clearRect(0, 0, canvas.width, canvas.height);
+
+          drawAxis(rowA_Y, "Group A (pool the model already favors)");
+          drawAxis(rowB_Y, "Group B (systematically under-scored by biased training data)");
+
+          var groupBCorrected = GROUP_B_BASE.map(function (s) {
+            return Math.min(100, s + correction);
+          });
+
+          drawDots(GROUP_A, rowA_Y);
+          drawDots(groupBCorrected, rowB_Y);
+
+          // Threshold line spanning both rows
+          var threshX = scoreToX(threshold);
+          cx.strokeStyle = "#2952e3";
+          cx.lineWidth = 2;
+          cx.beginPath();
+          cx.moveTo(threshX, 25);
+          cx.lineTo(threshX, 165);
+          cx.stroke();
+          cx.fillStyle = "#2952e3";
+          cx.font = "12px sans-serif";
+          cx.textAlign = "center";
+          cx.fillText("threshold: " + threshold, threshX, 178);
+
+          var acceptedA = GROUP_A.filter(function (s) { return s >= threshold; }).length;
+          var acceptedB = groupBCorrected.filter(function (s) { return s >= threshold; }).length;
+          var pctA = Math.round((acceptedA / GROUP_A.length) * 100);
+          var pctB = Math.round((acceptedB / groupBCorrected.length) * 100);
+          var gap = Math.abs(pctA - pctB);
+
+          resultText.textContent =
+            "Group A: " + acceptedA + "/20 offered an interview (" + pctA + "%). " +
+            "Group B: " + acceptedB + "/20 offered an interview (" + pctB + "%). " +
+            "Gap: " + gap + " percentage points.";
+          resultText.style.color = gap >= 20 ? "#b3261e" : (gap <= 5 ? "#0f7a4a" : "#a06a00");
+
+          noteText.textContent = correction === 0
+            ? "Both groups face the exact same threshold rule — the gap above comes entirely " +
+              "from the historical data used to score them, not from the rule itself."
+            : "With +" + correction + " correction applied to Group B's scores, notice the gap " +
+              "shrinking (or growing) even though the threshold rule hasn't changed at all.";
+        }
+
+        slider1.addEventListener("input", function () {
+          threshold = parseInt(slider1.value, 10);
+          readout1.textContent = threshold;
+          draw();
+        });
+
+        slider2.addEventListener("input", function () {
+          correction = parseInt(slider2.value, 10);
+          readout2.textContent = "+" + correction;
+          draw();
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Where does bias in an AI system's outputs most commonly originate?",
+          options: [
+            "Skewed or unrepresentative training data that reflects past inequities",
+            "Random hardware malfunctions in the computer running the model",
+            "The programming language used to build the model",
+            "The color scheme of the user interface"
+          ],
+          answer: 0,
+          explanation: "A model learns whatever pattern exists in the data it's trained on. If that data is skewed or unrepresentative, the model reproduces the skew — it isn't a hardware or UI issue."
+        },
+        {
+          q: "In the hiring-threshold exercise, why can Group B end up with a lower acceptance rate even though both groups face the exact same threshold?",
+          options: [
+            "Group B's underlying scores are lower because the mock model was shaped by historically skewed training data, not because the rule differs between groups",
+            "The slider secretly applies a stricter threshold to Group B only",
+            "Group B has fewer candidates in the simulation, which changes the math",
+            "There is no real difference between the two groups in the exercise"
+          ],
+          answer: 0,
+          explanation: "The threshold is identical for both groups — the gap in outcomes comes from a difference in the underlying scores, which stands in for bias baked into the training data."
+        },
+        {
+          q: "Which of these is an example of a privacy trade-off in an everyday AI tool?",
+          options: [
+            "A smart speaker or voice assistant that must send audio to the cloud to recognize a wake word and respond",
+            "A calculator app that drains a little extra battery",
+            "A word processor that spell-checks text entirely offline",
+            "A game that uses more storage space than expected"
+          ],
+          answer: 0,
+          explanation: "Many AI features only work well if the system collects and processes personal data (like voice or location) — the convenience comes with a real trade-off in how much personal data is gathered and retained."
+        },
+        {
+          q: "Why doesn't saying \"the AI decided it\" remove human responsibility for an unfair outcome?",
+          options: [
+            "Because people chose the training data, designed the system, and decided to deploy it, so accountability stays with them",
+            "Because AI systems are legally recognized as independent decision-makers",
+            "Because AI outputs are purely random and therefore no one's fault",
+            "Because there is no way to ever review or audit an AI system's decisions"
+          ],
+          answer: 0,
+          explanation: "A model's outputs are a direct product of choices made by the people who selected its data, designed it, and shipped it — those choices, and their consequences, remain human responsibilities."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

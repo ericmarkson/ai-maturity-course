@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Modal Models: Vision-Language and Audio — AI Maturity Course</title>
+<meta name="description" content="How text, images, and audio all end up as inputs a transformer can process, in a shared embedding space.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-6";
+</script>
+<style>
+  .mm-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .mm-columns { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+  .mm-col { flex: 1 1 180px; min-width: 160px; }
+  .mm-col h4 { margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+  .mm-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+  .mm-item-btn {
+    display: block; width: 100%; text-align: left; border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); background: var(--color-bg);
+    cursor: pointer; font: inherit; color: var(--color-text); margin-bottom: var(--space-2);
+  }
+  .mm-item-btn:hover { background: var(--color-bg-alt); }
+  .mm-item-btn.selected { border-color: var(--color-primary); background: var(--color-primary-light); font-weight: 700; }
+  .mm-canvas-wrap canvas { width: 100%; max-width: 520px; display: block; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; }
+  .mm-pipeline { font-family: var(--font-mono); font-size: var(--font-size-sm); background: var(--color-bg-inset); border-radius: var(--radius-sm); padding: var(--space-3); }
+  .mm-readout { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Multi-Modal Models: Vision-Language and Audio</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Describe, at a conceptual level, how an image and a text prompt
+      both end up as inputs a transformer can process, and give one example use case each for
+      vision-language and audio-language models.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Multi-modal models are AI systems that can process and/or generate more than one type of data —
+          such as text, images, and audio — within a single model. Each modality is encoded into vectors
+          that live in a shared representation (embedding) space, so a transformer can reason over text,
+          image, and audio content side by side.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Shared representation space</strong> — how different modalities get encoded into vectors the model can compare</li>
+        <li><strong>Vision-language models</strong> — image understanding, captioning, visual question answering</li>
+        <li><strong>Audio modalities</strong> — speech-to-text, text-to-speech, and native audio understanding</li>
+        <li><strong>Fusion strategies</strong> — early vs. late fusion of modalities, and cross-modal attention</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var COLORS = { image: "#2952e3", text: "#0f9d78", audio: "#b3730a" };
+
+    // Coordinates (0-100 space) cluster by CONCEPT so same-concept items across
+    // modalities land close together in the shared embedding space.
+    var ITEMS = [
+      { id: "img-dog", modality: "image", label: "🐕 dog photo", x: 18, y: 68 },
+      { id: "txt-dog", modality: "text", label: "\"a dog running in a park\"", x: 26, y: 75 },
+      { id: "aud-dog", modality: "audio", label: "🔊 bark sound", x: 15, y: 80 },
+
+      { id: "img-car", modality: "image", label: "🚗 car photo", x: 70, y: 30 },
+      { id: "txt-car", modality: "text", label: "\"a red sports car\"", x: 78, y: 36 },
+      { id: "aud-car", modality: "audio", label: "🔊 engine revving", x: 65, y: 40 },
+
+      { id: "img-beach", modality: "image", label: "🏖 beach photo", x: 45, y: 12 },
+      { id: "txt-beach", modality: "text", label: "\"a beach at sunset\"", x: 53, y: 18 },
+      { id: "aud-beach", modality: "audio", label: "🔊 ocean waves", x: 40, y: 22 }
+    ];
+
+    var PIPELINES = {
+      image: "Image -> split into fixed-size patches -> each patch linearly projected into an embedding -> projected into the SAME shared space as text/audio embeddings.",
+      text: "Text -> tokenized into subword tokens -> each token mapped to an embedding -> projected into the SAME shared space as image/audio embeddings.",
+      audio: "Audio -> waveform split into short time segments -> each segment encoded into an embedding -> projected into the SAME shared space as image/text embeddings."
+    };
+
+    function dist(a, b) {
+      return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Multi-Modal Embedding Space Inspector",
+      instructions:
+        "Click any image, text, or audio item. It gets projected into the shared embedding space " +
+        "below, and its nearest cross-modal matches are highlighted with distances — showing how the " +
+        "same concept, expressed in different modalities, lands close together.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "mm-layout";
+
+        var columns = document.createElement("div");
+        columns.className = "mm-columns";
+
+        var itemButtons = {};
+        ["image", "text", "audio"].forEach(function (modality) {
+          var col = document.createElement("div");
+          col.className = "mm-col";
+          var heading = document.createElement("h4");
+          var swatch = document.createElement("span");
+          swatch.className = "mm-swatch";
+          swatch.style.background = COLORS[modality];
+          heading.appendChild(swatch);
+          heading.appendChild(document.createTextNode(modality.charAt(0).toUpperCase() + modality.slice(1)));
+          col.appendChild(heading);
+
+          ITEMS.filter(function (it) { return it.modality === modality; }).forEach(function (item) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "mm-item-btn";
+            btn.textContent = item.label;
+            btn.dataset.id = item.id;
+            col.appendChild(btn);
+            itemButtons[item.id] = btn;
+          });
+
+          columns.appendChild(col);
+        });
+        wrap.appendChild(columns);
+
+        var pipelineHeading = document.createElement("h4");
+        pipelineHeading.textContent = "Encoding pipeline for the selected item";
+        wrap.appendChild(pipelineHeading);
+        var pipeline = document.createElement("p");
+        pipeline.className = "mm-pipeline";
+        pipeline.textContent = "Click an item above to see how it gets encoded.";
+        wrap.appendChild(pipeline);
+
+        var canvasHeading = document.createElement("h4");
+        canvasHeading.textContent = "Shared embedding space";
+        wrap.appendChild(canvasHeading);
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "mm-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 520;
+        canvas.height = 380;
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var readout = document.createElement("p");
+        readout.className = "mm-readout";
+        readout.setAttribute("role", "status");
+        readout.textContent = "No item selected yet.";
+        wrap.appendChild(readout);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+        var selectedId = null;
+
+        function toCanvas(pt) {
+          var margin = 40;
+          var w = canvas.width - margin * 2;
+          var h = canvas.height - margin * 2;
+          return { px: margin + (pt.x / 100) * w, py: canvas.height - margin - (pt.y / 100) * h };
+        }
+
+        function draw(highlightId, matchIds) {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          ctx2d.strokeStyle = "#e4e8f2";
+          ctx2d.strokeRect(20, 20, w - 40, h - 40);
+
+          var selected = ITEMS.filter(function (it) { return it.id === highlightId; })[0];
+
+          // draw match lines first (under the dots)
+          if (selected && matchIds && matchIds.length) {
+            var p0 = toCanvas(selected);
+            matchIds.forEach(function (mid) {
+              var m = ITEMS.filter(function (it) { return it.id === mid; })[0];
+              var p1 = toCanvas(m);
+              ctx2d.strokeStyle = "rgba(41, 82, 227, 0.55)";
+              ctx2d.lineWidth = 2;
+              ctx2d.setLineDash([5, 4]);
+              ctx2d.beginPath();
+              ctx2d.moveTo(p0.px, p0.py);
+              ctx2d.lineTo(p1.px, p1.py);
+              ctx2d.stroke();
+              ctx2d.setLineDash([]);
+            });
+          }
+
+          ITEMS.forEach(function (item) {
+            var p = toCanvas(item);
+            var isSelected = item.id === highlightId;
+            var isMatch = matchIds && matchIds.indexOf(item.id) !== -1;
+            var r = isSelected ? 10 : (isMatch ? 8 : 6);
+            ctx2d.fillStyle = COLORS[item.modality];
+            ctx2d.beginPath();
+            ctx2d.arc(p.px, p.py, r, 0, Math.PI * 2);
+            ctx2d.fill();
+            if (isSelected) {
+              ctx2d.strokeStyle = "#1a2033";
+              ctx2d.lineWidth = 2;
+              ctx2d.stroke();
+            } else if (isMatch) {
+              ctx2d.strokeStyle = "#1a2033";
+              ctx2d.lineWidth = 1.5;
+              ctx2d.stroke();
+            }
+            ctx2d.fillStyle = "#1a2033";
+            ctx2d.font = (isSelected ? "bold " : "") + "10px sans-serif";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText(item.label.replace(/^\W+/, "").slice(0, 16), p.px, p.py - r - 4);
+          });
+        }
+
+        function selectItem(id) {
+          selectedId = id;
+          var selected = ITEMS.filter(function (it) { return it.id === id; })[0];
+
+          Object.keys(itemButtons).forEach(function (bid) {
+            itemButtons[bid].className = "mm-item-btn" + (bid === id ? " selected" : "");
+          });
+
+          pipeline.textContent = PIPELINES[selected.modality];
+
+          var distances = ITEMS.filter(function (it) { return it.id !== id; })
+            .map(function (it) { return { item: it, d: dist(selected, it) }; })
+            .sort(function (a, b) { return a.d - b.d; });
+
+          var crossModal = distances.filter(function (o) { return o.item.modality !== selected.modality; }).slice(0, 2);
+          var matchIds = crossModal.map(function (o) { return o.item.id; });
+
+          draw(id, matchIds);
+
+          var desc = crossModal.map(function (o) {
+            return o.item.label + " (" + o.item.modality + ", distance " + o.d.toFixed(1) + ")";
+          }).join("; ");
+
+          readout.textContent = "Selected: " + selected.label + " (" + selected.modality + "). Nearest cross-modal matches in the shared space: " + desc + ".";
+        }
+
+        Object.keys(itemButtons).forEach(function (id) {
+          itemButtons[id].addEventListener("click", function () { selectItem(id); });
+        });
+
+        draw(null, []);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "How do an image and a text prompt both become inputs a single transformer can process?",
+          options: [
+            "The image is converted to text using OCR and nothing else happens",
+            "Each modality is encoded (e.g. image patches, text tokens) into embeddings that are projected into a shared representation space the model can reason over",
+            "Images cannot be used as model input under any architecture",
+            "The transformer runs two completely separate, unrelated models with no shared space"
+          ],
+          answer: 1,
+          explanation: "Vision-language models encode image patches and text tokens into embeddings that live in a common space, letting the same transformer attend across both."
+        },
+        {
+          q: "Which of these is a vision-language use case (as opposed to an audio one)?",
+          options: [
+            "Text-to-speech narration",
+            "Visual question answering — answering a question about the contents of an image",
+            "Speech-to-text transcription",
+            "Native audio understanding of a spoken command"
+          ],
+          answer: 1,
+          explanation: "Visual question answering combines an image with a text question, a classic vision-language task."
+        },
+        {
+          q: "In the exercise, why do a dog photo, the text \"a dog running in a park\", and a bark sound end up near each other in the embedding space?",
+          options: [
+            "Because all audio items are always placed near all image items regardless of content",
+            "Because they represent the same underlying concept, and a well-trained shared embedding space places semantically similar content from different modalities close together",
+            "It's a coincidence with no relationship to the model's training",
+            "Because embedding space position is based only on file size"
+          ],
+          answer: 1,
+          explanation: "A shared multi-modal embedding space is trained so that semantically related content — regardless of modality — ends up nearby, which is exactly what enables cross-modal retrieval and reasoning."
+        },
+        {
+          q: "What does 'cross-modal attention' refer to in a fusion strategy?",
+          options: [
+            "Only ever attending within a single modality's tokens",
+            "Letting the model's attention mechanism relate tokens/patches from one modality to representations from another modality",
+            "A method for compressing audio files",
+            "A rule that image models can never use audio input"
+          ],
+          answer: 1,
+          explanation: "Cross-modal attention lets the model attend between, say, image patch embeddings and text token embeddings, which is core to how fusion connects modalities inside the transformer."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

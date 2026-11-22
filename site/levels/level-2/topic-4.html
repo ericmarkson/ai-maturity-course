@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classification vs. Regression — AI Maturity Course</title>
+<meta name="description" content="Telling apart predicting a category from predicting a number.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-4";
+</script>
+<style>
+  .flash-card {
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+    padding: var(--space-6); text-align: center; font-size: var(--font-size-md); font-weight: 600;
+    margin-bottom: var(--space-4); min-height: 3.5em; display: flex; align-items: center; justify-content: center;
+  }
+  .flash-card.is-correct { border-color: var(--color-success); background: var(--color-success-bg); }
+  .flash-card.is-incorrect { border-color: var(--color-error); background: var(--color-error-bg); }
+  .flash-btn-row { display: flex; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .flash-btn-row .btn { flex: 1; }
+  .flash-stats { display: flex; justify-content: space-between; font-weight: 700; color: var(--color-text-muted); }
+  .flash-feedback { min-height: 1.4em; font-weight: 600; margin-bottom: var(--space-2); }
+  .flash-done { text-align: center; padding: var(--space-6); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Classification vs. Regression</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a new prediction task description, correctly label it as
+      classification or regression and identify what the output would look like.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Classification</strong> predicts which category something belongs to — spam or not spam,
+          cat or dog. <strong>Regression</strong> predicts a continuous numeric value — tomorrow's
+          temperature, a house's sale price. The type of output you need is what determines which one
+          applies to a given problem.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Discrete categories vs. continuous numbers as the output type</li>
+        <li>Binary classification (two classes) vs. multi-class classification</li>
+        <li>Examples spanning both: image labeling (classification), sales forecasting (regression)</li>
+        <li>Why the output type determines which techniques and metrics apply later</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var DECK = [
+      { text: "Predict a customer's age from their browsing behavior.", answer: "regression" },
+      { text: "Predict whether an email is spam or not spam.", answer: "classification" },
+      { text: "Predict a house's sale price in dollars.", answer: "regression" },
+      { text: "Predict a movie's genre from its plot summary.", answer: "classification" },
+      { text: "Predict tomorrow's high temperature in degrees.", answer: "regression" },
+      { text: "Predict whether a tumor is benign or malignant.", answer: "classification" },
+      { text: "Predict a student's exact exam score out of 100.", answer: "regression" },
+      { text: "Predict which of five languages a sentence is written in.", answer: "classification" },
+      { text: "Predict a car's fuel efficiency in miles per gallon.", answer: "regression" },
+      { text: "Predict whether a bank transaction is fraudulent.", answer: "classification" },
+      { text: "Predict a company's revenue next quarter.", answer: "regression" },
+      { text: "Predict which product category a review is about.", answer: "classification" }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Rapid-fire: classification or regression?",
+      instructions: "Read each task, then tap the correct answer as fast as you can. Your running accuracy updates after every card.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var deck = DECK.slice().sort(function () { return Math.random() - 0.5; });
+        var state = { idx: 0, correct: 0, answered: 0 };
+
+        var stats = document.createElement("div");
+        stats.className = "flash-stats";
+        root.appendChild(stats);
+
+        var feedback = document.createElement("p");
+        feedback.className = "flash-feedback";
+        root.appendChild(feedback);
+
+        var cardEl = document.createElement("div");
+        cardEl.className = "flash-card";
+        root.appendChild(cardEl);
+
+        var btnRow = document.createElement("div");
+        btnRow.className = "flash-btn-row";
+        var classBtn = document.createElement("button");
+        classBtn.type = "button"; classBtn.className = "btn btn-secondary"; classBtn.textContent = "Classification";
+        var regBtn = document.createElement("button");
+        regBtn.type = "button"; regBtn.className = "btn btn-secondary"; regBtn.textContent = "Regression";
+        btnRow.appendChild(classBtn); btnRow.appendChild(regBtn);
+        root.appendChild(btnRow);
+
+        var restartBtn = document.createElement("button");
+        restartBtn.type = "button"; restartBtn.className = "btn btn-secondary"; restartBtn.textContent = "Restart deck";
+        restartBtn.style.display = "none";
+        root.appendChild(restartBtn);
+
+        function updateStats() {
+          var pct = state.answered > 0 ? Math.round((state.correct / state.answered) * 100) : 0;
+          stats.innerHTML = "<span>Card " + Math.min(state.idx + 1, deck.length) + " / " + deck.length + "</span>" +
+            "<span>Accuracy: " + pct + "% (" + state.correct + "/" + state.answered + ")</span>";
+        }
+
+        function showCard() {
+          feedback.textContent = "";
+          cardEl.className = "flash-card";
+          if (state.idx >= deck.length) {
+            cardEl.textContent = "";
+            var done = document.createElement("div");
+            done.className = "flash-done";
+            var pct = state.answered > 0 ? Math.round((state.correct / state.answered) * 100) : 0;
+            done.innerHTML = "<strong>Deck complete!</strong><br>Final accuracy: " + pct + "% (" + state.correct + "/" + state.answered + ")";
+            cardEl.appendChild(done);
+            classBtn.disabled = true; regBtn.disabled = true;
+            restartBtn.style.display = "";
+            updateStats();
+            return;
+          }
+          cardEl.textContent = deck[state.idx].text;
+          classBtn.disabled = false; regBtn.disabled = false;
+          updateStats();
+        }
+
+        function answer(choice) {
+          if (state.idx >= deck.length) return;
+          var card = deck[state.idx];
+          var isCorrect = choice === card.answer;
+          state.answered++;
+          if (isCorrect) state.correct++;
+          cardEl.className = "flash-card " + (isCorrect ? "is-correct" : "is-incorrect");
+          feedback.textContent = isCorrect
+            ? "Correct — that's " + card.answer + "."
+            : "Not quite — that's actually " + card.answer + ".";
+          feedback.style.color = isCorrect ? "var(--color-success)" : "var(--color-error)";
+          state.idx++;
+          window.setTimeout(showCard, 650);
+        }
+
+        classBtn.addEventListener("click", function () { answer("classification"); });
+        regBtn.addEventListener("click", function () { answer("regression"); });
+        restartBtn.addEventListener("click", function () {
+          deck = DECK.slice().sort(function () { return Math.random() - 0.5; });
+          state = { idx: 0, correct: 0, answered: 0 };
+          restartBtn.style.display = "none";
+          showCard();
+        });
+
+        showCard();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A model outputs one of three labels: \"low risk,\" \"medium risk,\" or \"high risk.\" What kind of task is this?",
+          options: ["Regression", "Multi-class classification", "Binary classification", "Clustering"],
+          answer: 1,
+          explanation: "Three discrete category labels means this is classification — specifically multi-class since there are more than two options."
+        },
+        {
+          q: "A model predicts a delivery will arrive in 3.4 days. What kind of task is this?",
+          options: ["Classification", "Regression", "Binary classification", "Reinforcement learning"],
+          answer: 1,
+          explanation: "A continuous numeric output (3.4 days) is a regression task."
+        },
+        {
+          q: "What distinguishes binary classification from multi-class classification?",
+          options: [
+            "Binary classification outputs numbers, multi-class outputs categories",
+            "Binary classification has exactly two possible classes, multi-class has more than two",
+            "They are the same thing",
+            "Multi-class classification always uses regression internally"
+          ],
+          answer: 1,
+          explanation: "Binary classification chooses between two classes (e.g. spam/not spam); multi-class chooses among three or more."
+        },
+        {
+          q: "Why does it matter whether a task is classification or regression?",
+          options: [
+            "It doesn't matter, all models work the same way",
+            "The output type determines which modeling techniques and evaluation metrics are appropriate",
+            "It only matters for deep learning, not classic ML",
+            "Regression tasks never use real-world data"
+          ],
+          answer: 1,
+          explanation: "The nature of the desired output (category vs. number) shapes which algorithms and success metrics make sense."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basic Prompt Engineering — AI Maturity Course</title>
+<meta name="description" content="Learn the four core elements of a well-structured prompt — role, context, task, and format — and practice building one with a live prompt builder.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-8";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Basic Prompt Engineering</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can take a vague, underspecified prompt and
+      rewrite it into a well-structured prompt that includes role, context, task, and format,
+      and can explain why the rewrite should produce a better result.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Prompt engineering is the skill of writing clear instructions to an AI model —
+          specifying <strong>role, context, task, and format</strong> — to reliably get better,
+          more useful outputs. It isn't about "tricking" the model with magic words; it's about
+          removing ambiguity so the model has less guessing to do about what you actually want.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The four core elements of a good prompt: role, context, task, and desired output format</li>
+        <li>Being specific: vague prompts produce vague answers</li>
+        <li>Few-shot examples: showing the model 1-3 examples of the desired output style</li>
+        <li>Iterating: treating a first response as a draft to refine, not a final answer</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<!-- Script load order matters: course-data -> progress -> quiz/exercise -> site -->
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "2-8"
+
+    // ---- Exercise: a REAL, functioning prompt builder --------------------
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Prompt Builder: turn a vague prompt into a great one",
+      instructions:
+        "Start from the weak base prompt below. Toggle on role, context, output format, an " +
+        "example, and constraints, and fill in each box. Watch the assembled prompt, the " +
+        "specificity score, and the simulated AI response all update live as you add pieces.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "prompt-builder";
+
+        // ---- Base task (always present) ----
+        var taskRow = document.createElement("div");
+        taskRow.style.marginBottom = "var(--space-4)";
+        var taskLabel = document.createElement("label");
+        taskLabel.setAttribute("for", "pb-task");
+        taskLabel.style.display = "block";
+        taskLabel.style.fontWeight = "700";
+        taskLabel.style.marginBottom = "4px";
+        taskLabel.textContent = "Task (the base prompt)";
+        var taskInput = document.createElement("textarea");
+        taskInput.id = "pb-task";
+        taskInput.rows = 2;
+        taskInput.style.width = "100%";
+        taskInput.style.boxSizing = "border-box";
+        taskInput.value = "Write about dogs.";
+        taskRow.appendChild(taskLabel);
+        taskRow.appendChild(taskInput);
+        wrap.appendChild(taskRow);
+
+        // Helper to build a toggle + field block
+        function buildField(opts) {
+          var block = document.createElement("div");
+          block.style.border = "1px solid var(--color-border)";
+          block.style.borderRadius = "8px";
+          block.style.padding = "var(--space-3)";
+          block.style.marginBottom = "var(--space-3)";
+          block.style.background = "var(--color-bg-alt)";
+
+          var head = document.createElement("label");
+          head.style.display = "flex";
+          head.style.alignItems = "center";
+          head.style.gap = "8px";
+          head.style.fontWeight = "700";
+          head.style.cursor = "pointer";
+
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = "pb-" + opts.key + "-toggle";
+
+          var span = document.createElement("span");
+          span.textContent = opts.label;
+
+          head.appendChild(checkbox);
+          head.appendChild(span);
+          block.appendChild(head);
+
+          var field;
+          if (opts.type === "select") {
+            field = document.createElement("select");
+            opts.choices.forEach(function (c) {
+              var o = document.createElement("option");
+              o.value = c;
+              o.textContent = c;
+              field.appendChild(o);
+            });
+          } else {
+            field = document.createElement("textarea");
+            field.rows = opts.rows || 2;
+          }
+          field.id = "pb-" + opts.key + "-field";
+          field.style.width = "100%";
+          field.style.boxSizing = "border-box";
+          field.style.marginTop = "8px";
+          field.disabled = true;
+          if (opts.placeholder) field.placeholder = opts.placeholder;
+          if (opts.defaultValue !== undefined) field.value = opts.defaultValue;
+          block.appendChild(field);
+
+          checkbox.addEventListener("change", function () {
+            field.disabled = !checkbox.checked;
+            update();
+          });
+          field.addEventListener("input", update);
+          field.addEventListener("change", update);
+
+          root._pbFields = root._pbFields || {};
+          root._pbFields[opts.key] = { checkbox: checkbox, field: field };
+
+          wrap.appendChild(block);
+        }
+
+        buildField({
+          key: "role",
+          label: "Role — who should the AI act as?",
+          placeholder: "e.g. You are an experienced veterinarian who writes for a general audience.",
+          rows: 2
+        });
+
+        buildField({
+          key: "context",
+          label: "Context — what's the situation or audience?",
+          placeholder: "e.g. This is for a children's educational blog aimed at ages 6-10.",
+          rows: 2
+        });
+
+        buildField({
+          key: "format",
+          label: "Output format — how should the answer be shaped?",
+          type: "select",
+          choices: ["(choose a format)", "A bulleted list of 5 facts", "A short table", "3 numbered steps", "A single short paragraph"]
+        });
+
+        buildField({
+          key: "example",
+          label: "Few-shot example — show the style you want",
+          placeholder: 'e.g. Example: "Cats: independent, agile hunters that sleep up to 16 hours a day."',
+          rows: 2
+        });
+
+        buildField({
+          key: "constraints",
+          label: "Constraints — length, tone, or things to avoid",
+          placeholder: "e.g. Keep it under 60 words. Avoid technical jargon.",
+          rows: 2
+        });
+
+        // ---- Live assembled prompt ----
+        var assembledLabel = document.createElement("h3");
+        assembledLabel.textContent = "Assembled prompt";
+        assembledLabel.style.marginBottom = "4px";
+        wrap.appendChild(assembledLabel);
+
+        var assembledBox = document.createElement("pre");
+        assembledBox.style.whiteSpace = "pre-wrap";
+        assembledBox.style.background = "#fff";
+        assembledBox.style.border = "1px solid var(--color-border)";
+        assembledBox.style.borderRadius = "8px";
+        assembledBox.style.padding = "var(--space-3)";
+        assembledBox.style.fontFamily = "var(--font-mono)";
+        assembledBox.style.fontSize = "0.9em";
+        wrap.appendChild(assembledBox);
+
+        // ---- Specificity score meter ----
+        var scoreRow = document.createElement("div");
+        scoreRow.className = "slider-row";
+        var scoreLabel = document.createElement("label");
+        scoreLabel.textContent = "Specificity score";
+        var scoreReadout = document.createElement("span");
+        scoreReadout.className = "readout";
+        scoreReadout.id = "pb-score-readout";
+        scoreRow.appendChild(scoreLabel);
+        scoreRow.appendChild(scoreReadout);
+        wrap.appendChild(scoreRow);
+
+        var meterOuter = document.createElement("div");
+        meterOuter.className = "progress-bar";
+        var meterFill = document.createElement("div");
+        meterFill.className = "progress-bar-fill";
+        meterFill.style.width = "0%";
+        meterOuter.appendChild(meterFill);
+        wrap.appendChild(meterOuter);
+
+        var scoreBand = document.createElement("p");
+        scoreBand.setAttribute("role", "status");
+        scoreBand.style.fontWeight = "600";
+        scoreBand.style.marginTop = "6px";
+        wrap.appendChild(scoreBand);
+
+        // ---- Simulated AI response ----
+        var responseLabel = document.createElement("h3");
+        responseLabel.textContent = "Simulated AI response";
+        responseLabel.style.marginTop = "var(--space-5)";
+        responseLabel.style.marginBottom = "4px";
+        wrap.appendChild(responseLabel);
+
+        var responseBox = document.createElement("div");
+        responseBox.style.background = "var(--color-bg-inset)";
+        responseBox.style.border = "1px solid var(--color-border)";
+        responseBox.style.borderRadius = "8px";
+        responseBox.style.padding = "var(--space-3)";
+        responseBox.style.minHeight = "3em";
+        wrap.appendChild(responseBox);
+
+        root.appendChild(wrap);
+
+        function fieldState(key) {
+          var f = root._pbFields[key];
+          return {
+            on: f.checkbox.checked,
+            value: (f.field.value || "").trim()
+          };
+        }
+
+        function update() {
+          var task = taskInput.value.trim() || "Write about dogs.";
+          var role = fieldState("role");
+          var context = fieldState("context");
+          var format = fieldState("format");
+          var example = fieldState("example");
+          var constraints = fieldState("constraints");
+          var formatChosen = format.on && format.value && format.value.indexOf("(choose") !== 0;
+
+          // ---- Assemble the prompt text ----
+          var lines = [];
+          if (role.on && role.value) lines.push(role.value);
+          if (context.on && context.value) lines.push("Context: " + context.value);
+          lines.push("Task: " + task);
+          if (formatChosen) lines.push("Format the answer as: " + format.value);
+          if (example.on && example.value) lines.push(example.value);
+          if (constraints.on && constraints.value) lines.push("Constraints: " + constraints.value);
+          assembledBox.textContent = lines.join("\n");
+
+          // ---- Score calculation ----
+          var score = 0;
+          var wordCount = task.split(/\s+/).filter(Boolean).length;
+          score += wordCount > 6 ? 15 : 5; // a slightly longer task is somewhat more specific
+          if (role.on && role.value) score += 20;
+          if (context.on && context.value) score += 20;
+          if (formatChosen) score += 15;
+          if (example.on && example.value) score += 25;
+          if (constraints.on && constraints.value) score += 10;
+          if (score > 100) score = 100;
+
+          scoreReadout.textContent = score + " / 100";
+          meterFill.style.width = score + "%";
+
+          var band, bandColor;
+          if (score < 30) { band = "Vague — the model has to guess almost everything."; bandColor = "#b3261e"; }
+          else if (score < 55) { band = "Basic — some direction, but still room to be specific."; bandColor = "#a15c00"; }
+          else if (score < 80) { band = "Good — a clear, usable prompt."; bandColor = "#0f7a4a"; }
+          else { band = "Excellent — role, context, format, and an example all guide the model."; bandColor = "#0f7a4a"; }
+          scoreBand.textContent = band;
+          scoreBand.style.color = bandColor;
+
+          // ---- Canned mock AI response, built from the same toggles ----
+          var subject = "dogs";
+          var response = "";
+
+          if (role.on && role.value) {
+            response += "Speaking as someone in that role: ";
+          }
+
+          if (context.on && context.value) {
+            response += "(tailored for: " + context.value + ") ";
+          }
+
+          if (formatChosen && format.value.indexOf("bulleted") !== -1) {
+            response += "\n- Dogs are domesticated descendants of wolves.\n- Breeds vary hugely in size, from Chihuahuas to Great Danes.\n- Dogs communicate through body language, barks, and expressions.\n- They need regular exercise, food, and veterinary care.\n- Many dogs are trained to assist people, from guiding the blind to detecting illness.";
+          } else if (formatChosen && format.value.indexOf("table") !== -1) {
+            response += "\n| Fact | Detail |\n|---|---|\n| Origin | Domesticated from wolves |\n| Lifespan | 10-13 years (varies by breed) |\n| Diet | Omnivorous, needs balanced nutrition |";
+          } else if (formatChosen && format.value.indexOf("steps") !== -1) {
+            response += "\n1. Dogs descend from wolves and were domesticated over thousands of years.\n2. They come in hundreds of breeds suited to different roles.\n3. Responsible ownership means proper food, exercise, and healthcare.";
+          } else {
+            response += "Dogs are animals that many people keep as pets. They come in different breeds and sizes, and some are trained to do tricks or help with tasks. Dogs need food, water, and exercise to stay healthy.";
+          }
+
+          if (example.on && example.value) {
+            response += "\n\n(Style matched to your example — shorter, punchier sentences.)";
+          }
+
+          if (constraints.on && constraints.value) {
+            response += "\n\n(Trimmed and adjusted to respect: \"" + constraints.value + "\")";
+          }
+
+          responseBox.textContent = response;
+        }
+
+        taskInput.addEventListener("input", update);
+        update();
+      }
+    });
+
+    // ---- Quiz: real grading -------------------------------------------
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which four elements make up a well-structured prompt?",
+          options: [
+            "Role, context, task, and desired output format",
+            "Temperature, tokens, top-p, and seed",
+            "Grammar, spelling, punctuation, and length",
+            "The model's name, version, training date, and license"
+          ],
+          answer: 0,
+          explanation: "A strong prompt typically specifies who the AI should act as (role), the relevant situation (context), what to do (task), and how the answer should be shaped (format)."
+        },
+        {
+          q: "Why does a vague prompt like \"write about dogs\" tend to produce a vague answer?",
+          options: [
+            "Because the AI model doesn't know anything about dogs",
+            "Because the model has to guess the audience, purpose, and format, so it defaults to generic, average output",
+            "Because vague prompts are automatically rejected by the model",
+            "Because dogs are a topic the model was never trained on"
+          ],
+          answer: 1,
+          explanation: "With no role, context, or format specified, the model fills the gaps with the most generic, average response it can produce — not because it lacks knowledge, but because nothing narrowed down what you actually wanted."
+        },
+        {
+          q: "What is the main benefit of including a few-shot example in a prompt?",
+          options: [
+            "It makes the prompt shorter",
+            "It guarantees the model will never make a mistake",
+            "It shows the model the specific style, tone, or structure you want, rather than leaving it to guess",
+            "It is required by every AI system before it will respond"
+          ],
+          answer: 2,
+          explanation: "One to three examples of the desired output demonstrate the exact style or structure you're after, which is often more effective than describing it in words alone."
+        },
+        {
+          q: "True or false: you should treat an AI's first response as the final, correct answer.",
+          options: ["True", "False"],
+          answer: 1,
+          explanation: "False — prompt engineering is iterative. Treat the first response as a draft: read it, spot what's missing or off, and refine your prompt (or ask a follow-up) to get closer to what you need."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

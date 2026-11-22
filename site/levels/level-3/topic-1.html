@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python for ML: NumPy and Pandas — AI Maturity Course</title>
+<meta name="description" content="How numpy and pandas let you store, reshape, filter, and aggregate tabular data without writing raw loops.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-1";
+</script>
+<style>
+  .pp-table-wrap { overflow-x: auto; }
+  .pp-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: #fff; }
+  .pp-table th, .pp-table td { border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left; }
+  .pp-table th { background: var(--color-bg-inset); cursor: pointer; user-select: none; white-space: nowrap; }
+  .pp-table th:hover { background: var(--color-primary-light); }
+  .pp-table th .arrow { font-size: 0.8em; color: var(--color-primary); margin-left: 4px; }
+  .pp-layout { display: flex; gap: var(--space-5); flex-wrap: wrap; align-items: flex-start; }
+  .pp-table-col { flex: 2 1 380px; min-width: 280px; }
+  .pp-stats-col { flex: 1 1 220px; min-width: 220px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .pp-stats-col h4 { margin: 0 0 var(--space-3) 0; }
+  .pp-stat-row { display: flex; justify-content: space-between; padding: var(--space-1) 0; border-bottom: 1px dashed var(--color-border); font-family: var(--font-mono); font-size: var(--font-size-sm); }
+  .pp-stat-row:last-child { border-bottom: none; }
+  .pp-filter-row { margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .pp-filter-row label { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>Python for ML: NumPy and Pandas</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> You should be able to look at a small tabular dataset and
+      describe, in plain language, how you'd select a subset of rows, compute a column-wise statistic,
+      and reshape the data into the form a model expects — without writing actual Python code.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>NumPy</strong> and <strong>pandas</strong> are the two foundational Python libraries
+          that let you store, reshape, and crunch numerical data efficiently instead of writing raw
+          loops. NumPy gives you fast <em>arrays</em> and vectorized math; pandas builds on top of that
+          to give you <em>DataFrames</em> — spreadsheet-like tables with labeled rows and columns that
+          you can filter, sort, group, and summarize with a single line of code.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Arrays and vectorized operations (numpy) vs. Python lists</strong> — why applying
+          an operation to an entire array at once is dramatically faster than looping element by element.</li>
+        <li><strong>DataFrames, rows/columns, indexing and filtering (pandas)</strong> — treating a
+          dataset like a table you can slice by row, column, or condition.</li>
+        <li><strong>Basic aggregation and grouping (mean, sum, groupby)</strong> — collapsing many rows
+          into summary statistics, optionally split by category.</li>
+        <li><strong>Reading/writing tabular data (CSV-like structures)</strong> — the everyday format
+          most real-world datasets arrive in.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var DATA = [
+      { name: "Ava",  category: "Vision",    score: 92, hours: 14 },
+      { name: "Ben",  category: "NLP",       score: 78, hours: 9  },
+      { name: "Cleo", category: "Vision",    score: 85, hours: 11 },
+      { name: "Dae",  category: "Robotics",  score: 64, hours: 6  },
+      { name: "Eli",  category: "NLP",       score: 88, hours: 13 },
+      { name: "Fay",  category: "Robotics",  score: 71, hours: 8  },
+      { name: "Gus",  category: "Vision",    score: 95, hours: 15 },
+      { name: "Hana", category: "NLP",       score: 69, hours: 7  },
+      { name: "Ivo",  category: "Robotics",  score: 58, hours: 5  },
+      { name: "Jia",  category: "Vision",    score: 81, hours: 10 }
+    ];
+
+    var COLUMNS = [
+      { key: "name", label: "Name", type: "string" },
+      { key: "category", label: "Category", type: "string" },
+      { key: "score", label: "Score", type: "number" },
+      { key: "hours", label: "Hours Studied", type: "number" }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Spreadsheet playground: sort, filter, and watch stats update",
+      instructions:
+        "Click a column header to sort by it (click again to reverse). Use the category filter to " +
+        "narrow the rows. The sidebar recomputes real aggregate stats — count, mean, min, max — for " +
+        "whatever rows are currently visible, exactly like pandas groupby + describe would.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var state = { sortKey: null, sortDir: 1, filterCategory: "All" };
+
+        var wrap = document.createElement("div");
+
+        var filterRow = document.createElement("div");
+        filterRow.className = "pp-filter-row";
+        var filterLabel = document.createElement("label");
+        filterLabel.setAttribute("for", "category-filter");
+        filterLabel.textContent = "Filter category:";
+        var filterSelect = document.createElement("select");
+        filterSelect.id = "category-filter";
+        ["All", "Vision", "NLP", "Robotics"].forEach(function (c) {
+          var opt = document.createElement("option");
+          opt.value = c;
+          opt.textContent = c;
+          filterSelect.appendChild(opt);
+        });
+        filterRow.appendChild(filterLabel);
+        filterRow.appendChild(filterSelect);
+        wrap.appendChild(filterRow);
+
+        var layout = document.createElement("div");
+        layout.className = "pp-layout";
+
+        var tableCol = document.createElement("div");
+        tableCol.className = "pp-table-col";
+        var tableWrap = document.createElement("div");
+        tableWrap.className = "pp-table-wrap";
+        var table = document.createElement("table");
+        table.className = "pp-table";
+        var thead = document.createElement("thead");
+        var headRow = document.createElement("tr");
+        COLUMNS.forEach(function (col) {
+          var th = document.createElement("th");
+          th.dataset.key = col.key;
+          th.textContent = col.label;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        var tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+        tableWrap.appendChild(table);
+        tableCol.appendChild(tableWrap);
+
+        var statsCol = document.createElement("div");
+        statsCol.className = "pp-stats-col";
+        var statsHeading = document.createElement("h4");
+        statsHeading.textContent = "Live aggregate stats";
+        statsCol.appendChild(statsHeading);
+        var statsBody = document.createElement("div");
+        statsCol.appendChild(statsBody);
+
+        layout.appendChild(tableCol);
+        layout.appendChild(statsCol);
+        wrap.appendChild(layout);
+        root.appendChild(wrap);
+
+        function getVisibleRows() {
+          var rows = DATA.filter(function (r) {
+            return state.filterCategory === "All" || r.category === state.filterCategory;
+          });
+          if (state.sortKey) {
+            var key = state.sortKey, dir = state.sortDir;
+            rows = rows.slice().sort(function (a, b) {
+              if (a[key] < b[key]) return -1 * dir;
+              if (a[key] > b[key]) return 1 * dir;
+              return 0;
+            });
+          }
+          return rows;
+        }
+
+        function stat(rows, key) {
+          var vals = rows.map(function (r) { return r[key]; });
+          var count = vals.length;
+          if (count === 0) return { count: 0, mean: 0, min: 0, max: 0 };
+          var sum = vals.reduce(function (a, b) { return a + b; }, 0);
+          return {
+            count: count,
+            mean: (sum / count).toFixed(1),
+            min: Math.min.apply(null, vals),
+            max: Math.max.apply(null, vals)
+          };
+        }
+
+        function render() {
+          var rows = getVisibleRows();
+
+          // header sort indicators
+          Array.prototype.forEach.call(headRow.children, function (th) {
+            th.innerHTML = COLUMNS.filter(function (c) { return c.key === th.dataset.key; })[0].label;
+            if (th.dataset.key === state.sortKey) {
+              var arrow = document.createElement("span");
+              arrow.className = "arrow";
+              arrow.textContent = state.sortDir === 1 ? "▲" : "▼";
+              th.appendChild(arrow);
+            }
+          });
+
+          // table body
+          tbody.innerHTML = "";
+          if (rows.length === 0) {
+            var emptyRow = document.createElement("tr");
+            var emptyCell = document.createElement("td");
+            emptyCell.colSpan = COLUMNS.length;
+            emptyCell.textContent = "No rows match this filter.";
+            emptyRow.appendChild(emptyCell);
+            tbody.appendChild(emptyRow);
+          } else {
+            rows.forEach(function (r) {
+              var tr = document.createElement("tr");
+              COLUMNS.forEach(function (col) {
+                var td = document.createElement("td");
+                td.textContent = r[col.key];
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+          }
+
+          // stats sidebar
+          var scoreStat = stat(rows, "score");
+          var hoursStat = stat(rows, "hours");
+          statsBody.innerHTML = "";
+          function addStatBlock(title, s, unit) {
+            var h5 = document.createElement("div");
+            h5.style.fontWeight = "700";
+            h5.style.marginTop = "0.5rem";
+            h5.textContent = title;
+            statsBody.appendChild(h5);
+            [
+              ["count", s.count],
+              ["mean", s.mean + unit],
+              ["min", s.min + unit],
+              ["max", s.max + unit]
+            ].forEach(function (pair) {
+              var row = document.createElement("div");
+              row.className = "pp-stat-row";
+              var k = document.createElement("span");
+              k.textContent = pair[0];
+              var v = document.createElement("span");
+              v.textContent = pair[1];
+              row.appendChild(k);
+              row.appendChild(v);
+              statsBody.appendChild(row);
+            });
+          }
+          addStatBlock("Score", scoreStat, "");
+          addStatBlock("Hours Studied", hoursStat, "");
+        }
+
+        headRow.addEventListener("click", function (evt) {
+          var th = evt.target.closest("th");
+          if (!th) return;
+          var key = th.dataset.key;
+          if (state.sortKey === key) {
+            state.sortDir = state.sortDir * -1;
+          } else {
+            state.sortKey = key;
+            state.sortDir = 1;
+          }
+          render();
+        });
+
+        filterSelect.addEventListener("change", function () {
+          state.filterCategory = filterSelect.value;
+          render();
+        });
+
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why is a vectorized numpy operation on a whole array typically faster than a Python for-loop doing the same math element by element?",
+          options: [
+            "Numpy secretly uses a different, less accurate math library",
+            "The loop is skipped entirely and no computation happens",
+            "Numpy pushes the repetitive work into optimized, compiled code instead of Python's slower interpreted loop",
+            "Vectorized operations only work on numbers smaller than 100"
+          ],
+          answer: 2,
+          explanation: "Vectorization lets numpy hand the repetitive work to fast compiled code under the hood, avoiding the overhead of a Python-level loop iterating one element at a time."
+        },
+        {
+          q: "In the exercise, what happens to the sidebar stats when you change the category filter to \"NLP\" only?",
+          options: [
+            "Nothing changes because stats are fixed at page load",
+            "The stats recompute using only the currently visible NLP rows",
+            "The table disappears",
+            "The stats show the average of all categories combined"
+          ],
+          answer: 1,
+          explanation: "This is exactly what pandas groupby + describe does conceptually: stats are recalculated over whatever subset of rows you're currently looking at."
+        },
+        {
+          q: "What is a pandas DataFrame best described as?",
+          options: [
+            "A single number produced by a model",
+            "A spreadsheet-like table with labeled rows and columns you can filter, sort, and summarize",
+            "A type of neural network layer",
+            "A file format only used for images"
+          ],
+          answer: 1,
+          explanation: "A DataFrame is pandas' core structure — rows and named columns you can slice, filter, and aggregate, much like a spreadsheet."
+        },
+        {
+          q: "Sorting the table by the \"Score\" column and then filtering by category — does sorting change what the mean/min/max in the sidebar report?",
+          options: [
+            "Yes, sorting always changes the underlying values",
+            "No — sorting only changes row order; the underlying values and any stats computed over the same set of rows stay the same",
+            "Sorting deletes rows below the median",
+            "Sorting converts the column to text"
+          ],
+          answer: 1,
+          explanation: "Sorting reorders rows for display; it doesn't change which rows are included or their values, so aggregate stats over the same row set are unaffected by sort order."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

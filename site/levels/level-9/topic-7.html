@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Long-Context Architectures — AI Maturity Course</title>
+<meta name="description" content="How attention patterns and caching strategies let models use huge context windows without cost or accuracy collapsing.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-7";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Long-Context Architectures</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Distinguish "advertised context length" from "effective context
+      length" and explain two distinct techniques (one algorithmic, one systems-level) used to make long context
+      usable in practice.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Long-context architectures are techniques that let models effectively use very large context windows
+          — hundreds of thousands to millions of tokens — without cost or accuracy collapsing. A model can
+          advertise a huge maximum context length while its <strong>effective</strong> context length (how much
+          it can actually use accurately) is much smaller, especially for information buried in the middle of a
+          long input.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why naive attention doesn't scale: quadratic KV-cache growth, and the gap between "advertised" and
+          "effective" context length</li>
+        <li>Efficient-attention techniques: sparse/compressed attention patterns, FlashAttention-style IO-aware
+          kernels, and Ring Attention for distributed sequence parallelism</li>
+        <li>Memory and caching strategies: KV-cache compression and prompt caching as complements to raw
+          architectural changes</li>
+        <li>The 2026 shift: context windows plateauing as focus moves to inference-time scaling and smarter
+          context management rather than ever-larger windows</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Attention-pattern & needle-in-a-haystack simulator",
+      instructions:
+        "Pick an attention pattern, drag the context-length slider, and drag the needle-position slider to place " +
+        "a fact somewhere in the context. Watch the attention matrix, the compute-cost readout, and the retrieval " +
+        "probability for the final query all update live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var GRID = 32;            // downsampled n x n attention matrix shown as GRID x GRID blocks
+        var WINDOW_TOKENS = 4096; // fixed absolute sliding-window size
+        var SPARSE_LOCAL_TOKENS = 2048;
+        var SPARSE_GLOBAL_BLOCKS = 2; // fixed count of global blocks (first N) in sparse pattern
+
+        var wrap = document.createElement("div");
+
+        var patternRow = document.createElement("div");
+        patternRow.className = "slider-row";
+        var patternLabel = document.createElement("span");
+        patternLabel.style.fontWeight = "600";
+        patternLabel.style.minWidth = "140px";
+        patternLabel.textContent = "Attention pattern";
+        patternRow.appendChild(patternLabel);
+        var patterns = [
+          { value: "full", label: "Full attention" },
+          { value: "sliding", label: "Sliding window" },
+          { value: "sparse", label: "Sparse (local + global)" }
+        ];
+        var patternInputs = [];
+        patterns.forEach(function (p, i) {
+          var id = "pattern-" + p.value;
+          var opt = document.createElement("label");
+          opt.style.display = "inline-flex";
+          opt.style.alignItems = "center";
+          opt.style.gap = "0.3rem";
+          opt.style.marginRight = "1rem";
+          var input = document.createElement("input");
+          input.type = "radio";
+          input.name = "attn-pattern";
+          input.value = p.value;
+          input.id = id;
+          if (i === 0) input.checked = true;
+          opt.appendChild(input);
+          opt.appendChild(document.createTextNode(p.label));
+          patternRow.appendChild(opt);
+          patternInputs.push(input);
+        });
+        wrap.appendChild(patternRow);
+
+        function makeSliderRow(idPrefix, labelText, min, max, val) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.setAttribute("for", idPrefix + "-slider");
+          label.textContent = labelText;
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = String(min);
+          slider.max = String(max);
+          slider.step = "1";
+          slider.value = String(val);
+          slider.id = idPrefix + "-slider";
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+          return { slider: slider, readout: readout };
+        }
+
+        var lenCtl = makeSliderRow("ctxlen", "Context length (tokens)", 0, 100, 50);
+        var needleCtl = makeSliderRow("needle", "Needle position (% into context)", 0, 100, 50);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 340;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "640px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.marginTop = "var(--space-3)";
+        wrap.appendChild(canvas);
+
+        var statsGrid = document.createElement("div");
+        statsGrid.style.display = "grid";
+        statsGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(190px, 1fr))";
+        statsGrid.style.gap = "0.75rem";
+        statsGrid.style.marginTop = "0.75rem";
+        wrap.appendChild(statsGrid);
+
+        function statBox(label) {
+          var box = document.createElement("div");
+          box.style.border = "1px solid var(--color-border)";
+          box.style.borderRadius = "8px";
+          box.style.padding = "0.5rem 0.75rem";
+          var l = document.createElement("div");
+          l.style.fontSize = "var(--font-size-sm)";
+          l.style.color = "var(--color-text-muted)";
+          l.textContent = label;
+          var v = document.createElement("div");
+          v.style.fontWeight = "700";
+          box.appendChild(l);
+          box.appendChild(v);
+          statsGrid.appendChild(box);
+          return v;
+        }
+
+        var costVal = statBox("Relative compute cost (vs. full attention @ max length)");
+        var retrievalVal = statBox("Retrieval probability for final query");
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        root.appendChild(wrap);
+        var g = canvas.getContext("2d");
+
+        function tokensFromSlider(v) {
+          var minLog = Math.log2(512), maxLog = Math.log2(1048576);
+          var t = v / 100;
+          return Math.round(Math.pow(2, minLog + t * (maxLog - minLog)));
+        }
+
+        function currentPattern() {
+          var found = patternInputs.find(function (inp) { return inp.checked; });
+          return found ? found.value : "full";
+        }
+
+        function attends(pattern, i, j, n) {
+          // i = query block index (row), j = key block index (col), both 0..GRID-1
+          if (pattern === "full") return true;
+          if (pattern === "sliding") {
+            var windowBlocks = Math.max(1, Math.round(GRID * (WINDOW_TOKENS / n)));
+            return Math.abs(i - j) <= windowBlocks;
+          }
+          // sparse
+          var localBlocks = Math.max(1, Math.round(GRID * (SPARSE_LOCAL_TOKENS / n)));
+          if (Math.abs(i - j) <= localBlocks) return true;
+          if (j < SPARSE_GLOBAL_BLOCKS) return true;
+          return false;
+        }
+
+        function computeCost(pattern, n) {
+          var nMax = 1048576;
+          if (pattern === "full") {
+            return (n * n) / (nMax * nMax);
+          }
+          if (pattern === "sliding") {
+            return (n * WINDOW_TOKENS) / (nMax * nMax);
+          }
+          // sparse
+          var globalTokens = SPARSE_GLOBAL_BLOCKS * (n / GRID);
+          return (n * (SPARSE_LOCAL_TOKENS + globalTokens)) / (nMax * nMax);
+        }
+
+        function retrievalProbability(pattern, n, needlePct) {
+          if (pattern === "full") {
+            var base = 99 - 6 * Math.max(0, Math.log2(n / 32768));
+            base = Math.max(50, Math.min(99, base));
+            // lost-in-the-middle dip
+            var distFromEdge = Math.min(needlePct, 100 - needlePct); // 0 at edges, 50 at center
+            var dip = distFromEdge > 15 ? Math.min(20, (distFromEdge - 15) * 0.5) : 0;
+            return Math.max(30, base - dip);
+          }
+          if (pattern === "sliding") {
+            var windowFracOfEnd = Math.min(100, (WINDOW_TOKENS / n) * 100);
+            var distFromEnd = 100 - needlePct;
+            if (distFromEnd <= windowFracOfEnd) return 95;
+            return Math.max(5, 20 - (distFromEnd - windowFracOfEnd) * 0.15);
+          }
+          // sparse
+          var localFracOfEnd = Math.min(100, (SPARSE_LOCAL_TOKENS / n) * 100);
+          var globalFrac = (SPARSE_GLOBAL_BLOCKS / GRID) * 100;
+          var distFromEndS = 100 - needlePct;
+          if (needlePct <= globalFrac) return 92; // needle lands in a global block
+          if (distFromEndS <= localFracOfEnd) return 90;
+          return 30; // partial recovery via occasional long-range/global connections
+        }
+
+        function draw() {
+          var lenSliderVal = parseInt(lenCtl.slider.value, 10);
+          var n = tokensFromSlider(lenSliderVal);
+          var needlePct = parseInt(needleCtl.slider.value, 10);
+          var pattern = currentPattern();
+
+          lenCtl.readout.textContent = n.toLocaleString() + " tokens";
+          needleCtl.readout.textContent = needlePct + "%";
+
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+
+          var gx = 30, gy = 30, gs = 260; // matrix square
+          var cell = gs / GRID;
+
+          for (var i = 0; i < GRID; i++) {
+            for (var j = 0; j < GRID; j++) {
+              var on = attends(pattern, i, j, n);
+              g.fillStyle = on ? "#2952e3" : "#eef1f8";
+              g.fillRect(gx + j * cell, gy + i * cell, cell - 0.5, cell - 0.5);
+            }
+          }
+          g.strokeStyle = "#b7c0d8";
+          g.strokeRect(gx, gy, gs, gs);
+          g.fillStyle = "#1a2033";
+          g.font = "12px sans-serif";
+          g.textAlign = "center";
+          g.fillText("key position →", gx + gs / 2, gy - 10);
+          g.save();
+          g.translate(gx - 18, gy + gs / 2);
+          g.rotate(-Math.PI / 2);
+          g.fillText("query position →", 0, 0);
+          g.restore();
+
+          // needle marker (column) and final-query marker (last row)
+          var needleCol = Math.min(GRID - 1, Math.floor((needlePct / 100) * GRID));
+          g.strokeStyle = "#0f9d78";
+          g.lineWidth = 2;
+          g.beginPath();
+          g.moveTo(gx + needleCol * cell + cell / 2, gy);
+          g.lineTo(gx + needleCol * cell + cell / 2, gy + gs);
+          g.stroke();
+          g.fillStyle = "#0f9d78";
+          g.font = "11px sans-serif";
+          g.fillText("needle", gx + needleCol * cell + cell / 2, gy + gs + 16);
+
+          var lastRow = GRID - 1;
+          g.strokeStyle = "#b3261e";
+          g.beginPath();
+          g.moveTo(gx, gy + lastRow * cell + cell / 2);
+          g.lineTo(gx + gs, gy + lastRow * cell + cell / 2);
+          g.stroke();
+          g.fillStyle = "#b3261e";
+          g.textAlign = "left";
+          g.fillText("final query", gx + gs + 6, gy + lastRow * cell + cell / 2 + 4);
+
+          // right-side cost/retrieval mini bar comparison across all 3 patterns at this n
+          var barX = 400, barY = 40, barW = 200, barH = 220;
+          g.fillStyle = "#1a2033";
+          g.font = "12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Relative compute at this length", barX, barY - 10);
+          ["full", "sliding", "sparse"].forEach(function (p, idx) {
+            var c = computeCost(p, n);
+            var bw = Math.max(2, c * barW * 40); // scale up small values for visibility
+            bw = Math.min(barW, bw);
+            var by = barY + idx * 40;
+            g.fillStyle = p === pattern ? "#2952e3" : "#b7c0d8";
+            g.fillRect(barX, by, bw, 24);
+            g.fillStyle = "#1a2033";
+            g.font = "11px sans-serif";
+            g.fillText((p === "full" ? "Full" : p === "sliding" ? "Sliding" : "Sparse") + ": " + (c * 100).toFixed(3) + "%",
+              barX, by + 36);
+          });
+
+          var cost = computeCost(pattern, n);
+          var retrieval = retrievalProbability(pattern, n, needlePct);
+
+          costVal.textContent = (cost * 100).toFixed(3) + "%";
+          retrievalVal.textContent = retrieval.toFixed(0) + "%";
+          retrievalVal.style.color = retrieval >= 70 ? "#0f7a4a" : (retrieval >= 40 ? "#9a6b00" : "#b3261e");
+
+          var patternName = pattern === "full" ? "Full attention" : pattern === "sliding" ? "Sliding window" : "Sparse attention";
+          if (retrieval >= 70) {
+            resultText.textContent = patternName + " at " + n.toLocaleString() + " tokens: the final query can " +
+              "reliably retrieve the needle placed at " + needlePct + "% into the context (" + retrieval.toFixed(0) + "% probability).";
+            resultText.style.color = "#0f7a4a";
+          } else {
+            resultText.textContent = patternName + " at " + n.toLocaleString() + " tokens: retrieval probability " +
+              "for the needle at " + needlePct + "% into the context has dropped to " + retrieval.toFixed(0) +
+              "% — effective context length is falling short of the advertised " + n.toLocaleString() + " tokens here.";
+            resultText.style.color = "#b3261e";
+          }
+        }
+
+        lenCtl.slider.addEventListener("input", draw);
+        needleCtl.slider.addEventListener("input", draw);
+        patternInputs.forEach(function (inp) {
+          inp.addEventListener("change", draw);
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the difference between 'advertised' and 'effective' context length?",
+          options: [
+            "Advertised is the maximum context length a model claims to support, while effective is how much of that context the model can actually use accurately, which is often much smaller",
+            "They are always exactly the same number",
+            "Effective context length is always larger than advertised",
+            "Advertised context length refers only to output tokens, not input"
+          ],
+          answer: 0,
+          explanation: "A model can accept a million-token prompt (advertised) while still failing to reliably retrieve facts placed in the middle of it (effective) — the simulator's retrieval-probability readout shows exactly this gap."
+        },
+        {
+          q: "Why doesn't naive full self-attention scale well to very long contexts?",
+          options: [
+            "Its KV-cache and compute grow quadratically (O(n²)) with sequence length, making both memory and compute cost explode as context grows",
+            "It scales perfectly linearly with no tradeoffs",
+            "It only works for sequences under 100 tokens",
+            "It requires no additional memory at all"
+          ],
+          answer: 0,
+          explanation: "Every query attending to every key means cost grows with n², which is exactly why sliding-window and sparse patterns exist as cheaper alternatives."
+        },
+        {
+          q: "In the simulator, what does the middle-of-context accuracy dip for full attention typically represent?",
+          options: [
+            "The 'lost in the middle' phenomenon, where models tend to attend well to information near the start/end of context but less reliably to information buried in the middle",
+            "A hardware bug unrelated to the model",
+            "Proof that longer context always improves accuracy everywhere",
+            "Evidence that sliding-window attention outperforms full attention at every length"
+          ],
+          answer: 0,
+          explanation: "Even with full attention available, real long-context evals show a dip in retrieval accuracy for facts placed in the middle of very long inputs — the simulator approximates this pattern."
+        },
+        {
+          q: "According to the '2026 shift' described in the material, where has focus moved as advertised context windows have plateaued?",
+          options: [
+            "Toward inference-time scaling and smarter context management rather than ever-larger raw context windows",
+            "Toward making context windows infinitely large regardless of cost",
+            "Away from attention mechanisms entirely",
+            "Toward eliminating KV-caches completely"
+          ],
+          answer: 0,
+          explanation: "Rather than continuing to chase bigger advertised windows, the field has shifted toward getting more effective use out of the context a model already has, plus inference-time compute techniques."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

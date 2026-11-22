@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reward Model Design — AI Maturity Course</title>
+<meta name="description" content="How preference-based reward models are trained, how they get gamed (reward hacking), and how to defend against it.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-6";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Reward Model Design</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a described reward model and a model behavior that scores
+      unexpectedly high, diagnose the likely spurious correlation being exploited and propose one concrete
+      mitigation.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A reward model is the learned "scoring function" that tells an RL-trained model which outputs are
+          better. Designing one well means not just training it to match human/AI preferences, but also
+          defending it against being gamed — because whatever a policy model can exploit to raise its reward
+          score without genuinely improving, it eventually will.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>How preference-based reward models are trained from pairwise human/AI comparisons (Bradley-Terry
+          style preference modeling)</li>
+        <li>Reward hacking: models exploiting spurious correlations (length, formatting, sycophancy) that
+          correlate with reward but not true quality</li>
+        <li>Mitigations: reward ensembles, reward shaping (bounded rewards with rapid-then-diminishing growth),
+          and adversarial reward auditing</li>
+        <li>RLHF vs. RLAIF vs. RLVR (verifiable rewards) as different sources of the reward signal, each with
+          distinct hacking surfaces</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Reward hacking lab: weight the signals, watch the proxy diverge",
+      instructions:
+        "Six candidate model responses have a fixed TRUE quality score. Drag the helpfulness (length), " +
+        "harmlessness (hedging), and honesty (confidence) weight sliders to build a proxy reward score, and " +
+        "watch the live chart reveal when the proxy's favorite response diverges from the genuinely best one.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var CANDIDATES = [
+          { name: "Concise, correct answer", trueQuality: 85, lengthScore: 30, hedgeScore: 20, confidenceScore: 70 },
+          { name: "Padded, rambling answer", trueQuality: 40, lengthScore: 95, hedgeScore: 25, confidenceScore: 55 },
+          { name: "Over-hedged non-answer", trueQuality: 35, lengthScore: 60, hedgeScore: 95, confidenceScore: 40 },
+          { name: "Confident but wrong (sycophantic)", trueQuality: 20, lengthScore: 50, hedgeScore: 15, confidenceScore: 90 },
+          { name: "Helpful, honest, appropriately cautious", trueQuality: 95, lengthScore: 45, hedgeScore: 50, confidenceScore: 75 },
+          { name: "Short, unhelpful answer", trueQuality: 25, lengthScore: 10, hedgeScore: 10, confidenceScore: 50 }
+        ];
+
+        var wrap = document.createElement("div");
+
+        function makeSliderRow(idPrefix, labelText, val) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.setAttribute("for", idPrefix + "-slider");
+          label.textContent = labelText;
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = "0";
+          slider.max = "100";
+          slider.step = "1";
+          slider.value = String(val);
+          slider.id = idPrefix + "-slider";
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = val + "%";
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+          return { slider: slider, readout: readout };
+        }
+
+        var helpCtl = makeSliderRow("help", "Helpfulness weight (rewards length)", 40);
+        var harmCtl = makeSliderRow("harm", "Harmlessness weight (rewards hedging)", 30);
+        var honestCtl = makeSliderRow("honest", "Honesty weight (rewards confidence)", 30);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 340;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "640px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.marginTop = "var(--space-3)";
+        wrap.appendChild(canvas);
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        root.appendChild(wrap);
+        var g = canvas.getContext("2d");
+
+        function computeProxy(wHelp, wHarm, wHonest) {
+          var total = wHelp + wHarm + wHonest;
+          if (total === 0) total = 1;
+          return CANDIDATES.map(function (c) {
+            var proxy = (wHelp * c.lengthScore + wHarm * c.hedgeScore + wHonest * c.confidenceScore) / total;
+            return { name: c.name, trueQuality: c.trueQuality, proxyReward: proxy };
+          });
+        }
+
+        function draw() {
+          var wHelp = parseInt(helpCtl.slider.value, 10);
+          var wHarm = parseInt(harmCtl.slider.value, 10);
+          var wHonest = parseInt(honestCtl.slider.value, 10);
+
+          var scored = computeProxy(wHelp, wHarm, wHonest);
+
+          var trueBestIdx = 0, proxyBestIdx = 0;
+          scored.forEach(function (s, i) {
+            if (s.trueQuality > scored[trueBestIdx].trueQuality) trueBestIdx = i;
+            if (s.proxyReward > scored[proxyBestIdx].proxyReward) proxyBestIdx = i;
+          });
+
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+
+          var chartX = 190, chartY = 15, chartW = w - chartX - 20, rowH = (h - 30) / CANDIDATES.length;
+
+          g.font = "12px sans-serif";
+          scored.forEach(function (s, i) {
+            var y = chartY + i * rowH;
+            var isProxyBest = i === proxyBestIdx;
+            var isTrueBest = i === trueBestIdx;
+
+            g.fillStyle = "#1a2033";
+            g.textAlign = "right";
+            var label = s.name;
+            g.fillText(label.length > 26 ? label.slice(0, 24) + "…" : label, chartX - 10, y + rowH / 2 - 6);
+
+            var barMaxW = chartW;
+            var trueBarW = (s.trueQuality / 100) * barMaxW;
+            var proxyBarW = (s.proxyReward / 100) * barMaxW;
+
+            // true quality bar
+            g.fillStyle = isTrueBest ? "#0f7a4a" : "#8fa0c9";
+            g.fillRect(chartX, y, trueBarW, rowH * 0.35);
+            // proxy reward bar
+            g.fillStyle = isProxyBest ? "#b3261e" : "#e0a05c";
+            g.fillRect(chartX, y + rowH * 0.4, proxyBarW, rowH * 0.35);
+
+            g.fillStyle = "#1a2033";
+            g.textAlign = "left";
+            g.font = "10px sans-serif";
+            g.fillText("true " + s.trueQuality.toFixed(0), chartX + trueBarW + 4, y + rowH * 0.35 - 4);
+            g.fillText("proxy " + s.proxyReward.toFixed(0), chartX + proxyBarW + 4, y + rowH * 0.75 - 4);
+            g.font = "12px sans-serif";
+          });
+
+          g.fillStyle = "#1a2033";
+          g.font = "11px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Blue/green = true quality. Orange/red = proxy reward under current weights. Green border = " +
+            "genuinely best. Red = what the proxy would pick.", 10, h - 8);
+
+          var trueBest = scored[trueBestIdx];
+          var proxyBest = scored[proxyBestIdx];
+          var gap = trueBest.trueQuality - proxyBest.trueQuality;
+
+          if (proxyBestIdx === trueBestIdx) {
+            resultText.textContent = "No reward hacking here: with these weights, the proxy correctly favors '" +
+              trueBest.name + "' — the same response that is genuinely best.";
+            resultText.style.color = "#0f7a4a";
+          } else {
+            resultText.textContent = "Reward hacking: the proxy reward would push training toward '" + proxyBest.name +
+              "' (proxy " + proxyBest.proxyReward.toFixed(0) + "), but its true quality is only " +
+              proxyBest.trueQuality + " — " + gap.toFixed(0) + " points below the genuinely best response '" +
+              trueBest.name + "' (true quality " + trueBest.trueQuality + ").";
+            resultText.style.color = "#b3261e";
+          }
+        }
+
+        [helpCtl, harmCtl, honestCtl].forEach(function (ctl) {
+          ctl.slider.addEventListener("input", function () {
+            ctl.readout.textContent = ctl.slider.value + "%";
+            draw();
+          });
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is 'reward hacking' in RLHF-style training?",
+          options: [
+            "A hacker breaking into the training server",
+            "Deliberately lowering the reward model's accuracy on purpose",
+            "A model exploiting spurious correlations (e.g. length, formatting, sycophancy) that correlate with reward but not true quality",
+            "Using a smaller model to save compute"
+          ],
+          answer: 2,
+          explanation: "Reward hacking happens when a policy learns to exploit whatever the reward model happens to correlate with reward, even when that signal doesn't track genuine quality."
+        },
+        {
+          q: "A candidate response gets an unusually high reward score mostly because it is extremely long and repeats key phrases, even though it doesn't actually answer the question well. What is the most likely explanation?",
+          options: [
+            "The response is definitely the best possible answer",
+            "The reward model is picking up a spurious length/keyword correlation with reward rather than true helpfulness — reward hacking",
+            "The reward model has zero training data",
+            "Length has no effect on any reward model ever"
+          ],
+          answer: 1,
+          explanation: "This mirrors the simulator's 'padded, rambling answer' candidate — high on the length-based helpfulness proxy, but low true quality."
+        },
+        {
+          q: "Which of these is a real mitigation against reward hacking described in the material?",
+          options: [
+            "Making the reward model bigger with no other changes",
+            "Removing all human feedback entirely",
+            "Ignoring the problem since it self-resolves",
+            "Reward ensembles, bounded/shaped rewards, and adversarial reward auditing"
+          ],
+          answer: 3,
+          explanation: "Ensembling multiple reward signals, bounding reward growth, and actively auditing for gamed outputs are concrete, described defenses against reward hacking."
+        },
+        {
+          q: "What distinguishes RLHF, RLAIF, and RLVR from each other?",
+          options: [
+            "They are three names for the exact same method",
+            "RLVR never uses any reward signal at all",
+            "They differ in the source of the reward signal — human preference labels, AI-generated preference labels, or automatically verifiable ground-truth rewards — each with distinct hacking surfaces",
+            "RLAIF requires no reward model"
+          ],
+          answer: 2,
+          explanation: "The three differ in where the reward signal comes from, and each source is vulnerable to being gamed in its own characteristic way."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

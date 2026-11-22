@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using AI Tools and APIs (ChatGPT, Claude, etc.) — AI Maturity Course</title>
+<meta name="description" content="Chat interfaces and APIs are two doors into the same underlying AI model.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-7";
+</script>
+<style>
+  .chat-api-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 640px) { .chat-api-grid { grid-template-columns: 1fr; } }
+  .chat-pane, .api-pane { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; }
+  .chat-pane h4, .api-pane h4 { margin-bottom: var(--space-2); }
+  .chat-messages { flex: 1; min-height: 220px; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }
+  .chat-bubble { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); max-width: 90%; font-size: var(--font-size-sm); }
+  .chat-bubble.user { align-self: flex-end; background: var(--color-primary-light); color: var(--color-primary-dark); }
+  .chat-bubble.assistant { align-self: flex-start; background: var(--color-bg-inset); }
+  .chat-input-row { display: flex; gap: var(--space-2); }
+  .chat-input-row input { flex: 1; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+  #api-json { background: #1a2033; color: #dbe3ff; font-family: var(--font-mono); font-size: 0.78rem; padding: var(--space-3); border-radius: var(--radius-sm); white-space: pre-wrap; word-break: break-word; min-height: 260px; overflow-y: auto; margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Using AI Tools and APIs (ChatGPT, Claude, etc.)</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain the difference between chatting with an AI assistant
+      through its web app versus calling it through an API, and name two practical limitations to keep in
+      mind when using either.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Modern AI assistants like ChatGPT and Claude are pretrained models made accessible two main ways:
+          a <strong>chat interface</strong> for humans to type messages and read replies, and a
+          <strong>programmatic API</strong> that lets software send requests and get structured responses
+          back. Both routes talk to the same underlying model — the interface is just the door you walk
+          through.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Chat interface usage vs. API usage — same underlying model, different access method</li>
+        <li>Context window: what it is and why conversations have a length limit</li>
+        <li>System prompts/instructions vs. user messages (conceptual introduction)</li>
+        <li>Practical limitations: hallucination risk, knowledge cutoffs, no guaranteed factual accuracy</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    function canned(message) {
+      var m = message.toLowerCase();
+      if (m.indexOf("weather") !== -1) return "I can't check live weather — I don't have real-time internet access unless a tool is connected.";
+      if (m.indexOf("hello") !== -1 || m.indexOf("hi") !== -1) return "Hello! How can I help you today?";
+      if (m.indexOf("poem") !== -1) return "Here's a short poem: Data flows in silent streams, teaching machines to chase their dreams.";
+      if (m.indexOf("code") !== -1 || m.indexOf("python") !== -1) return "Sure — here is a short example. (In a real assistant this would include actual code.)";
+      if (m.trim() === "") return "Say something and I'll reply here.";
+      return "Here's a canned demo reply to: \"" + message + "\". A real assistant would generate this live from the model.";
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Chat UI vs. API — same model, two doors",
+      instructions: "Type a message and send it. The left pane shows a mock chat reply; the right pane shows the equivalent API request/response JSON for that same message, hitting the same underlying model.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var grid = document.createElement("div");
+        grid.className = "chat-api-grid";
+        root.appendChild(grid);
+
+        var chatPane = document.createElement("div");
+        chatPane.className = "chat-pane";
+        chatPane.innerHTML = "<h4>Chat interface</h4>";
+        var messages = document.createElement("div");
+        messages.className = "chat-messages";
+        chatPane.appendChild(messages);
+        var inputRow = document.createElement("div");
+        inputRow.className = "chat-input-row";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Type a message…";
+        var sendBtn = document.createElement("button");
+        sendBtn.type = "button"; sendBtn.className = "btn btn-primary"; sendBtn.textContent = "Send";
+        inputRow.appendChild(input); inputRow.appendChild(sendBtn);
+        chatPane.appendChild(inputRow);
+        grid.appendChild(chatPane);
+
+        var apiPane = document.createElement("div");
+        apiPane.className = "api-pane";
+        apiPane.innerHTML = "<h4>Equivalent API call</h4>";
+        var pre = document.createElement("pre");
+        pre.id = "api-json";
+        pre.textContent = "// Send a message on the left to see the equivalent API\n// request and response appear here.";
+        apiPane.appendChild(pre);
+        grid.appendChild(apiPane);
+
+        function addBubble(text, role) {
+          var b = document.createElement("div");
+          b.className = "chat-bubble " + role;
+          b.textContent = text;
+          messages.appendChild(b);
+          messages.scrollTop = messages.scrollHeight;
+        }
+
+        function send() {
+          var text = input.value.trim();
+          if (!text) return;
+          addBubble(text, "user");
+          var reply = canned(text);
+          window.setTimeout(function () { addBubble(reply, "assistant"); }, 250);
+
+          var requestObj = {
+            model: "example-ai-model-1",
+            messages: [
+              { role: "system", content: "You are a helpful assistant." },
+              { role: "user", content: text }
+            ],
+            max_tokens: 256
+          };
+          var responseObj = {
+            id: "msg_demo_" + Math.random().toString(36).slice(2, 8),
+            model: "example-ai-model-1",
+            role: "assistant",
+            content: [ { type: "text", text: reply } ],
+            usage: { input_tokens: text.split(/\s+/).length + 8, output_tokens: reply.split(/\s+/).length }
+          };
+
+          pre.textContent =
+            "POST /v1/messages\n" +
+            "Content-Type: application/json\n\n" +
+            "// --- request body ---\n" +
+            JSON.stringify(requestObj, null, 2) +
+            "\n\n// --- response body ---\n" +
+            JSON.stringify(responseObj, null, 2);
+
+          input.value = "";
+        }
+
+        sendBtn.addEventListener("click", send);
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") send();
+        });
+
+        // seed one example so the widget doesn't look empty
+        addBubble("Hi! Ask me anything.", "assistant");
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What's the key difference between using ChatGPT's chat interface and calling its API?",
+          options: [
+            "They use completely different underlying models",
+            "The access method differs (human chat UI vs. programmatic requests), but both can hit the same underlying model",
+            "The API is always less accurate",
+            "The chat interface doesn't use AI at all"
+          ],
+          answer: 1,
+          explanation: "Chat and API are just two different doors into the same underlying model — one built for humans, one for software."
+        },
+        {
+          q: "What is a \"context window\"?",
+          options: [
+            "The browser window the chat runs in",
+            "The limited amount of conversation/text the model can consider at once",
+            "A setting that controls response speed",
+            "The model's training dataset size"
+          ],
+          answer: 1,
+          explanation: "The context window is the cap on how much text (recent messages, instructions, etc.) the model can take into account for a single response."
+        },
+        {
+          q: "Which of these is a real practical limitation of AI assistants to keep in mind?",
+          options: [
+            "They can hallucinate — state incorrect things confidently",
+            "They are always 100% factually accurate",
+            "They have unlimited knowledge of events after their training cutoff",
+            "They never make mistakes in code"
+          ],
+          answer: 0,
+          explanation: "Hallucination — confidently stated but incorrect output — is a well-known limitation, along with fixed knowledge cutoffs."
+        },
+        {
+          q: "In an API request, what is the role of a \"system\" message?",
+          options: [
+            "It's the user's question",
+            "It sets background instructions/behavior for the assistant, separate from the user's own messages",
+            "It's an error message",
+            "It has no effect on the response"
+          ],
+          answer: 1,
+          explanation: "System prompts/instructions steer the assistant's behavior and are distinct from the user-authored messages in the conversation."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced Prompting: Few-Shot and Chain-of-Thought — AI Maturity Course</title>
+<meta name="description" content="How showing examples and asking for step-by-step reasoning reliably improves LLM output quality without changing the model.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-2";
+</script>
+<style>
+  .lab-toggles { display: flex; gap: var(--space-5); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .lab-toggle { display: flex; align-items: center; gap: var(--space-2); background: var(--color-bg-inset); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); }
+  .lab-toggle input { width: 1.15em; height: 1.15em; }
+  .lab-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 700px) { .lab-columns { grid-template-columns: 1fr; } }
+  .lab-panel { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .lab-panel h4 { margin-bottom: var(--space-2); }
+  .lab-prompt { white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.85rem; background: var(--color-bg-inset); padding: var(--space-3); border-radius: var(--radius-sm); }
+  .lab-answer { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); font-size: 0.95rem; }
+  .lab-answer.good { background: var(--color-success-bg); color: var(--color-success); }
+  .lab-answer.bad { background: var(--color-error-bg); color: var(--color-error); }
+  .lab-answer.mid { background: var(--color-warning-bg); color: #7a5b00; }
+  .lab-verdict { font-weight: 700; margin-top: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Advanced Prompting: Few-Shot and Chain-of-Thought</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can rewrite a poorly-performing zero-shot prompt into a
+      few-shot and/or chain-of-thought version, and predict which technique is likely to help for a given
+      task type (e.g., arithmetic reasoning vs. simple classification).
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Advanced prompting techniques are structured ways of writing prompts — showing examples or asking the
+          model to "think step by step" — that reliably improve output quality without changing the model itself.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Zero-shot vs. few-shot prompting (providing example input/output pairs)</li>
+        <li>Chain-of-thought prompting (asking for reasoning steps before the final answer)</li>
+        <li>Prompt structure: system/instruction vs. context vs. examples vs. query</li>
+        <li>Self-consistency and other reasoning-boosting variants</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var QUESTION = "A store had 23 apples. They sold 8 apples, then received a shipment of 15 more. How many apples does the store have now?";
+
+    var FEWSHOT_EXAMPLES =
+      "Example 1:\nQ: A bakery had 10 loaves. It sold 4, then baked 6 more. How many loaves now?\nA: 10 - 4 + 6 = 12\n\n" +
+      "Example 2:\nQ: A garage had 30 tires. It used 12, then received 5 more. How many tires now?\nA: 30 - 12 + 5 = 23\n\n";
+
+    var COT_INSTRUCTION = "Think through this step by step before giving the final answer.\n\n";
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Prompt lab: few-shot vs. chain-of-thought",
+      instructions:
+        "The question below is fixed. Toggle \"Add examples (few-shot)\" and \"Ask for step-by-step reasoning " +
+        "(chain-of-thought)\" and watch the assembled prompt and a rule-based mock model's answer update live. " +
+        "This is a canned JS response keyed to which techniques are on — not a real model call.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var toggles = document.createElement("div");
+        toggles.className = "lab-toggles";
+
+        var fewShotLabel = document.createElement("label");
+        fewShotLabel.className = "lab-toggle";
+        var fewShotBox = document.createElement("input");
+        fewShotBox.type = "checkbox";
+        fewShotBox.id = "toggle-fewshot";
+        fewShotLabel.appendChild(fewShotBox);
+        fewShotLabel.appendChild(document.createTextNode("Add examples (few-shot)"));
+        toggles.appendChild(fewShotLabel);
+
+        var cotLabel = document.createElement("label");
+        cotLabel.className = "lab-toggle";
+        var cotBox = document.createElement("input");
+        cotBox.type = "checkbox";
+        cotBox.id = "toggle-cot";
+        cotLabel.appendChild(cotBox);
+        cotLabel.appendChild(document.createTextNode("Ask for step-by-step reasoning (chain-of-thought)"));
+        toggles.appendChild(cotLabel);
+
+        wrap.appendChild(toggles);
+
+        var columns = document.createElement("div");
+        columns.className = "lab-columns";
+
+        var promptPanel = document.createElement("div");
+        promptPanel.className = "lab-panel";
+        promptPanel.innerHTML = "<h4>Assembled prompt</h4>";
+        var promptPre = document.createElement("div");
+        promptPre.className = "lab-prompt";
+        promptPanel.appendChild(promptPre);
+        columns.appendChild(promptPanel);
+
+        var answerPanel = document.createElement("div");
+        answerPanel.className = "lab-panel";
+        answerPanel.innerHTML = "<h4>Mock model output</h4>";
+        var answerBox = document.createElement("div");
+        answerPanel.appendChild(answerBox);
+        columns.appendChild(answerPanel);
+
+        wrap.appendChild(columns);
+        root.appendChild(wrap);
+
+        function render() {
+          var fewShot = fewShotBox.checked;
+          var cot = cotBox.checked;
+
+          var prompt = "";
+          if (fewShot) prompt += FEWSHOT_EXAMPLES;
+          if (cot) prompt += COT_INSTRUCTION;
+          prompt += "Q: " + QUESTION + "\nA:";
+          promptPre.textContent = prompt;
+
+          // Rule-based mock "model": canned answers keyed to which
+          // techniques are enabled, illustrating the typical effect of
+          // each without calling a real LLM.
+          var html = "";
+          var verdictClass, verdictText, answerText;
+
+          if (!fewShot && !cot) {
+            answerText = "38";
+            verdictClass = "bad";
+            verdictText = "Wrong — terse zero-shot guess, arithmetic slip (added instead of tracking order correctly).";
+          } else if (fewShot && !cot) {
+            answerText = "23 - 8 + 15 = 30";
+            verdictClass = "mid";
+            verdictText = "Correct final number and cleaner format (learned from the examples), but no visible reasoning trail.";
+          } else if (!fewShot && cot) {
+            answerText = "Start: 23 apples.\nSell 8: 23 - 8 = 15.\nReceive 15 more: 15 + 15 = 30.\nFinal answer: 30";
+            verdictClass = "good";
+            verdictText = "Correct, with an explicit reasoning trail — chain-of-thought helps most on multi-step arithmetic like this.";
+          } else {
+            answerText = "Following the example format:\nStart: 23. Sold 8 -> 23 - 8 = 15. Received 15 -> 15 + 15 = 30.\nA: 30";
+            verdictClass = "good";
+            verdictText = "Correct, well-formatted, and shows its work — the two techniques combine well here.";
+          }
+
+          answerBox.innerHTML = "";
+          var ans = document.createElement("div");
+          ans.className = "lab-answer " + verdictClass;
+          ans.style.whiteSpace = "pre-wrap";
+          ans.textContent = answerText;
+          var verdict = document.createElement("div");
+          verdict.className = "lab-verdict";
+          verdict.textContent = verdictText;
+          answerBox.appendChild(ans);
+          answerBox.appendChild(verdict);
+        }
+
+        fewShotBox.addEventListener("change", render);
+        cotBox.addEventListener("change", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What does few-shot prompting add to a prompt that zero-shot prompting doesn't have?",
+          options: [
+            "A larger model",
+            "One or more example input/output pairs demonstrating the desired pattern",
+            "A longer context window",
+            "A fine-tuned checkpoint"
+          ],
+          answer: 1,
+          explanation: "Few-shot prompting shows the model worked examples of the task before asking it to solve a new instance, without changing the model's weights."
+        },
+        {
+          q: "For which type of task does chain-of-thought prompting tend to help the most?",
+          options: [
+            "Simple binary classification (e.g. spam vs. not spam)",
+            "Multi-step arithmetic or logical reasoning problems",
+            "Looking up a single fact",
+            "Formatting text as uppercase"
+          ],
+          answer: 1,
+          explanation: "CoT prompting shines on tasks that benefit from working through intermediate steps, like multi-step math or logic — it adds little for tasks with no real reasoning chain."
+        },
+        {
+          q: "In the prompt lab widget, what is used to generate the model's response?",
+          options: [
+            "A live call to a real LLM API",
+            "Canned answers selected by simple JS rules keyed to which toggles are on",
+            "A random number generator",
+            "A call to a search engine"
+          ],
+          answer: 1,
+          explanation: "The widget makes no network calls — it's a rule-based mock model, illustrating the typical qualitative effect of each technique without needing a real API key."
+        },
+        {
+          q: "In the prompt structure, what does the \"examples\" section typically represent, as distinct from the system/instruction section?",
+          options: [
+            "The model's internal weights",
+            "Demonstrations of desired input/output behavior, separate from the general task instruction",
+            "A log of past API errors",
+            "The user's account settings"
+          ],
+          answer: 1,
+          explanation: "System/instruction sets overall behavior; examples show concrete input/output pairs; context supplies background data; the query is the actual question being asked."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

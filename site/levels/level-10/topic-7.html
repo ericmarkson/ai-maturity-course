@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leading Research Organizations or Labs — AI Maturity Course</title>
+<meta name="description" content="The organizational and strategic skill of directing a research team or lab toward impactful frontier-AI work, distinct from doing the research yourself.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-7";
+</script>
+<style>
+  .ra-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ra-sliders { display: flex; flex-direction: column; gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .ra-slider-row { display: grid; grid-template-columns: 190px 1fr 60px; align-items: center; gap: var(--space-3); }
+  .ra-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
+  .ra-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .ra-meters { display: flex; flex-direction: column; gap: var(--space-3); }
+  .ra-meter-row label { font-weight: 700; font-size: var(--font-size-sm); display: flex; justify-content: space-between; }
+  .ra-meter-track { width: 100%; height: 16px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; margin-top: var(--space-1); }
+  .ra-meter-fill { height: 100%; border-radius: 999px; transition: width 0.15s ease, background-color 0.15s ease; }
+  .ra-note { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); font-size: var(--font-size-sm); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Leading Research Organizations or Labs</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a fixed research team and compute budget, produce a prioritized portfolio of research bets across capability/safety/infrastructure categories and justify the allocation against at least one plausible alternative allocation.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Leading research organizations or labs is the organizational and strategic skill of directing a research
+          team toward impactful frontier-AI work — distinct from doing the research yourself. It means allocating
+          scarce headcount and compute across competing priorities, shaping the culture the team works in, and
+          carrying responsibilities that extend beyond the lab's walls.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Research prioritization under uncertainty</strong> — portfolio thinking across capabilities,
+          safety, and infrastructure bets with different risk/timelines.</li>
+        <li><strong>Building a research culture</strong> — incentives for genuine novelty vs. publication-count
+          optimization, and psychological safety for reporting negative results.</li>
+        <li><strong>Resourcing tradeoffs unique to frontier AI</strong> — compute allocation across a lab's
+          competing training runs and research bets, echoing the 2026 GPU compute-crunch reality.</li>
+        <li><strong>External responsibilities</strong> — safety review processes, responsible disclosure, and
+          engagement with the governance landscape.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Lab resource-allocation game",
+      instructions:
+        "Distribute your lab's fixed headcount + compute budget across four teams. Drag any slider and the others " +
+        "rebalance to hold the total at 100%. Watch research output, team morale, and long-term impact respond " +
+        "live to your allocation.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "ra-wrap";
+
+        var teams = [
+          { key: "capabilities", label: "Capabilities", value: 40 },
+          { key: "safety", label: "Safety", value: 20 },
+          { key: "infra", label: "Infrastructure", value: 25 },
+          { key: "exploratory", label: "Exploratory / blue-sky", value: 15 }
+        ];
+
+        var sliderContainer = document.createElement("div");
+        sliderContainer.className = "ra-sliders";
+        var sliderEls = {};
+
+        teams.forEach(function (t) {
+          var row = document.createElement("div");
+          row.className = "ra-slider-row";
+          var label = document.createElement("label");
+          label.textContent = t.label;
+          label.setAttribute("for", "ra-slider-" + t.key);
+          var input = document.createElement("input");
+          input.type = "range";
+          input.min = "5";
+          input.max = "80";
+          input.value = String(t.value);
+          input.id = "ra-slider-" + t.key;
+          var readout = document.createElement("span");
+          readout.className = "ra-readout";
+          readout.textContent = t.value + "%";
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(readout);
+          sliderContainer.appendChild(row);
+          sliderEls[t.key] = { input: input, readout: readout };
+        });
+        wrap.appendChild(sliderContainer);
+
+        var meters = document.createElement("div");
+        meters.className = "ra-meters";
+        meters.style.marginTop = "var(--space-4)";
+
+        function makeMeter(key, title) {
+          var row = document.createElement("div");
+          row.className = "ra-meter-row";
+          var label = document.createElement("label");
+          var titleSpan = document.createElement("span");
+          titleSpan.textContent = title;
+          var valSpan = document.createElement("span");
+          valSpan.id = "ra-val-" + key;
+          label.appendChild(titleSpan);
+          label.appendChild(valSpan);
+          var track = document.createElement("div");
+          track.className = "ra-meter-track";
+          var fill = document.createElement("div");
+          fill.className = "ra-meter-fill";
+          fill.id = "ra-fill-" + key;
+          track.appendChild(fill);
+          row.appendChild(label);
+          row.appendChild(track);
+          meters.appendChild(row);
+        }
+
+        makeMeter("output", "Research output");
+        makeMeter("morale", "Team morale");
+        makeMeter("impact", "Long-term impact");
+        wrap.appendChild(meters);
+
+        var note = document.createElement("p");
+        note.className = "ra-note";
+        wrap.appendChild(note);
+
+        root.appendChild(wrap);
+
+        function normalizeFrom(changedKey) {
+          var total = teams.reduce(function (s, t) { return s + t.value; }, 0);
+          if (total === 100) return;
+          var others = teams.filter(function (t) { return t.key !== changedKey; });
+          var othersTotal = others.reduce(function (s, t) { return s + t.value; }, 0);
+          var remaining = 100 - teams.filter(function (t) { return t.key === changedKey; })[0].value;
+          if (othersTotal <= 0) {
+            others.forEach(function (t) { t.value = remaining / others.length; });
+          } else {
+            others.forEach(function (t) { t.value = Math.max(1, (t.value / othersTotal) * remaining); });
+          }
+        }
+
+        function refreshSliderUI() {
+          teams.forEach(function (t) {
+            var rounded = Math.round(t.value);
+            sliderEls[t.key].input.value = String(rounded);
+            sliderEls[t.key].readout.textContent = rounded + "%";
+          });
+        }
+
+        function byKey(key) { return teams.filter(function (t) { return t.key === key; })[0].value; }
+
+        function update() {
+          var capabilities = byKey("capabilities");
+          var safety = byKey("safety");
+          var infra = byKey("infra");
+          var exploratory = byKey("exploratory");
+
+          var output = Math.max(0, Math.min(100, capabilities * 0.5 + infra * 0.3 + exploratory * 0.2));
+
+          var morale = 100;
+          teams.forEach(function (t) {
+            if (t.value < 10) morale -= (10 - t.value) * 2.2;
+          });
+          if (capabilities > safety * 3) morale -= (capabilities - safety * 3) * 0.6;
+          morale = Math.max(0, Math.min(100, morale));
+
+          var impact = Math.max(0, Math.min(100, safety * 0.4 + exploratory * 0.35 + capabilities * 0.2 + infra * 0.05));
+
+          function setMeter(key, val) {
+            var fill = document.getElementById("ra-fill-" + key);
+            var valSpan = document.getElementById("ra-val-" + key);
+            fill.style.width = val + "%";
+            valSpan.textContent = Math.round(val) + " / 100";
+            var color = val < 35 ? "var(--color-error)" : (val < 65 ? "#c98a12" : "var(--color-success)");
+            fill.style.background = color;
+          }
+
+          setMeter("output", output);
+          setMeter("morale", morale);
+          setMeter("impact", impact);
+
+          var msg;
+          if (safety < 10) {
+            msg = "Safety is critically underfunded at " + Math.round(safety) + "% — near-term output may look strong, but this is a high-risk allocation for a frontier lab.";
+          } else if (exploratory < 8) {
+            msg = "Exploratory research is nearly zero — this portfolio optimizes today's roadmap but may miss the next paradigm shift.";
+          } else if (morale < 50) {
+            msg = "Morale is under strain: at least one team is starved of resources, or capabilities is badly outpacing safety staffing.";
+          } else {
+            msg = "Reasonably balanced portfolio: output " + Math.round(output) + ", morale " + Math.round(morale) +
+              ", long-term impact " + Math.round(impact) + ".";
+          }
+          note.textContent = msg;
+        }
+
+        teams.forEach(function (t) {
+          sliderEls[t.key].input.addEventListener("input", function () {
+            t.value = parseInt(sliderEls[t.key].input.value, 10);
+            normalizeFrom(t.key);
+            refreshSliderUI();
+            update();
+          });
+        });
+
+        refreshSliderUI();
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What distinguishes 'leading a research organization' from 'doing the research' at the individual-contributor level?",
+          options: [
+            "There is no meaningful distinction",
+            "Leading a lab is an organizational and strategic skill — allocating headcount/compute across bets and shaping culture — separate from producing research results yourself",
+            "Leading a lab requires writing more code than anyone else on the team",
+            "Leading a lab means avoiding all interaction with governance or policy bodies"
+          ],
+          answer: 1,
+          explanation: "Lab leadership centers on prioritization, resourcing, and culture-building — decisions that shape what research gets done, rather than doing the research directly."
+        },
+        {
+          q: "Why does 'portfolio thinking' matter when allocating a lab's research bets across capabilities, safety, and infrastructure?",
+          options: [
+            "Because only one category should ever receive funding",
+            "Because each category carries different risk/timeline profiles, and a resilient lab balances near-term payoff against longer-horizon or higher-risk bets",
+            "Because portfolios are only relevant to financial investing, not research labs",
+            "Because infrastructure spending is always irrelevant to research outcomes"
+          ],
+          answer: 1,
+          explanation: "Like a financial portfolio, a lab's research bets differ in risk and time horizon; treating allocation as a portfolio decision helps balance near-term output against longer-term or riskier payoffs."
+        },
+        {
+          q: "In the resource-allocation exercise, what happens to the morale meter when capabilities funding vastly outpaces safety funding?",
+          options: [
+            "Morale is unaffected by relative team funding",
+            "Morale decreases, reflecting overwork/strain risk when one team is disproportionately overloaded relative to a critical counterpart function",
+            "Morale always increases when capabilities is prioritized",
+            "Morale only depends on the exploratory team's funding"
+          ],
+          answer: 1,
+          explanation: "The simulation penalizes morale when capabilities funding dramatically outpaces safety funding, modeling the real organizational strain of an imbalanced, overloaded team structure."
+        },
+        {
+          q: "What is one of the 'external responsibilities' a research lab leader carries beyond internal team management?",
+          options: [
+            "Ignoring all external regulatory or governance developments",
+            "Safety review processes, responsible disclosure practices, and engagement with the broader governance landscape",
+            "Publishing only marketing material, never technical findings",
+            "Refusing to ever share compute resources across teams"
+          ],
+          answer: 1,
+          explanation: "Lab leadership extends outward to responsibilities like internal safety review, responsible disclosure of findings, and engagement with regulators and the wider governance ecosystem."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

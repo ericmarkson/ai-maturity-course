@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overfitting vs. Underfitting — AI Maturity Course</title>
+<meta name="description" content="Diagnosing whether a fitted model is too simple, too wiggly, or just right.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-6";
+</script>
+<style>
+  #fit-canvas { width: 100%; max-width: 480px; display: block; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; }
+  .fit-readouts { display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-3) 0; }
+  .fit-readouts .stat-box { background: var(--color-bg-inset); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-4); font-family: var(--font-mono); font-weight: 700; }
+  .fit-readouts .stat-box span.stat-label { display: block; font-family: var(--font-body); font-weight: 600; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .fit-diagnosis { font-weight: 700; padding: var(--space-3); border-radius: var(--radius-md); margin-top: var(--space-2); }
+  .fit-diagnosis.under { background: var(--color-warning-bg); color: #7a5c00; }
+  .fit-diagnosis.good { background: var(--color-success-bg); color: var(--color-success); }
+  .fit-diagnosis.over { background: var(--color-error-bg); color: var(--color-error); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Overfitting vs. Underfitting</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Look at a plotted curve fit to sample data points and correctly
+      diagnose it as overfit, underfit, or well-fit.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Overfitting</strong> happens when a model memorizes the training data too closely,
+          including its noise, and then fails on new data. <strong>Underfitting</strong> happens when a
+          model is too simple to capture the real pattern, so it performs poorly even on the data it was
+          trained on. The goal is a model complex enough to capture the true pattern but not so complex it
+          starts fitting noise.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The "just right" fit vs. an overly wiggly curve (overfitting) vs. an overly flat curve (underfitting)</li>
+        <li>Symptoms: overfitting shows great training accuracy but poor test accuracy; underfitting shows poor accuracy everywhere</li>
+        <li>Common causes: too little data, too complex a model, or training too long (overfitting); too simple a model (underfitting)</li>
+        <li>Basic intuition for the fix direction: simplify vs. add capacity/data</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Solve (A^T A) theta = A^T y via Gaussian elimination with partial pivoting.
+    function solveLinearSystem(M, b) {
+      var n = M.length;
+      var A = M.map(function (row) { return row.slice(); });
+      var v = b.slice();
+      for (var col = 0; col < n; col++) {
+        var maxRow = col;
+        for (var r = col + 1; r < n; r++) {
+          if (Math.abs(A[r][col]) > Math.abs(A[maxRow][col])) maxRow = r;
+        }
+        var tmp = A[col]; A[col] = A[maxRow]; A[maxRow] = tmp;
+        var tmpB = v[col]; v[col] = v[maxRow]; v[maxRow] = tmpB;
+        var pivot = A[col][col];
+        if (Math.abs(pivot) < 1e-10) pivot = 1e-10;
+        for (r = col + 1; r < n; r++) {
+          var factor = A[r][col] / pivot;
+          for (var c = col; c < n; c++) A[r][c] -= factor * A[col][c];
+          v[r] -= factor * v[col];
+        }
+      }
+      var theta = new Array(n).fill(0);
+      for (r = n - 1; r >= 0; r--) {
+        var sum = v[r];
+        for (c = r + 1; c < n; c++) sum -= A[r][c] * theta[c];
+        var piv = A[r][r];
+        if (Math.abs(piv) < 1e-10) piv = 1e-10;
+        theta[r] = sum / piv;
+      }
+      return theta;
+    }
+
+    function fitPolynomial(xs, ys, degree) {
+      var n = degree + 1;
+      var ATA = [];
+      var ATy = [];
+      for (var i = 0; i < n; i++) {
+        ATA.push(new Array(n).fill(0));
+        ATy.push(0);
+      }
+      for (var p = 0; p < xs.length; p++) {
+        var powers = [1];
+        for (i = 1; i < n; i++) powers.push(powers[i - 1] * xs[p]);
+        for (i = 0; i < n; i++) {
+          ATy[i] += powers[i] * ys[p];
+          for (var j = 0; j < n; j++) ATA[i][j] += powers[i] * powers[j];
+        }
+      }
+      return solveLinearSystem(ATA, ATy);
+    }
+
+    function evalPoly(theta, x) {
+      var y = 0, xp = 1;
+      for (var i = 0; i < theta.length; i++) { y += theta[i] * xp; xp *= x; }
+      return y;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Model complexity slider",
+      instructions: "Drag the complexity slider to change the fitted curve from an overly simple line, through a good fit, to a wildly overfit curve. Watch train and test error diverge as complexity rises too far.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.textContent = "Model complexity";
+        var slider = document.createElement("input");
+        slider.type = "range"; slider.min = "1"; slider.max = "9"; slider.step = "1"; slider.value = "1";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        row.appendChild(label); row.appendChild(slider); row.appendChild(readout);
+        wrap.appendChild(row);
+
+        var canvas = document.createElement("canvas");
+        canvas.id = "fit-canvas";
+        canvas.width = 480; canvas.height = 260;
+        wrap.appendChild(canvas);
+
+        var readouts = document.createElement("div");
+        readouts.className = "fit-readouts";
+        readouts.innerHTML =
+          '<div class="stat-box"><span class="stat-label">Train error</span><span id="train-err">-</span></div>' +
+          '<div class="stat-box"><span class="stat-label">Test error</span><span id="test-err">-</span></div>';
+        wrap.appendChild(readouts);
+
+        var diagnosis = document.createElement("div");
+        diagnosis.className = "fit-diagnosis";
+        wrap.appendChild(diagnosis);
+
+        var c = canvas.getContext("2d");
+        var W = canvas.width, H = canvas.height, marginX = 30, marginY = 24;
+        var plotW = W - marginX * 2, plotH = H - marginY * 2;
+
+        // Fixed true relationship: quadratic. Generate train + held-out test points once.
+        function trueFn(x) { return 20 + 3 * x - 0.35 * x * x; }
+        function genPoints(seedOffset) {
+          var pts = [];
+          for (var i = 0; i < 12; i++) {
+            var x = (i + 0.5) * (10 / 12) + (Math.random() - 0.5) * 0.3;
+            var noise = (Math.random() - 0.5) * 9;
+            pts.push({ x: x, y: trueFn(x) + noise });
+          }
+          return pts;
+        }
+        var trainPts = genPoints();
+        var testPts = genPoints();
+
+        var allY = trainPts.concat(testPts).map(function (p) { return p.y; });
+        var yMin = Math.min.apply(null, allY) - 8, yMax = Math.max.apply(null, allY) + 8;
+
+        function toPx(x, y) {
+          return {
+            x: marginX + (x / 10) * plotW,
+            y: (H - marginY) - ((y - yMin) / (yMax - yMin)) * plotH
+          };
+        }
+
+        function normX(x) { return (x - 5) / 5; } // normalize to [-1,1] for numerical stability
+
+        function render() {
+          var degree = parseInt(slider.value, 10);
+          readout.textContent = "degree " + degree;
+
+          var nx = trainPts.map(function (p) { return normX(p.x); });
+          var ny = trainPts.map(function (p) { return p.y; });
+          var theta = fitPolynomial(nx, ny, degree);
+
+          function predict(x) { return evalPoly(theta, normX(x)); }
+
+          function mse(pts) {
+            var sse = 0;
+            pts.forEach(function (p) { sse += Math.pow(predict(p.x) - p.y, 2); });
+            return sse / pts.length;
+          }
+          var trainMse = mse(trainPts);
+          var testMse = mse(testPts);
+
+          document.getElementById("train-err").textContent = trainMse.toFixed(1);
+          document.getElementById("test-err").textContent = testMse.toFixed(1);
+
+          // diagnosis
+          diagnosis.className = "fit-diagnosis";
+          if (trainMse > 25) {
+            diagnosis.classList.add("under");
+            diagnosis.textContent = "Underfit: even the training error is high — the curve is too simple to capture the pattern.";
+          } else if (testMse > trainMse * 2.2 && testMse > 20) {
+            diagnosis.classList.add("over");
+            diagnosis.textContent = "Overfit: training error is low but test error is much higher — the curve is chasing noise, not the true pattern.";
+          } else {
+            diagnosis.classList.add("good");
+            diagnosis.textContent = "Good fit: training and test error are both low and close together.";
+          }
+
+          // draw
+          c.clearRect(0, 0, W, H);
+          c.strokeStyle = "#b7c0d8"; c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(marginX, H - marginY); c.lineTo(W - 10, H - marginY);
+          c.moveTo(marginX, H - marginY); c.lineTo(marginX, 10);
+          c.stroke();
+
+          // curve
+          c.strokeStyle = "#2952e3"; c.lineWidth = 2.5;
+          c.beginPath();
+          var first = true;
+          for (var xi = 0; xi <= 200; xi++) {
+            var xd = (xi / 200) * 10;
+            var yd = predict(xd);
+            yd = Math.max(yMin - 20, Math.min(yMax + 20, yd));
+            var px = toPx(xd, yd);
+            if (first) { c.moveTo(px.x, px.y); first = false; } else { c.lineTo(px.x, px.y); }
+          }
+          c.stroke();
+
+          // train points (blue fill)
+          trainPts.forEach(function (p) {
+            var px = toPx(p.x, p.y);
+            c.fillStyle = "#2952e3";
+            c.beginPath(); c.arc(px.x, px.y, 4, 0, Math.PI * 2); c.fill();
+          });
+          // test points (green outline)
+          testPts.forEach(function (p) {
+            var px = toPx(p.x, p.y);
+            c.strokeStyle = "#0f9d78"; c.lineWidth = 2;
+            c.beginPath(); c.arc(px.x, px.y, 5, 0, Math.PI * 2); c.stroke();
+          });
+
+          c.fillStyle = "#4c5470"; c.font = "11px sans-serif"; c.textAlign = "left";
+          c.fillText("● train points   ○ test points", marginX, 16);
+        }
+
+        slider.addEventListener("input", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A model has 98% accuracy on training data but only 60% on test data. What is this a symptom of?",
+          options: ["Underfitting", "Overfitting", "Perfect fitting", "Data leakage only"],
+          answer: 1,
+          explanation: "A big gap between great training performance and poor test performance is the classic signature of overfitting."
+        },
+        {
+          q: "A model performs poorly on both the training set and the test set. What is this most likely a symptom of?",
+          options: ["Overfitting", "Underfitting", "A perfectly tuned model", "Data leakage"],
+          answer: 1,
+          explanation: "Poor performance everywhere, including on training data, suggests the model is too simple to capture the pattern — underfitting."
+        },
+        {
+          q: "In the exercise, what generally happened to the fitted curve as you raised the complexity slider very high?",
+          options: [
+            "It became a perfectly flat line",
+            "It became increasingly wiggly, chasing individual training points at the cost of test accuracy",
+            "It disappeared from the canvas",
+            "Nothing changed"
+          ],
+          answer: 1,
+          explanation: "Very high polynomial degree lets the curve bend to hit every training point closely, which usually hurts its fit to new (test) data."
+        },
+        {
+          q: "Which is a reasonable fix direction for an underfit model?",
+          options: [
+            "Make the model simpler and train it for less time",
+            "Increase the model's capacity or let it train longer/on more relevant features",
+            "Evaluate it only on training data",
+            "Remove all the training data"
+          ],
+          answer: 1,
+          explanation: "Underfitting usually needs more capacity or better features/training, the opposite direction from fixing overfitting."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

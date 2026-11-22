@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNNs for Images — AI Maturity Course</title>
+<meta name="description" content="How convolutional neural networks slide small filters over an image to build feature maps.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-2";
+</script>
+<style>
+  .cnn-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .cnn-boards { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: flex-start; }
+  .cnn-board-block h3 { margin: 0 0 var(--space-2) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .cnn-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); }
+  .cnn-status { min-height: 1.4em; font-weight: 600; margin-top: var(--space-3); }
+  .cnn-kernel-view { display: grid; grid-template-columns: repeat(3, 32px); gap: 2px; margin-top: var(--space-2); }
+  .cnn-kernel-cell { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--color-bg-inset); border-radius: 4px; font-family: var(--font-mono); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>CNNs for Images</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Manually apply a small (3x3) filter to a toy pixel grid and
+      compute the resulting feature-map value at one position, and explain why weight-sharing makes CNNs
+      far more efficient than a fully-connected network for images.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A <strong>Convolutional Neural Network (CNN)</strong> is a network architecture specialized for
+          images. It uses small sliding filters ("kernels") that detect local patterns like edges and
+          textures, then stacks those detected patterns into increasingly complex shapes across layers.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Convolution as a sliding filter/kernel over pixels</li>
+        <li>Feature maps and stacking layers to go from edges to shapes to objects</li>
+        <li>Pooling (downsampling) to reduce size while keeping important information</li>
+        <li>Why CNNs share weights across an image instead of having one weight per pixel</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Slide a filter across a pixel grid and build the output feature map",
+      instructions:
+        "Pick a filter, then click any cell in the 8×8 image to slide the 3×3 filter so its top-left " +
+        "corner sits there — the convolution output is computed live and written into the smaller output " +
+        "map. Click “Sweep entire image” to fill in the whole output map automatically.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var SIZE = 8;
+        var K = 3;
+        var OUT = SIZE - K + 1; // 6
+
+        // fixed 8x8 image: a vertical edge (black left half, white right half)
+        var IMAGE = [];
+        for (var r = 0; r < SIZE; r++) {
+          var row = [];
+          for (var c = 0; c < SIZE; c++) row.push(c < 4 ? 0 : 1);
+          IMAGE.push(row);
+        }
+
+        var FILTERS = {
+          vedge: { name: "Vertical-edge detector", k: [[1, 0, -1], [1, 0, -1], [1, 0, -1]] },
+          hedge: { name: "Horizontal-edge detector", k: [[1, 1, 1], [0, 0, 0], [-1, -1, -1]] },
+          sharpen: { name: "Sharpen", k: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]] },
+          blur: { name: "Blur (box)", k: [[1 / 9, 1 / 9, 1 / 9], [1 / 9, 1 / 9, 1 / 9], [1 / 9, 1 / 9, 1 / 9]] }
+        };
+
+        var currentFilter = "vedge";
+        var outputMap = []; // OUT x OUT, null = not yet computed
+        function resetOutput() {
+          outputMap = [];
+          for (var i = 0; i < OUT; i++) { var rr = []; for (var j = 0; j < OUT; j++) rr.push(null); outputMap.push(rr); }
+        }
+        resetOutput();
+
+        function convAt(r, c, kernel) {
+          var sum = 0;
+          for (var i = 0; i < K; i++) {
+            for (var j = 0; j < K; j++) {
+              sum += IMAGE[r + i][c + j] * kernel[i][j];
+            }
+          }
+          return sum;
+        }
+
+        // ---- DOM ----
+        var wrap = document.createElement("div");
+
+        var controls = document.createElement("div");
+        controls.className = "cnn-controls";
+        var filterLabel = document.createElement("label");
+        filterLabel.style.fontWeight = "600";
+        filterLabel.textContent = "Filter: ";
+        var filterSelect = document.createElement("select");
+        Object.keys(FILTERS).forEach(function (key) {
+          var opt = document.createElement("option");
+          opt.value = key; opt.textContent = FILTERS[key].name;
+          filterSelect.appendChild(opt);
+        });
+        filterLabel.appendChild(filterSelect);
+
+        var sweepBtn = document.createElement("button");
+        sweepBtn.type = "button"; sweepBtn.className = "btn btn-primary";
+        sweepBtn.textContent = "Sweep entire image";
+
+        controls.appendChild(filterLabel);
+        controls.appendChild(sweepBtn);
+        wrap.appendChild(controls);
+
+        var boards = document.createElement("div");
+        boards.className = "cnn-boards";
+
+        var inBlock = document.createElement("div");
+        inBlock.className = "cnn-board-block";
+        var inTitle = document.createElement("h3");
+        inTitle.textContent = "Input image (8×8) — click a top-left cell";
+        inBlock.appendChild(inTitle);
+        var inWrap = document.createElement("div");
+        inWrap.className = "cnn-canvas-wrap";
+        var inCanvas = document.createElement("canvas");
+        var CELL = 34;
+        inCanvas.width = SIZE * CELL; inCanvas.height = SIZE * CELL;
+        inCanvas.style.cursor = "pointer";
+        inWrap.appendChild(inCanvas);
+        inBlock.appendChild(inWrap);
+        boards.appendChild(inBlock);
+
+        var outBlock = document.createElement("div");
+        outBlock.className = "cnn-board-block";
+        var outTitle = document.createElement("h3");
+        outTitle.textContent = "Output feature map (6×6)";
+        outBlock.appendChild(outTitle);
+        var outWrap = document.createElement("div");
+        outWrap.className = "cnn-canvas-wrap";
+        var outCanvas = document.createElement("canvas");
+        outCanvas.width = OUT * CELL; outCanvas.height = OUT * CELL;
+        outWrap.appendChild(outCanvas);
+        outBlock.appendChild(outWrap);
+        boards.appendChild(outBlock);
+
+        wrap.appendChild(boards);
+
+        var status = document.createElement("p");
+        status.className = "cnn-status";
+        status.setAttribute("role", "status");
+        status.textContent = "Click a cell in the input image (rows/cols 0–5) to compute one convolution value.";
+        wrap.appendChild(status);
+
+        root.appendChild(wrap);
+
+        var gIn = inCanvas.getContext("2d");
+        var gOut = outCanvas.getContext("2d");
+        var highlight = null; // {r,c}
+
+        function drawInput() {
+          gIn.clearRect(0, 0, inCanvas.width, inCanvas.height);
+          for (var r = 0; r < SIZE; r++) {
+            for (var c = 0; c < SIZE; c++) {
+              gIn.fillStyle = IMAGE[r][c] === 1 ? "#ffffff" : "#1a2033";
+              gIn.fillRect(c * CELL, r * CELL, CELL, CELL);
+              gIn.strokeStyle = "#dde2f0";
+              gIn.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            }
+          }
+          if (highlight) {
+            gIn.strokeStyle = "#2952e3";
+            gIn.lineWidth = 3;
+            gIn.strokeRect(highlight.c * CELL + 1.5, highlight.r * CELL + 1.5, K * CELL - 3, K * CELL - 3);
+            gIn.lineWidth = 1;
+          }
+        }
+
+        function drawOutput() {
+          gOut.clearRect(0, 0, outCanvas.width, outCanvas.height);
+          // Scale shading by magnitude of response (distance from 0), not by a
+          // min/max range — a min/max range can put the strongest (most
+          // negative) response at one extreme of the scale, which previously
+          // produced a fill color of literally rgb(255,255,255) (indistinguishable
+          // from the white canvas background) plus a coincidentally-white text
+          // color for that same cell, making the most important cell (the
+          // strongest response, e.g. the edge boundary) render totally blank.
+          // Using |v| relative to the largest magnitude seen keeps every shade
+          // within a safe, always-visible range and ties text color directly to
+          // the same shade used for the fill, so text contrast can never mismatch.
+          var vals = [];
+          for (var r = 0; r < OUT; r++) for (var c = 0; c < OUT; c++) if (outputMap[r][c] !== null) vals.push(outputMap[r][c]);
+          var maxAbs = 0;
+          for (var vi = 0; vi < vals.length; vi++) maxAbs = Math.max(maxAbs, Math.abs(vals[vi]));
+          if (maxAbs === 0) maxAbs = 1;
+
+          for (var rr = 0; rr < OUT; rr++) {
+            for (var cc = 0; cc < OUT; cc++) {
+              var v = outputMap[rr][cc];
+              if (v === null) {
+                gOut.fillStyle = "#f0f2f8";
+              } else {
+                var t = Math.min(1, Math.abs(v) / maxAbs); // 0 = no response, 1 = strongest response
+                var shade = Math.round(230 - t * 190); // 230 (light) .. 40 (dark navy) — never pure white/black
+                gOut.fillStyle = "rgb(" + shade + "," + shade + "," + Math.min(255, shade + 40) + ")";
+              }
+              gOut.fillRect(cc * CELL, rr * CELL, CELL, CELL);
+              gOut.strokeStyle = "#dde2f0";
+              gOut.strokeRect(cc * CELL, rr * CELL, CELL, CELL);
+              if (v !== null) {
+                var tt = Math.min(1, Math.abs(v) / maxAbs);
+                var cellShade = Math.round(230 - tt * 190);
+                gOut.fillStyle = cellShade < 140 ? "#fff" : "#1a2033";
+                gOut.font = "10px monospace";
+                gOut.textAlign = "center";
+                gOut.textBaseline = "middle";
+                gOut.fillText(v.toFixed(1), cc * CELL + CELL / 2, rr * CELL + CELL / 2);
+              }
+            }
+          }
+          gOut.textBaseline = "alphabetic";
+          if (highlight) {
+            gOut.strokeStyle = "#2952e3";
+            gOut.lineWidth = 3;
+            gOut.strokeRect(highlight.c * CELL + 1.5, highlight.r * CELL + 1.5, CELL - 3, CELL - 3);
+            gOut.lineWidth = 1;
+          }
+        }
+
+        function computeAt(r, c) {
+          if (r < 0 || c < 0 || r > OUT - 1 || c > OUT - 1) return;
+          var kernel = FILTERS[currentFilter].k;
+          var value = convAt(r, c, kernel);
+          outputMap[r][c] = value;
+          highlight = { r: r, c: c };
+          status.textContent = "Filter placed at row " + r + ", col " + c + " → convolution output = " + value.toFixed(2) + ".";
+          drawInput();
+          drawOutput();
+        }
+
+        inCanvas.addEventListener("click", function (evt) {
+          var rect = inCanvas.getBoundingClientRect();
+          var scaleX = inCanvas.width / rect.width;
+          var scaleY = inCanvas.height / rect.height;
+          var x = (evt.clientX - rect.left) * scaleX;
+          var y = (evt.clientY - rect.top) * scaleY;
+          var c = Math.floor(x / CELL);
+          var r = Math.floor(y / CELL);
+          if (r > OUT - 1 || c > OUT - 1) {
+            status.textContent = "That position is too close to the edge — the 3×3 filter wouldn't fully fit. Try a cell in the top-left 6×6 region.";
+            return;
+          }
+          computeAt(r, c);
+        });
+
+        var sweepTimer = null;
+        sweepBtn.addEventListener("click", function () {
+          if (sweepTimer) return;
+          resetOutput();
+          highlight = null;
+          drawOutput();
+          var positions = [];
+          for (var r = 0; r < OUT; r++) for (var c = 0; c < OUT; c++) positions.push([r, c]);
+          var idx = 0;
+          sweepBtn.disabled = true;
+          sweepTimer = setInterval(function () {
+            if (idx >= positions.length) {
+              clearInterval(sweepTimer);
+              sweepTimer = null;
+              sweepBtn.disabled = false;
+              status.textContent = "Sweep complete — full 6×6 output feature map computed with " + FILTERS[currentFilter].name + ".";
+              return;
+            }
+            computeAt(positions[idx][0], positions[idx][1]);
+            idx++;
+          }, 60);
+        });
+
+        filterSelect.addEventListener("change", function () {
+          currentFilter = filterSelect.value;
+          resetOutput();
+          highlight = null;
+          status.textContent = "Filter changed to " + FILTERS[currentFilter].name + ". Output map cleared — click cells or sweep again.";
+          drawInput();
+          drawOutput();
+        });
+
+        drawInput();
+        drawOutput();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In the exercise, sliding the vertical-edge filter across the image produces the strongest response near which part of the image?",
+          options: ["Anywhere, it's uniform", "The boundary column between the black and white halves", "Only the very top row", "Only the very bottom row"],
+          answer: 1,
+          explanation: "A vertical-edge kernel responds strongly where pixel intensity changes sharply left-to-right — exactly at the black/white boundary column."
+        },
+        {
+          q: "Why does a CNN share the same filter weights across every position of the image, instead of learning a unique weight per pixel?",
+          options: [
+            "Because pixels don't matter",
+            "Because a pattern like an edge can appear anywhere, so one learned filter can detect it everywhere with far fewer parameters",
+            "Because it makes training slower on purpose",
+            "Because fully-connected weights are illegal to use"
+          ],
+          answer: 1,
+          explanation: "Weight-sharing means one small filter (e.g. 9 numbers for a 3x3 kernel) can detect the same local pattern anywhere in the image, which is dramatically more parameter-efficient than a unique weight per pixel-position pair."
+        },
+        {
+          q: "What is a 'feature map' in a CNN?",
+          options: [
+            "The original raw image",
+            "The grid of outputs produced by sliding one filter across the input",
+            "The final classification label",
+            "A list of all training images"
+          ],
+          answer: 1,
+          explanation: "A feature map is the output grid you get after convolving a filter across the input — each value shows how strongly that filter's pattern matched at that position."
+        },
+        {
+          q: "What does pooling (downsampling) primarily achieve in a CNN?",
+          options: [
+            "It increases the image resolution",
+            "It reduces the spatial size of feature maps while keeping the most important information",
+            "It removes all color from the image",
+            "It replaces convolution entirely"
+          ],
+          answer: 1,
+          explanation: "Pooling (e.g. max-pooling) shrinks feature maps, reducing computation and giving some tolerance to small shifts in where a pattern appears, while retaining the strongest signals."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

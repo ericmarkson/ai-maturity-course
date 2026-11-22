@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLOps Fundamentals — AI Maturity Course</title>
+<meta name="description" content="Versioning data and models, CI/CD for ML pipelines, monitoring for drift, and reproducibility/rollback.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-8";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>MLOps Fundamentals</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can list the extra components MLOps must
+      version/monitor beyond traditional software DevOps (data, model weights, feature pipelines) and
+      explain what "data drift" means and why it matters.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>MLOps</strong> is the set of practices for managing the full lifecycle of a machine
+          learning model in production — versioning data and models, automating retraining, and
+          monitoring for problems — borrowed from software DevOps but adapted for ML's extra moving
+          parts. Unlike ordinary software, an ML system can degrade even when no code changes at all,
+          simply because the real-world data flowing into it has shifted.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Versioning</strong> — code, data, and model artifacts all need to be versioned
+          together, not just code, so any prediction can be traced back to exactly what produced it.</li>
+        <li><strong>CI/CD for ML pipelines</strong> — automated retrain/test/deploy steps, similar in
+          spirit to software CI/CD but with data and model-quality checks added in.</li>
+        <li><strong>Monitoring for data drift and model performance decay</strong> — watching whether
+          the incoming data distribution or the model's accuracy is silently changing over time.</li>
+        <li><strong>Reproducibility and rollback</strong> — being able to recreate a past model exactly,
+          and revert to a known-good version quickly if something goes wrong.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Drag the MLOps pipeline stages into the correct order",
+      instructions:
+        "The stages below are shuffled. Drag and drop the cards to put them in the correct MLOps " +
+        "pipeline sequence (or, with a keyboard: press Enter/Space on a stage to pick it up, then tab to " +
+        "another stage and press Enter/Space to move the picked-up stage there), then click Check Order " +
+        "to see which positions are correct. Use the shell's Reset button for a fresh shuffle.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var STAGES = [
+          "Version data & code",
+          "Train model",
+          "Validate / test model",
+          "Deploy to production",
+          "Monitor for data drift",
+          "Retrain or roll back"
+        ];
+        // order[i] = original STAGES index currently shown in position i
+        var order = STAGES.map(function (_, i) { return i; });
+
+        // Fisher-Yates shuffle, retry if it happens to land on the correct order
+        function shuffle(arr) {
+          var a = arr.slice();
+          do {
+            for (var i = a.length - 1; i > 0; i--) {
+              var j = Math.floor(Math.random() * (i + 1));
+              var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+            }
+          } while (a.every(function (v, i) { return v === i; }));
+          return a;
+        }
+        order = shuffle(order);
+
+        var wrap = document.createElement("div");
+
+        var list = document.createElement("ul");
+        list.style.listStyle = "none";
+        list.style.margin = "0";
+        list.style.padding = "0";
+        list.style.display = "flex";
+        list.style.flexDirection = "column";
+        list.style.gap = "0.5rem";
+        list.style.maxWidth = "480px";
+        wrap.appendChild(list);
+
+        var toolbar = document.createElement("div");
+        toolbar.className = "exercise-toolbar";
+        toolbar.style.marginTop = "1rem";
+        var checkBtn = document.createElement("button");
+        checkBtn.type = "button";
+        checkBtn.className = "btn btn-primary";
+        checkBtn.textContent = "Check Order";
+        toolbar.appendChild(checkBtn);
+        wrap.appendChild(toolbar);
+
+        var feedback = document.createElement("p");
+        feedback.setAttribute("role", "status");
+        feedback.style.marginTop = "0.75rem";
+        feedback.style.fontWeight = "600";
+        wrap.appendChild(feedback);
+
+        root.appendChild(wrap);
+
+        var dragIndex = null;
+        var selectedPos = null; // keyboard/click "picked up" position, alternative to drag
+
+        function render(showFeedback, focusPos) {
+          list.innerHTML = "";
+          order.forEach(function (stageIdx, pos) {
+            var li = document.createElement("li");
+            li.draggable = true;
+            li.dataset.pos = String(pos);
+            li.style.padding = "0.7rem 1rem";
+            li.style.borderRadius = "8px";
+            li.style.background = "var(--color-bg)";
+            li.style.border = "2px solid var(--color-border)";
+            li.style.cursor = "grab";
+            li.style.display = "flex";
+            li.style.alignItems = "center";
+            li.style.gap = "0.6rem";
+            li.style.fontWeight = "600";
+
+            var handle = document.createElement("span");
+            handle.textContent = "⠿";
+            handle.style.color = "var(--color-text-faint)";
+            li.appendChild(handle);
+
+            var text = document.createElement("span");
+            text.textContent = (pos + 1) + ". " + STAGES[stageIdx];
+            li.appendChild(text);
+
+            if (showFeedback) {
+              var correct = (stageIdx === pos);
+              li.style.borderColor = correct ? "var(--color-success)" : "var(--color-error)";
+              li.style.background = correct ? "var(--color-success-bg)" : "var(--color-error-bg)";
+            }
+
+            li.addEventListener("dragstart", function (e) {
+              dragIndex = pos;
+              e.dataTransfer.effectAllowed = "move";
+              try { e.dataTransfer.setData("text/plain", String(pos)); } catch (err) {}
+              li.style.opacity = "0.5";
+            });
+            li.addEventListener("dragend", function () {
+              li.style.opacity = "1";
+            });
+            li.addEventListener("dragover", function (e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+            });
+            li.addEventListener("drop", function (e) {
+              e.preventDefault();
+              var targetPos = pos;
+              if (dragIndex === null || dragIndex === targetPos) return;
+              var moved = order.splice(dragIndex, 1)[0];
+              order.splice(targetPos, 0, moved);
+              dragIndex = null;
+              selectedPos = null;
+              render(false);
+              feedback.textContent = "";
+            });
+
+            // Keyboard/click fallback: activate a stage to pick it up, then activate another
+            // stage to move the picked-up one there (same reorder logic as drag-and-drop).
+            li.tabIndex = 0;
+            li.setAttribute("role", "button");
+            if (selectedPos === pos) {
+              li.style.borderColor = "var(--color-primary)";
+              li.style.boxShadow = "0 0 0 3px var(--color-primary-light)";
+              li.setAttribute("aria-label", (pos + 1) + ". " + STAGES[stageIdx] +
+                ". Picked up. Press Enter again to cancel, or activate another stage to move it there.");
+            } else if (selectedPos !== null) {
+              li.setAttribute("aria-label", (pos + 1) + ". " + STAGES[stageIdx] +
+                ". Press Enter to move the picked-up stage here.");
+            } else {
+              li.setAttribute("aria-label", (pos + 1) + ". " + STAGES[stageIdx] +
+                ". Press Enter to pick up this stage, then activate another stage to move it there.");
+            }
+            li.addEventListener("click", function () {
+              if (selectedPos === null) {
+                selectedPos = pos;
+                render(false, pos);
+              } else if (selectedPos === pos) {
+                selectedPos = null;
+                render(false, pos);
+              } else {
+                var moved = order.splice(selectedPos, 1)[0];
+                order.splice(pos, 0, moved);
+                selectedPos = null;
+                render(false, pos);
+                feedback.textContent = "";
+              }
+            });
+            li.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+                e.preventDefault();
+                li.click();
+              }
+            });
+
+            list.appendChild(li);
+          });
+
+          if (typeof focusPos === "number" && list.children[focusPos]) {
+            list.children[focusPos].focus();
+          }
+        }
+
+        checkBtn.addEventListener("click", function () {
+          render(true);
+          var correctCount = order.filter(function (stageIdx, pos) { return stageIdx === pos; }).length;
+          if (correctCount === STAGES.length) {
+            feedback.textContent = "Correct! That's the standard MLOps sequence: version -> train -> validate -> deploy -> monitor -> retrain/roll back.";
+            feedback.style.color = "var(--color-success)";
+          } else {
+            feedback.textContent = correctCount + " of " + STAGES.length + " stages are in the correct position (highlighted green). Drag the red ones and check again.";
+            feedback.style.color = "var(--color-error)";
+          }
+        });
+
+        render(false);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Beyond source code, what else does MLOps need to version to fully reproduce a past prediction?",
+          options: [
+            "Nothing else — code versioning is sufficient",
+            "The training data and the resulting model artifacts/weights",
+            "Only the server's operating system version",
+            "The developer's personal notes"
+          ],
+          answer: 1,
+          explanation: "ML systems depend on the specific data and resulting model weights used, not just the code — so reproducibility requires versioning data and model artifacts alongside code."
+        },
+        {
+          q: "What does 'data drift' mean?",
+          options: [
+            "The training code has a bug",
+            "The distribution of incoming real-world data changes over time compared to what the model was trained on",
+            "The model's weights are being versioned incorrectly",
+            "The server hosting the model moved to a new region"
+          ],
+          answer: 1,
+          explanation: "Data drift is when the statistical properties of production input data shift away from the training distribution, which can silently degrade model performance even with no code changes."
+        },
+        {
+          q: "Why does MLOps CI/CD typically include automated validation/testing steps before deployment, not just automated deployment?",
+          options: [
+            "To slow down releases on purpose",
+            "To catch model-quality regressions (not just code bugs) before a worse-performing model reaches production",
+            "Because deployment is impossible without it",
+            "Testing is unrelated to ML pipelines"
+          ],
+          answer: 1,
+          explanation: "ML pipelines add data- and model-quality checks (e.g., accuracy on a validation set) to the usual code tests, since a model can 'work' technically while performing worse than the version it's replacing."
+        },
+        {
+          q: "Why is rollback capability important in an MLOps pipeline?",
+          options: [
+            "It lets you quickly revert to a known-good model version if a newly deployed one performs poorly or misbehaves",
+            "It automatically fixes data drift",
+            "It is only used during initial model training",
+            "It replaces the need for monitoring"
+          ],
+          answer: 0,
+          explanation: "Rollback lets teams respond quickly to a bad deployment by reverting to a previous, known-good model version while the issue is investigated."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Vocabulary: Model, Training, Inference, Dataset, Parameters — AI Maturity Course</title>
+<meta name="description" content="The five basic building-block terms used to describe any ML system, with a drag-and-drop pipeline labeling exercise.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-3";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>Core Vocabulary: Model, Training, Inference, Dataset, Parameters</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can correctly label each step of a simple
+      pipeline diagram (raw data → training → model → inference → prediction) using the five core
+      terms.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Five words show up in almost every conversation about how ML systems work, and mixing
+          them up is the fastest way to get lost. A <strong>dataset</strong> is the collection of
+          examples a system learns from. <strong>Training</strong> is the process of fitting a
+          system to that dataset, adjusting it until it captures the pattern. The
+          <strong>model</strong> is the artifact — the trained "thing" — that results from
+          training. <strong>Parameters</strong> are the adjustable internal numbers stored inside
+          that model, the actual values training changed. And <strong>inference</strong> is what
+          happens afterward: using the already-trained model to make a prediction on new data it
+          hasn't seen before.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Dataset (a collection of examples) vs. a single data point within it</li>
+        <li>Training (the fitting process) vs. inference (the "using it" step) — two very different phases</li>
+        <li>Model as the artifact that results from training, separate from the process itself</li>
+        <li>Parameters as the adjustable internal numbers a model learns — introduced conceptually, no math yet</li>
+      </ul>
+      <p>
+        A simple way to keep these straight: training happens once (or periodically, when you
+        retrain), and it's expensive and slow. Inference happens every single time someone uses
+        the finished model, and it's meant to be fast. When you hear "this model has 70 billion
+        parameters," that's a statement about how many adjustable numbers live inside the trained
+        model — not about the size of the dataset it was trained on, and not about how long
+        training took.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var BOXES = [
+      { id: "b1", term: "Dataset", desc: "The raw examples the system learns from." },
+      { id: "b2", term: "Training", desc: "The process that fits/adjusts the system using those examples." },
+      { id: "b3", term: "Model", desc: "The artifact/result produced once that process finishes." },
+      { id: "b4", term: "Parameters", desc: "The adjustable internal numbers stored inside that result." },
+      { id: "b5", term: "Inference", desc: "Using the finished result to make a prediction on brand-new data." }
+    ];
+
+    var TERMS_SHUFFLED = ["Inference", "Dataset", "Parameters", "Model", "Training"];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Label the ML pipeline",
+      instructions: "Each box below describes a step or piece of a simple ML pipeline, in order. " +
+        "Drag the correct vocabulary term onto each box (or click/press Enter on a term to pick it up, " +
+        "then click/press Enter on a box to place it there). Correct drops turn green and lock in; " +
+        "wrong drops bounce back.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var solved = {};
+        var boxEls = {};
+        var selectedTerm = null;
+
+        var flow = document.createElement("div");
+        flow.style.display = "flex";
+        flow.style.flexWrap = "wrap";
+        flow.style.alignItems = "stretch";
+        flow.style.gap = "6px";
+        flow.style.marginBottom = "16px";
+
+        BOXES.forEach(function (box, i) {
+          var card = document.createElement("div");
+          card.style.flex = "1 1 160px";
+          card.style.border = "2px dashed var(--color-border-strong)";
+          card.style.borderRadius = "10px";
+          card.style.padding = "10px";
+          card.style.background = "#fff";
+          card.style.display = "flex";
+          card.style.flexDirection = "column";
+          card.style.justifyContent = "space-between";
+          card.dataset.boxId = box.id;
+
+          var step = document.createElement("div");
+          step.textContent = "Step " + (i + 1);
+          step.style.fontSize = "0.72rem";
+          step.style.fontWeight = "700";
+          step.style.color = "var(--color-text-faint)";
+          step.style.textTransform = "uppercase";
+          card.appendChild(step);
+
+          var desc = document.createElement("div");
+          desc.textContent = box.desc;
+          desc.style.fontSize = "0.85rem";
+          desc.style.margin = "6px 0 10px 0";
+          card.appendChild(desc);
+
+          var slot = document.createElement("div");
+          slot.style.minHeight = "40px";
+          slot.style.border = "1px solid var(--color-border)";
+          slot.style.borderRadius = "6px";
+          slot.style.display = "flex";
+          slot.style.alignItems = "center";
+          slot.style.justifyContent = "center";
+          slot.style.fontWeight = "700";
+          slot.style.color = "var(--color-text-faint)";
+          slot.textContent = "drop here";
+          card.appendChild(slot);
+
+          card.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            card.style.borderColor = "var(--color-primary)";
+          });
+          card.addEventListener("dragleave", function () {
+            card.style.borderColor = solved[box.id] ? "var(--color-success)" : "var(--color-border-strong)";
+          });
+          card.addEventListener("drop", function (e) {
+            e.preventDefault();
+            var term = e.dataTransfer.getData("text/plain");
+            handleDrop(term, box, card, slot);
+          });
+
+          // Keyboard/click fallback: tab to a box, press Enter/Space (or click) to drop
+          // whichever term is currently "picked up" into this box.
+          card.tabIndex = 0;
+          card.style.cursor = "pointer";
+          card.setAttribute("role", "button");
+          card.setAttribute("aria-label", "Step " + (i + 1) + " box: " + box.desc +
+            " Pick up a term first, then activate this box to place it here.");
+          card.addEventListener("click", function () {
+            if (selectedTerm === null || solved[box.id]) return;
+            var term = selectedTerm;
+            selectedTerm = null;
+            handleDrop(term, box, card, slot);
+          });
+          card.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              card.click();
+            }
+          });
+
+          boxEls[box.id] = { card: card, slot: slot };
+          if (i < BOXES.length - 1) {
+            flow.appendChild(card);
+            var arrow = document.createElement("div");
+            arrow.textContent = "→";
+            arrow.style.alignSelf = "center";
+            arrow.style.fontSize = "1.4rem";
+            arrow.style.color = "var(--color-text-faint)";
+            flow.appendChild(arrow);
+          } else {
+            flow.appendChild(card);
+          }
+        });
+
+        root.appendChild(flow);
+
+        var pool = document.createElement("div");
+        pool.style.display = "flex";
+        pool.style.flexWrap = "wrap";
+        pool.style.gap = "8px";
+        pool.style.padding = "10px";
+        pool.style.border = "1px solid var(--color-border)";
+        pool.style.borderRadius = "8px";
+        pool.style.background = "#fff";
+        root.appendChild(pool);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.marginTop = "10px";
+        status.style.fontWeight = "600";
+        root.appendChild(status);
+
+        var chipEls = {};
+
+        TERMS_SHUFFLED.forEach(function (term) {
+          var chip = document.createElement("div");
+          chip.textContent = term;
+          chip.draggable = true;
+          chip.style.padding = "8px 14px";
+          chip.style.borderRadius = "999px";
+          chip.style.border = "1px solid var(--color-border-strong)";
+          chip.style.background = "#fff";
+          chip.style.cursor = "grab";
+          chip.style.fontWeight = "600";
+
+          chip.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", term);
+          });
+
+          // Keyboard/click fallback: tab to a term, press Enter/Space (or click) to pick it up,
+          // then tab to a box and press Enter/Space (or click) to place it there.
+          chip.tabIndex = 0;
+          chip.setAttribute("role", "button");
+          chip.setAttribute("aria-label", term + ". Click or press Enter to pick up, then activate " +
+            "a pipeline box to place it there.");
+          chip.addEventListener("click", function () {
+            if (selectedTerm === term) {
+              selectedTerm = null;
+              chip.style.boxShadow = "";
+              chip.style.borderColor = "var(--color-border-strong)";
+              return;
+            }
+            Object.keys(chipEls).forEach(function (t) {
+              chipEls[t].style.boxShadow = "";
+              chipEls[t].style.borderColor = "var(--color-border-strong)";
+            });
+            selectedTerm = term;
+            chip.style.boxShadow = "0 0 0 3px var(--color-primary-light)";
+            chip.style.borderColor = "var(--color-primary)";
+          });
+          chip.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              chip.click();
+            }
+          });
+
+          chipEls[term] = chip;
+          pool.appendChild(chip);
+        });
+
+        function updateStatus() {
+          var count = Object.keys(solved).length;
+          if (count === BOXES.length) {
+            status.textContent = "Pipeline fully labeled correctly! " + BOXES.length + " / " + BOXES.length + ".";
+            status.style.color = "var(--color-success)";
+          } else {
+            status.textContent = count + " / " + BOXES.length + " boxes labeled correctly.";
+            status.style.color = "var(--color-text-muted)";
+          }
+        }
+
+        function handleDrop(term, box, card, slot) {
+          if (solved[box.id]) return;
+          if (term === box.term) {
+            solved[box.id] = true;
+            card.style.borderColor = "var(--color-success)";
+            card.style.background = "var(--color-success-bg)";
+            slot.textContent = term;
+            slot.style.color = "var(--color-success)";
+            slot.style.border = "1px solid var(--color-success)";
+            var chip = chipEls[term];
+            if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
+          } else {
+            card.style.borderColor = "var(--color-error)";
+            card.style.background = "var(--color-error-bg)";
+            status.textContent = "Not quite — “" + term + "” doesn't belong on that box. Try again.";
+            status.style.color = "var(--color-error)";
+            setTimeout(function () {
+              card.style.borderColor = "var(--color-border-strong)";
+              card.style.background = "#fff";
+              updateStatus();
+            }, 900);
+          }
+          updateStatus();
+        }
+
+        updateStatus();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the relationship between “training” and “inference”?",
+          options: ["They are two names for the same step", "Training fits the model using data; inference is using the already-trained model to make new predictions", "Inference happens before training", "Inference is only used for unsupervised learning"],
+          answer: 1,
+          explanation: "Training is the fitting/learning phase; inference is what happens afterward, whenever the finished model is used on new input."
+        },
+        {
+          q: "In the sentence “this model has 7 billion parameters,” what does “parameters” refer to?",
+          options: ["The number of training examples used", "The number of predictions it can make per second", "The adjustable internal numbers the model learned during training", "The number of people who worked on the model"],
+          answer: 2,
+          explanation: "Parameters are the internal, learned numeric values stored inside the trained model — not a count of data or people."
+        },
+        {
+          q: "Which of the following is the best definition of a “dataset”?",
+          options: ["A single example the model is currently predicting on", "A collection of examples used to train (or evaluate) a model", "The output of a trained model", "Another word for “parameters”"],
+          answer: 1,
+          explanation: "A dataset is a collection of examples — training uses it to fit the model; a single item within it is just one data point."
+        },
+        {
+          q: "In the pipeline raw data → training → model → inference → prediction, which happens first?",
+          options: ["Inference", "Training", "Prediction", "They all happen simultaneously"],
+          answer: 1,
+          explanation: "Training must happen first to produce a model; only afterward can that model be used for inference to generate a prediction."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

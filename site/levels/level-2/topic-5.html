@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Train/Validation/Test Splits — AI Maturity Course</title>
+<meta name="description" content="Why ML data gets split into training, validation, and test sets, and what happens when you cheat.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-5";
+</script>
+<style>
+  .dot-grid { display: flex; flex-wrap: wrap; gap: 3px; max-width: 480px; margin-bottom: var(--space-4); background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.train { background: #2952e3; }
+  .dot.val { background: #ffb703; }
+  .dot.test { background: #0f9d78; }
+  .split-legend { display: flex; gap: var(--space-4); margin-bottom: var(--space-3); flex-wrap: wrap; font-size: var(--font-size-sm); font-weight: 600; }
+  .split-legend span.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  .cheat-row { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-4) 0; }
+  .eval-result { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-weight: 600; margin-top: var(--space-3); }
+  .eval-result.honest { background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success); }
+  .eval-result.cheat { background: var(--color-error-bg); color: var(--color-error); border: 1px solid var(--color-error); }
+  .eval-result.warn { background: var(--color-warning-bg); color: #7a5c00; border: 1px solid #d8b400; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Train/Validation/Test Splits</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why evaluating a model on its own training data gives a
+      misleadingly optimistic result, using the train/validation/test framework correctly.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          ML data is typically split into three parts: a <strong>training set</strong> the model actually
+          learns from, a <strong>validation set</strong> used to tune choices along the way, and a
+          <strong>test set</strong> kept completely separate until the very end, used to honestly measure
+          how the model performs on data it has never seen.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why you can't fairly evaluate a model on the same data it learned from</li>
+        <li>The role of the training set, validation set, and test set</li>
+        <li>Typical split ratios as a rule of thumb (e.g., 70/15/15 or 80/10/10)</li>
+        <li>Data leakage: the key failure mode where test data accidentally influences training</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Split 100 dots into train/validation/test",
+      instructions: "Drag the two sliders to divide 100 dots into train, validation, and test buckets. Then click Evaluate — with and without the \"cheat\" box checked — to see how testing on training data lies to you.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        var legend = document.createElement("div");
+        legend.className = "split-legend";
+        legend.innerHTML =
+          '<span><span class="swatch" style="background:#2952e3"></span>Train: <span id="train-count">0</span></span>' +
+          '<span><span class="swatch" style="background:#ffb703"></span>Validation: <span id="val-count">0</span></span>' +
+          '<span><span class="swatch" style="background:#0f9d78"></span>Test: <span id="test-count">0</span></span>';
+        wrap.appendChild(legend);
+
+        var grid = document.createElement("div");
+        grid.className = "dot-grid";
+        var dots = [];
+        for (var i = 0; i < 100; i++) {
+          var d = document.createElement("div");
+          d.className = "dot train";
+          grid.appendChild(d);
+          dots.push(d);
+        }
+        wrap.appendChild(grid);
+
+        var row1 = document.createElement("div");
+        row1.className = "slider-row";
+        var l1 = document.createElement("label");
+        l1.textContent = "Train / Val boundary";
+        var s1 = document.createElement("input");
+        s1.type = "range"; s1.min = "1"; s1.max = "98"; s1.value = "70";
+        var r1 = document.createElement("span"); r1.className = "readout";
+        row1.appendChild(l1); row1.appendChild(s1); row1.appendChild(r1);
+        wrap.appendChild(row1);
+
+        var row2 = document.createElement("div");
+        row2.className = "slider-row";
+        var l2 = document.createElement("label");
+        l2.textContent = "Val / Test boundary";
+        var s2 = document.createElement("input");
+        s2.type = "range"; s2.min = "2"; s2.max = "99"; s2.value = "85";
+        var r2 = document.createElement("span"); r2.className = "readout";
+        row2.appendChild(l2); row2.appendChild(s2); row2.appendChild(r2);
+        wrap.appendChild(row2);
+
+        var cheatRow = document.createElement("div");
+        cheatRow.className = "cheat-row";
+        var cheatCheckbox = document.createElement("input");
+        cheatCheckbox.type = "checkbox"; cheatCheckbox.id = "cheat-checkbox";
+        var cheatLabel = document.createElement("label");
+        cheatLabel.setAttribute("for", "cheat-checkbox");
+        cheatLabel.textContent = "Cheat: evaluate on training data instead of the test set";
+        cheatRow.appendChild(cheatCheckbox); cheatRow.appendChild(cheatLabel);
+        wrap.appendChild(cheatRow);
+
+        var evalBtn = document.createElement("button");
+        evalBtn.type = "button";
+        evalBtn.className = "btn btn-primary";
+        evalBtn.textContent = "Evaluate model";
+        wrap.appendChild(evalBtn);
+
+        var resultEl = document.createElement("div");
+        resultEl.className = "eval-result";
+        resultEl.style.display = "none";
+        wrap.appendChild(resultEl);
+
+        function clampBoundaries() {
+          var a = parseInt(s1.value, 10);
+          var b = parseInt(s2.value, 10);
+          if (b <= a) {
+            b = a + 1;
+            if (b > 99) { a = 98; b = 99; }
+            s2.value = b;
+          }
+          return { a: a, b: b };
+        }
+
+        function render() {
+          var bounds = clampBoundaries();
+          var trainCount = bounds.a;
+          var valCount = bounds.b - bounds.a;
+          var testCount = 100 - bounds.b;
+
+          r1.textContent = trainCount + "% train";
+          r2.textContent = valCount + "% val";
+
+          dots.forEach(function (d, idx) {
+            if (idx < bounds.a) d.className = "dot train";
+            else if (idx < bounds.b) d.className = "dot val";
+            else d.className = "dot test";
+          });
+
+          document.getElementById("train-count").textContent = trainCount;
+          document.getElementById("val-count").textContent = valCount;
+          document.getElementById("test-count").textContent = testCount;
+
+          resultEl.style.display = "none";
+        }
+
+        s1.addEventListener("input", render);
+        s2.addEventListener("input", render);
+
+        evalBtn.addEventListener("click", function () {
+          var bounds = clampBoundaries();
+          var testCount = 100 - bounds.b;
+          resultEl.style.display = "";
+          if (cheatCheckbox.checked) {
+            resultEl.className = "eval-result cheat";
+            resultEl.innerHTML = "<strong>Reported accuracy: 99%.</strong> Suspiciously high — that's because you evaluated the model on the same data it memorized during training. This number tells you almost nothing about how it'll perform on new, unseen data.";
+          } else if (testCount < 8) {
+            resultEl.className = "eval-result warn";
+            resultEl.innerHTML = "<strong>Reported accuracy: " + (72 + Math.round(Math.random() * 10)) + "%, but treat it with caution.</strong> Your test set only has " + testCount + " points — too small to trust as a reliable estimate.";
+          } else {
+            var acc = 74 + Math.round(Math.random() * 8);
+            resultEl.className = "eval-result honest";
+            resultEl.innerHTML = "<strong>Reported accuracy: " + acc + "%.</strong> This is measured on the " + testCount + " held-out test points the model never saw during training — an honest estimate of real-world performance.";
+          }
+        });
+
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why is it misleading to evaluate a model's accuracy using the same data it was trained on?",
+          options: [
+            "It's not misleading, that's the standard approach",
+            "The model may have memorized that data, producing an artificially high score that doesn't reflect performance on new data",
+            "Training data is always smaller than test data",
+            "Training data doesn't have labels"
+          ],
+          answer: 1,
+          explanation: "A model can memorize quirks of its training data, so testing on it gives an overly optimistic, unreliable accuracy number."
+        },
+        {
+          q: "What is the validation set primarily used for?",
+          options: [
+            "Training the final model weights",
+            "Tuning choices (like settings or model variants) during development",
+            "Replacing the test set entirely",
+            "Storing backup copies of the training data"
+          ],
+          answer: 1,
+          explanation: "The validation set helps you tune decisions along the way without touching the untouched, final-evaluation test set."
+        },
+        {
+          q: "What is \"data leakage\"?",
+          options: [
+            "When training data is deleted accidentally",
+            "When test data accidentally influences training, invalidating the evaluation",
+            "When a model outputs too many predictions",
+            "When the validation set is larger than the training set"
+          ],
+          answer: 1,
+          explanation: "Data leakage happens when information from the test set leaks into training, making evaluation results unreliable."
+        },
+        {
+          q: "A common rule-of-thumb split ratio for train/validation/test is:",
+          options: ["10/10/80", "70/15/15", "1/1/98", "50/50/0"],
+          answer: 1,
+          explanation: "70/15/15 (or similar ratios like 80/10/10) is a typical starting point, giving most data to training while keeping meaningful validation and test sets."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

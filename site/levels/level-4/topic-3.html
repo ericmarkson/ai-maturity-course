@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RNNs and LSTMs for Sequences — AI Maturity Course</title>
+<meta name="description" content="How recurrent networks carry memory forward through a sequence, and why LSTMs remember more selectively.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-3";
+</script>
+<style>
+  .rnn-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .rnn-sentence { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+  .rnn-token { padding: 4px 10px; border-radius: 6px; background: var(--color-bg-inset); border: 1px solid var(--color-border); font-family: var(--font-mono); font-size: var(--font-size-sm); }
+  .rnn-token.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .rnn-token.done { opacity: 0.55; }
+  .rnn-bar-block { margin-bottom: var(--space-4); }
+  .rnn-bar-block h3 { margin: 0 0 var(--space-2) 0; font-size: var(--font-size-sm); }
+  .rnn-bar-track { position: relative; width: 100%; max-width: 480px; height: 26px; background: var(--color-bg-inset); border-radius: 6px; border: 1px solid var(--color-border); overflow: hidden; }
+  .rnn-bar-fill { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; }
+  .rnn-bar-mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--color-border-strong); }
+  .rnn-readout { font-family: var(--font-mono); margin-top: 4px; display: block; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .rnn-trail { display: flex; gap: 3px; margin-top: 6px; }
+  .rnn-trail span { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 1px solid var(--color-border); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>RNNs and LSTMs for Sequences</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Trace, step by step, how a hidden state updates as a short toy
+      sequence is fed through an RNN one item at a time, and explain in plain language what an LSTM's
+      "forget gate" is protecting against.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Recurrent Neural Networks (RNNs)</strong> process sequences — like text or time series —
+          one step at a time while carrying a "memory" (hidden state) forward. <strong>LSTMs</strong> (Long
+          Short-Term Memory networks) are an improved RNN design with gates that decide what to keep vs.
+          discard, making them much better at remembering things over long sequences.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The hidden state as memory passed from one time step to the next</li>
+        <li>Why plain RNNs struggle with long sequences (vanishing gradients over time)</li>
+        <li>LSTM gates (forget/input/output) at a conceptual "what to keep vs. discard" level</li>
+        <li>Sequence-to-sequence intuition (e.g., predicting the next word)</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Step a sentence through an RNN, one word at a time",
+      instructions:
+        "Click “Step →” to feed the next word into the network. Watch the Plain-RNN memory bar update. " +
+        "Turn on the LSTM comparison toggle to also update a gated LSTM memory bar side by side, and see " +
+        "how it selectively holds on to important words instead of fading fast.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var WORDS =   ["The", "movie", "was", "surprisingly", "great", "but", "forgettable"];
+        // fixed "signal" per word: roughly how sentiment-carrying / important it is, -1..1
+        var SIGNAL = [0.05, 0.30, 0.05, 0.55, 0.90, 0.10, -0.85];
+
+        var wrap = document.createElement("div");
+
+        var controls = document.createElement("div");
+        controls.className = "rnn-controls";
+
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button"; stepBtn.className = "btn btn-primary";
+        stepBtn.textContent = "Step →";
+
+        var toggleLabel = document.createElement("label");
+        toggleLabel.style.display = "flex";
+        toggleLabel.style.alignItems = "center";
+        toggleLabel.style.gap = "6px";
+        var toggle = document.createElement("input");
+        toggle.type = "checkbox";
+        toggle.id = "lstm-toggle";
+        toggleLabel.appendChild(toggle);
+        var toggleText = document.createElement("span");
+        toggleText.textContent = "Also run LSTM comparison";
+        toggleLabel.appendChild(toggleText);
+
+        controls.appendChild(stepBtn);
+        controls.appendChild(toggleLabel);
+        wrap.appendChild(controls);
+
+        var sentenceRow = document.createElement("div");
+        sentenceRow.className = "rnn-sentence";
+        var tokenEls = WORDS.map(function (w) {
+          var t = document.createElement("span");
+          t.className = "rnn-token";
+          t.textContent = w;
+          sentenceRow.appendChild(t);
+          return t;
+        });
+        wrap.appendChild(sentenceRow);
+
+        function makeBarBlock(title) {
+          var block = document.createElement("div");
+          block.className = "rnn-bar-block";
+          var h = document.createElement("h3");
+          h.textContent = title;
+          block.appendChild(h);
+          var track = document.createElement("div");
+          track.className = "rnn-bar-track";
+          var mid = document.createElement("div");
+          mid.className = "rnn-bar-mid";
+          var fill = document.createElement("div");
+          fill.className = "rnn-bar-fill";
+          track.appendChild(mid);
+          track.appendChild(fill);
+          block.appendChild(track);
+          var readout = document.createElement("span");
+          readout.className = "rnn-readout";
+          readout.textContent = "memory = 0.00";
+          block.appendChild(readout);
+          var trail = document.createElement("div");
+          trail.className = "rnn-trail";
+          block.appendChild(trail);
+          return { block: block, fill: fill, readout: readout, trail: trail };
+        }
+
+        var plainBar = makeBarBlock("Plain RNN memory (fades fast toward the newest input)");
+        wrap.appendChild(plainBar.block);
+
+        var lstmBar = makeBarBlock("LSTM memory (gated — selectively retains important signal)");
+        lstmBar.block.style.display = "none";
+        wrap.appendChild(lstmBar.block);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        status.style.marginTop = "var(--space-2)";
+        status.textContent = "Click “Step →” to feed the first word into the network.";
+        wrap.appendChild(status);
+
+        root.appendChild(wrap);
+
+        var idx = 0;
+        var plainMem = 0;
+        var lstmMem = 0;
+
+        function memColor(v) {
+          // -1..1 -> red..green
+          var t = (v + 1) / 2;
+          var r = Math.round(211 - t * (211 - 20));
+          var gc = Math.round(60 + t * (170 - 60));
+          var b = 70;
+          return "rgb(" + r + "," + gc + "," + b + ")";
+        }
+
+        function renderBar(bar, value) {
+          var pct = Math.min(1, Math.abs(value)) * 50; // half-track max
+          bar.fill.style.width = pct + "%";
+          bar.fill.style.left = value >= 0 ? "50%" : (50 - pct) + "%";
+          bar.fill.style.background = memColor(value);
+          bar.readout.textContent = "memory = " + value.toFixed(2);
+          var sq = document.createElement("span");
+          sq.style.background = memColor(value);
+          sq.title = value.toFixed(2);
+          bar.trail.appendChild(sq);
+        }
+
+        function updatePlain(signal) {
+          plainMem = 0.4 * plainMem + 0.6 * signal; // heavy overwrite each step
+          renderBar(plainBar, plainMem);
+        }
+
+        function updateLstm(signal) {
+          var importance = Math.min(1, Math.abs(signal));
+          var forgetGate = 1 - 0.55 * importance; // unimportant words barely change memory
+          var inputGate = importance;
+          lstmMem = forgetGate * lstmMem + inputGate * signal;
+          renderBar(lstmBar, lstmMem);
+        }
+
+        toggle.addEventListener("change", function () {
+          lstmBar.block.style.display = toggle.checked ? "" : "none";
+        });
+
+        stepBtn.addEventListener("click", function () {
+          if (idx >= WORDS.length) return;
+          tokenEls.forEach(function (t) { t.classList.remove("active"); });
+          tokenEls[idx].classList.add("active");
+          if (idx > 0) tokenEls[idx - 1].classList.add("done");
+
+          var signal = SIGNAL[idx];
+          updatePlain(signal);
+          if (toggle.checked) updateLstm(signal);
+
+          status.textContent = "Step " + (idx + 1) + "/" + WORDS.length + ": fed word \"" + WORDS[idx] +
+            "\" (signal " + signal.toFixed(2) + ") into the network.";
+
+          idx++;
+          if (idx >= WORDS.length) {
+            stepBtn.disabled = true;
+            status.textContent += " Sequence complete.";
+          }
+        });
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In the exercise, what is the 'hidden state' bar tracking as each word is stepped through?",
+          options: [
+            "The exact word being read",
+            "A running memory value carried forward from one time step to the next",
+            "The total number of words in the sentence",
+            "A random number with no meaning"
+          ],
+          answer: 1,
+          explanation: "The hidden state is the RNN's memory — a value that's updated at every step and carried into the next one, summarizing what's been seen so far."
+        },
+        {
+          q: "Why does the plain-RNN memory bar 'fade fast', losing the influence of an early important word like 'great' by the time later neutral words arrive?",
+          options: [
+            "Because plain RNNs delete memory on purpose after 3 words",
+            "Because each step heavily overwrites the memory with the newest input regardless of the previous value's importance",
+            "Because plain RNNs don't have a hidden state at all",
+            "Because the sentence is too short"
+          ],
+          answer: 1,
+          explanation: "A plain RNN blends old memory with new input using a fixed rule every step, so strong old signal keeps getting diluted no matter how important it was."
+        },
+        {
+          q: "What is an LSTM's 'forget gate' conceptually protecting against?",
+          options: [
+            "Running out of GPU memory",
+            "Losing genuinely important information from earlier in the sequence just because new, less important tokens keep arriving",
+            "The model training too quickly",
+            "Tokenization errors"
+          ],
+          answer: 1,
+          explanation: "The forget gate lets the network decide, per step, how much of its existing memory to keep — so unimportant tokens don't wipe out important earlier context, unlike a plain RNN's fixed overwrite rate."
+        },
+        {
+          q: "Which of these is closest to the 'sequence-to-sequence' intuition mentioned in this topic?",
+          options: [
+            "Classifying a single static image",
+            "Using the current hidden state, built from everything seen so far, to predict the next item (e.g. the next word)",
+            "Sorting a list of numbers",
+            "Compressing an image file"
+          ],
+          answer: 1,
+          explanation: "Sequence models like RNNs/LSTMs are commonly used to predict what comes next in a sequence, using the accumulated hidden state as context."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Training Basics — AI Maturity Course</title>
+<meta name="description" content="Learn why large models are trained across multiple GPUs, the difference between data and model parallelism, and why communication overhead becomes a bottleneck.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-7";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Distributed Training Basics</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can distinguish data parallelism from model
+      parallelism using a diagram and explain, in one sentence, why communication between devices
+      becomes the bottleneck as you add more of them.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Distributed training</strong> splits the work of training a large model across
+          multiple machines or GPUs so that models and datasets too large for one device can
+          still be trained in a reasonable amount of time. Splitting the work also means the
+          devices must periodically communicate — sync gradients, or pass activations between
+          each other — and that communication is what eventually limits how much speedup you get
+          from adding more devices.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Data parallelism — same model, different data shards, on each device</li>
+        <li>Model parallelism — splitting a single model's layers/parameters across devices</li>
+        <li>Synchronizing gradients/weights across devices — why communication overhead matters</li>
+        <li>When distributed training becomes necessary — model/dataset size thresholds</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var BASE_THROUGHPUT_PER_GPU = 120; // samples/sec, zero-overhead reference
+    var MODEL_MEMORY_GB = 28;          // toy fixed model+optimizer footprint
+    var PER_SAMPLE_MEMORY_GB = 0.05;
+    var GPU_CAPACITY_GB = 80;          // illustrative single-GPU memory capacity
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Distributed training simulator",
+      instructions:
+        "Choose data parallel or model parallel, set the number of GPUs and the per-GPU batch " +
+        "size, then click \"Run Training Step\" to animate the communication pattern. Throughput, " +
+        "per-GPU memory, and communication overhead update live as you change any control.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- Mode toggle ----
+        var modeRow = document.createElement("div");
+        modeRow.style.display = "flex";
+        modeRow.style.gap = "1.5rem";
+        modeRow.style.marginBottom = "1rem";
+        modeRow.style.flexWrap = "wrap";
+
+        var mode = "data";
+        var modeButtons = {};
+        ["data", "model"].forEach(function (m) {
+          var label = document.createElement("label");
+          label.style.display = "flex";
+          label.style.alignItems = "center";
+          label.style.gap = "0.4rem";
+          label.style.cursor = "pointer";
+          label.style.fontWeight = "600";
+          var radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = "parallel-mode";
+          radio.value = m;
+          radio.checked = m === "data";
+          modeButtons[m] = radio;
+          label.appendChild(radio);
+          label.appendChild(document.createTextNode(m === "data" ? "Data parallelism" : "Model parallelism"));
+          modeRow.appendChild(label);
+        });
+        wrap.appendChild(modeRow);
+
+        // ---- Sliders ----
+        var gpuRow = document.createElement("div");
+        gpuRow.className = "slider-row";
+        var gpuLabel = document.createElement("label");
+        gpuLabel.setAttribute("for", "gpu-slider");
+        gpuLabel.textContent = "Number of GPUs";
+        var gpuSlider = document.createElement("input");
+        gpuSlider.type = "range";
+        gpuSlider.id = "gpu-slider";
+        gpuSlider.min = "2";
+        gpuSlider.max = "8";
+        gpuSlider.value = "4";
+        var gpuReadout = document.createElement("span");
+        gpuReadout.className = "readout";
+        gpuReadout.textContent = "4";
+        gpuRow.appendChild(gpuLabel);
+        gpuRow.appendChild(gpuSlider);
+        gpuRow.appendChild(gpuReadout);
+        wrap.appendChild(gpuRow);
+
+        var batchRow = document.createElement("div");
+        batchRow.className = "slider-row";
+        var batchLabel = document.createElement("label");
+        batchLabel.setAttribute("for", "batch-slider");
+        batchLabel.textContent = "Batch size per GPU";
+        var batchSlider = document.createElement("input");
+        batchSlider.type = "range";
+        batchSlider.id = "batch-slider";
+        batchSlider.min = "8";
+        batchSlider.max = "128";
+        batchSlider.step = "8";
+        batchSlider.value = "32";
+        var batchReadout = document.createElement("span");
+        batchReadout.className = "readout";
+        batchReadout.textContent = "32";
+        batchRow.appendChild(batchLabel);
+        batchRow.appendChild(batchSlider);
+        batchRow.appendChild(batchReadout);
+        wrap.appendChild(batchRow);
+
+        // ---- Run button ----
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run Training Step";
+        runBtn.style.marginBottom = "1rem";
+        wrap.appendChild(runBtn);
+
+        // ---- SVG diagram ----
+        var svgNS = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("viewBox", "0 0 640 220");
+        svg.style.width = "100%";
+        svg.style.maxWidth = "640px";
+        svg.style.display = "block";
+        svg.style.background = "#fff";
+        svg.style.border = "1px solid var(--color-border)";
+        svg.style.borderRadius = "8px";
+        svg.style.marginBottom = "1rem";
+        wrap.appendChild(svg);
+
+        // ---- Metrics ----
+        var metricsWrap = document.createElement("div");
+
+        function makeMetricRow(labelText) {
+          var row = document.createElement("div");
+          row.style.marginBottom = "0.75rem";
+          var lbl = document.createElement("div");
+          lbl.style.fontWeight = "600";
+          lbl.style.marginBottom = "0.25rem";
+          lbl.textContent = labelText;
+          var value = document.createElement("div");
+          value.style.fontFamily = "var(--font-mono)";
+          var barOuter = document.createElement("div");
+          barOuter.className = "progress-bar";
+          var barFill = document.createElement("div");
+          barFill.className = "progress-bar-fill";
+          barOuter.appendChild(barFill);
+          row.appendChild(lbl);
+          row.appendChild(value);
+          row.appendChild(barOuter);
+          return { row: row, value: value, barFill: barFill };
+        }
+
+        var throughputMetric = makeMetricRow("Throughput (samples/sec)");
+        var memoryMetric = makeMetricRow("Per-GPU memory usage");
+        var commMetric = makeMetricRow("Communication overhead (% of step time)");
+
+        metricsWrap.appendChild(throughputMetric.row);
+        metricsWrap.appendChild(memoryMetric.row);
+        metricsWrap.appendChild(commMetric.row);
+        wrap.appendChild(metricsWrap);
+
+        var explainLine = document.createElement("p");
+        explainLine.setAttribute("role", "status");
+        explainLine.style.fontWeight = "600";
+        wrap.appendChild(explainLine);
+
+        root.appendChild(wrap);
+
+        var animTimer = null;
+
+        function currentInputs() {
+          return {
+            numGpus: parseInt(gpuSlider.value, 10),
+            batch: parseInt(batchSlider.value, 10),
+            mode: modeButtons.data.checked ? "data" : "model"
+          };
+        }
+
+        function computeMetrics(inputs) {
+          var n = inputs.numGpus, b = inputs.batch;
+          if (inputs.mode === "data") {
+            var efficiency = 1 / (1 + 0.03 * (n - 1));
+            var throughput = BASE_THROUGHPUT_PER_GPU * n * efficiency;
+            var memory = MODEL_MEMORY_GB + b * PER_SAMPLE_MEMORY_GB;
+            var comm = Math.min(60, 5 + 2 * (n - 1));
+            return { throughput: throughput, memory: memory, comm: comm };
+          } else {
+            var efficiencyM = 1 / (1 + 0.08 * (n - 1));
+            var throughputM = BASE_THROUGHPUT_PER_GPU * n * efficiencyM;
+            var memoryM = (MODEL_MEMORY_GB / n) + b * PER_SAMPLE_MEMORY_GB * 1.5;
+            var commM = Math.min(75, 8 + 4 * (n - 1));
+            return { throughput: throughputM, memory: memoryM, comm: commM };
+          }
+        }
+
+        function drawDiagram(inputs) {
+          while (svg.firstChild) svg.removeChild(svg.firstChild);
+          var n = inputs.numGpus;
+          var boxW = 60, boxH = 44;
+          var totalW = 640;
+          var spacing = (totalW - 40) / n;
+          var y = inputs.mode === "data" ? 40 : 80;
+
+          var boxes = [];
+          for (var i = 0; i < n; i++) {
+            var x = 20 + spacing * i + (spacing - boxW) / 2;
+            var rect = document.createElementNS(svgNS, "rect");
+            rect.setAttribute("x", x);
+            rect.setAttribute("y", y);
+            rect.setAttribute("width", boxW);
+            rect.setAttribute("height", boxH);
+            rect.setAttribute("rx", "6");
+            rect.setAttribute("fill", "#e8edfc");
+            rect.setAttribute("stroke", "#2952e3");
+            rect.setAttribute("stroke-width", "2");
+            svg.appendChild(rect);
+
+            var text = document.createElementNS(svgNS, "text");
+            text.setAttribute("x", x + boxW / 2);
+            text.setAttribute("y", y + boxH / 2 + 5);
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", "12");
+            text.setAttribute("fill", "#1a2033");
+            text.textContent = inputs.mode === "data" ? "GPU " + (i + 1) : "Layers " + (i + 1);
+            svg.appendChild(text);
+
+            boxes.push({ x: x + boxW / 2, y: y + boxH / 2 });
+          }
+
+          if (inputs.mode === "data") {
+            var hubX = totalW / 2, hubY = 160;
+            var hub = document.createElementNS(svgNS, "circle");
+            hub.setAttribute("cx", hubX);
+            hub.setAttribute("cy", hubY);
+            hub.setAttribute("r", "16");
+            hub.setAttribute("fill", "#0f9d78");
+            svg.appendChild(hub);
+            var hubText = document.createElementNS(svgNS, "text");
+            hubText.setAttribute("x", hubX);
+            hubText.setAttribute("y", hubY + 32);
+            hubText.setAttribute("text-anchor", "middle");
+            hubText.setAttribute("font-size", "12");
+            hubText.setAttribute("fill", "#0f7a4a");
+            hubText.textContent = "Gradient sync";
+            svg.appendChild(hubText);
+
+            boxes.forEach(function (b) {
+              var line = document.createElementNS(svgNS, "line");
+              line.setAttribute("x1", b.x);
+              line.setAttribute("y1", y + boxH);
+              line.setAttribute("x2", hubX);
+              line.setAttribute("y2", hubY);
+              line.setAttribute("stroke", "#b7c0d8");
+              line.setAttribute("stroke-width", "2");
+              svg.appendChild(line);
+            });
+          } else {
+            for (var j = 0; j < boxes.length - 1; j++) {
+              var arrow = document.createElementNS(svgNS, "line");
+              arrow.setAttribute("x1", boxes[j].x + boxW / 2);
+              arrow.setAttribute("y1", boxes[j].y);
+              arrow.setAttribute("x2", boxes[j + 1].x - boxW / 2);
+              arrow.setAttribute("y2", boxes[j + 1].y);
+              arrow.setAttribute("stroke", "#b7c0d8");
+              arrow.setAttribute("stroke-width", "2");
+              svg.appendChild(arrow);
+            }
+            var capLabel = document.createElementNS(svgNS, "text");
+            capLabel.setAttribute("x", totalW / 2);
+            capLabel.setAttribute("y", y + boxH + 40);
+            capLabel.setAttribute("text-anchor", "middle");
+            capLabel.setAttribute("font-size", "12");
+            capLabel.setAttribute("fill", "var(--color-text-muted)");
+            capLabel.textContent = "Activations pass forward through each layer group in sequence";
+            svg.appendChild(capLabel);
+          }
+
+          return boxes;
+        }
+
+        function update() {
+          var inputs = currentInputs();
+          gpuReadout.textContent = inputs.numGpus;
+          batchReadout.textContent = inputs.batch;
+
+          var m = computeMetrics(inputs);
+
+          throughputMetric.value.textContent = Math.round(m.throughput) + " samples/sec";
+          var throughputPct = Math.min(100, (m.throughput / (BASE_THROUGHPUT_PER_GPU * 8)) * 100);
+          throughputMetric.barFill.style.width = throughputPct + "%";
+          throughputMetric.barFill.style.background = "var(--color-primary)";
+
+          memoryMetric.value.textContent = m.memory.toFixed(1) + " GB / " + GPU_CAPACITY_GB + " GB capacity";
+          var memPct = Math.min(100, (m.memory / GPU_CAPACITY_GB) * 100);
+          memoryMetric.barFill.style.width = memPct + "%";
+          memoryMetric.barFill.style.background = m.memory > GPU_CAPACITY_GB ? "var(--color-error)" : "var(--color-accent)";
+
+          commMetric.value.textContent = m.comm.toFixed(0) + "%";
+          commMetric.barFill.style.width = m.comm + "%";
+          commMetric.barFill.style.background = m.comm > 40 ? "var(--color-error)" : "#e0a300";
+
+          if (m.memory > GPU_CAPACITY_GB) {
+            explainLine.textContent = "Warning: per-GPU memory exceeds capacity — this configuration would out-of-memory on real hardware.";
+            explainLine.style.color = "var(--color-error)";
+          } else if (inputs.mode === "data") {
+            explainLine.textContent = "Each GPU holds a full model copy; adding GPUs speeds things up but gradient-sync overhead grows with GPU count.";
+            explainLine.style.color = "var(--color-text-muted)";
+          } else {
+            explainLine.textContent = "The model is split across GPUs, so per-GPU memory drops as you add GPUs, but passing activations between stages adds overhead.";
+            explainLine.style.color = "var(--color-text-muted)";
+          }
+
+          drawDiagram(inputs);
+        }
+
+        function animateStep() {
+          if (animTimer) return;
+          var inputs = currentInputs();
+          var boxes = drawDiagram(inputs);
+          var dot = document.createElementNS(svgNS, "circle");
+          dot.setAttribute("r", "7");
+          dot.setAttribute("fill", "#d3390c");
+          svg.appendChild(dot);
+
+          runBtn.disabled = true;
+          var start = null;
+          var duration = 1200;
+
+          var path;
+          if (inputs.mode === "data") {
+            var hubX = 640 / 2, hubY = 160;
+            path = boxes.map(function (b) { return { x: b.x, y: 84 }; }).concat([{ x: hubX, y: hubY }]);
+          } else {
+            path = boxes.map(function (b) { return { x: b.x, y: b.y }; });
+          }
+
+          function frame(ts) {
+            if (!start) start = ts;
+            var elapsed = ts - start;
+            var t = Math.min(1, elapsed / duration);
+            var segCount = path.length - 1;
+            var segT = t * segCount;
+            var seg = Math.min(segCount - 1, Math.floor(segT));
+            var localT = segT - seg;
+            var p0 = path[seg], p1 = path[seg + 1];
+            var x = p0.x + (p1.x - p0.x) * localT;
+            var y = p0.y + (p1.y - p0.y) * localT;
+            dot.setAttribute("cx", x);
+            dot.setAttribute("cy", y);
+
+            if (t < 1) {
+              animTimer = requestAnimationFrame(frame);
+            } else {
+              animTimer = null;
+              runBtn.disabled = false;
+              if (dot.parentNode) dot.parentNode.removeChild(dot);
+            }
+          }
+          animTimer = requestAnimationFrame(frame);
+        }
+
+        gpuSlider.addEventListener("input", update);
+        batchSlider.addEventListener("input", update);
+        modeButtons.data.addEventListener("change", update);
+        modeButtons.model.addEventListener("change", update);
+        runBtn.addEventListener("click", animateStep);
+
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In data parallelism, what does each GPU typically hold?",
+          options: [
+            "A full copy of the model, but only a shard of the current data batch",
+            "A shard of the model, but the full dataset",
+            "No copy of the model at all",
+            "The entire dataset and no model weights"
+          ],
+          answer: 0,
+          explanation: "Data parallelism replicates the full model on every device; each device processes a different slice of data, then gradients are synchronized."
+        },
+        {
+          q: "In model parallelism, what is split across devices?",
+          options: [
+            "The model's own layers/parameters, with activations passed between devices",
+            "Only the input data, never the model",
+            "The optimizer's random seed",
+            "Nothing — it's identical to data parallelism"
+          ],
+          answer: 0,
+          explanation: "Model parallelism divides the model itself (e.g., different layers) across devices, so intermediate activations must be passed between them during the forward and backward pass."
+        },
+        {
+          q: "As you add more GPUs to data-parallel training, why doesn't throughput keep increasing linearly forever?",
+          options: [
+            "Because synchronizing gradients across more devices adds communication overhead that eats into the compute gains",
+            "Because GPUs physically stop functioning after 4 devices",
+            "Because the batch size automatically drops to zero",
+            "Because adding GPUs always decreases model accuracy"
+          ],
+          answer: 0,
+          explanation: "Every additional GPU means more gradient data to synchronize; that communication overhead grows with GPU count and eventually limits speedup."
+        },
+        {
+          q: "Which of the following are true about distributed training? (Select all that apply.)",
+          options: [
+            "Model parallelism can let you train models too large to fit on a single GPU",
+            "Data parallelism keeps a full model copy on every GPU",
+            "Communication overhead is irrelevant to distributed training performance",
+            "Adding more devices generally means more communication is needed to keep them in sync"
+          ],
+          answer: [0, 1, 3],
+          explanation: "Model parallelism exists specifically to fit oversized models; data parallelism replicates the model; and communication overhead is a central, not irrelevant, factor in distributed training performance."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

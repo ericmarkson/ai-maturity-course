@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyTorch/TensorFlow Basics — AI Maturity Course</title>
+<meta name="description" content="Tensors, automatic differentiation, and the standard shape of a neural network training loop.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-7";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>PyTorch/TensorFlow Basics</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Describe, in order, the standard steps of one training loop
+      iteration (forward pass, loss computation, backward pass, weight update) and explain what
+      "automatic differentiation" saves a practitioner from having to do manually.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          PyTorch and TensorFlow are the two dominant software frameworks that provide the building
+          blocks — tensors, automatic differentiation, prebuilt layers — for defining and training
+          neural networks without writing the underlying math from scratch.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Tensors</strong> as the core data structure — generalizing numpy arrays into
+          GPU-friendly, differentiable objects</li>
+        <li><strong>Automatic differentiation</strong>: the framework computes backpropagation's
+          gradients for you, instead of you deriving and coding the calculus by hand</li>
+        <li>The standard training loop shape: <em>forward pass → compute loss → backward pass →
+          update weights</em>, repeated many times</li>
+        <li>PyTorch's more Python-native, dynamic style vs. TensorFlow/Keras's higher-level,
+          more declarative style — both are illustrative examples, not a prescription for which to use</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Assemble the training loop, then run it",
+      instructions:
+        "Part 1: use the arrows to put the four steps into the correct training-loop order, then " +
+        "check your answer. Part 2: click Step to advance through the (correctly ordered) loop and " +
+        "watch a real loss chart tick downward as each iteration completes.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        var CORRECT = ["Forward pass", "Compute loss", "Backward pass", "Update weights"];
+        var order = ["Backward pass", "Update weights", "Forward pass", "Compute loss"];
+
+        // =============== Part 1: reorder + validate ===============
+        var part1 = document.createElement("div");
+        part1.style.marginBottom = "var(--space-6)";
+        var h1 = document.createElement("h4");
+        h1.textContent = "1. Put the steps in the correct order";
+        part1.appendChild(h1);
+
+        var listEl = document.createElement("div");
+        part1.appendChild(listEl);
+
+        var checkBtn = document.createElement("button");
+        checkBtn.type = "button";
+        checkBtn.className = "btn btn-primary";
+        checkBtn.textContent = "Check order";
+        checkBtn.style.marginTop = "0.75rem";
+        part1.appendChild(checkBtn);
+
+        var resultP = document.createElement("p");
+        resultP.setAttribute("role", "status");
+        resultP.style.marginTop = "0.6rem";
+        resultP.style.fontWeight = "600";
+        part1.appendChild(resultP);
+
+        root.appendChild(part1);
+
+        function renderList() {
+          listEl.innerHTML = "";
+          order.forEach(function (step, i) {
+            var card = document.createElement("div");
+            card.style.display = "flex";
+            card.style.alignItems = "center";
+            card.style.gap = "0.6rem";
+            card.style.padding = "0.5rem 0.75rem";
+            card.style.marginBottom = "0.4rem";
+            card.style.border = "1px solid var(--color-border-strong)";
+            card.style.borderRadius = "8px";
+            card.style.background = "#fff";
+
+            var num = document.createElement("span");
+            num.textContent = (i + 1) + ".";
+            num.style.fontWeight = "700";
+            num.style.width = "1.4em";
+            card.appendChild(num);
+
+            var text = document.createElement("span");
+            text.textContent = step;
+            text.style.flex = "1";
+            text.style.fontFamily = "var(--font-mono)";
+            card.appendChild(text);
+
+            var upBtn = document.createElement("button");
+            upBtn.type = "button";
+            upBtn.className = "btn btn-secondary";
+            upBtn.textContent = "↑";
+            upBtn.setAttribute("aria-label", "Move " + step + " up");
+            upBtn.disabled = (i === 0);
+            upBtn.addEventListener("click", function () {
+              var tmp = order[i - 1];
+              order[i - 1] = order[i];
+              order[i] = tmp;
+              resultP.textContent = "";
+              renderList();
+            });
+            card.appendChild(upBtn);
+
+            var downBtn = document.createElement("button");
+            downBtn.type = "button";
+            downBtn.className = "btn btn-secondary";
+            downBtn.textContent = "↓";
+            downBtn.setAttribute("aria-label", "Move " + step + " down");
+            downBtn.disabled = (i === order.length - 1);
+            downBtn.addEventListener("click", function () {
+              var tmp = order[i + 1];
+              order[i + 1] = order[i];
+              order[i] = tmp;
+              resultP.textContent = "";
+              renderList();
+            });
+            card.appendChild(downBtn);
+
+            listEl.appendChild(card);
+          });
+        }
+
+        checkBtn.addEventListener("click", function () {
+          var correctCount = 0;
+          for (var i = 0; i < order.length; i++) {
+            if (order[i] === CORRECT[i]) correctCount++;
+          }
+          var cards = listEl.children;
+          for (var j = 0; j < cards.length; j++) {
+            cards[j].style.borderColor = (order[j] === CORRECT[j]) ? "var(--color-success)" : "var(--color-error)";
+            cards[j].style.background = (order[j] === CORRECT[j]) ? "var(--color-success-bg)" : "var(--color-error-bg)";
+          }
+          if (correctCount === CORRECT.length) {
+            resultP.textContent = "4/4 correct — that's the real training loop order!";
+            resultP.style.color = "#0f7a4a";
+          } else {
+            resultP.textContent = correctCount + "/4 correct so far — keep adjusting with the arrows.";
+            resultP.style.color = "#b3261e";
+          }
+        });
+
+        renderList();
+
+        // =============== Part 2: step simulator + live loss chart ===============
+        var part2 = document.createElement("div");
+        var h2 = document.createElement("h4");
+        h2.textContent = "2. Run the (correctly ordered) loop and watch loss drop";
+        part2.appendChild(h2);
+
+        var boxesWrap = document.createElement("div");
+        boxesWrap.style.display = "flex";
+        boxesWrap.style.gap = "0.6rem";
+        boxesWrap.style.flexWrap = "wrap";
+        boxesWrap.style.marginBottom = "0.75rem";
+
+        var boxes = CORRECT.map(function (step) {
+          var box = document.createElement("div");
+          box.textContent = step;
+          box.style.flex = "1 1 100px";
+          box.style.textAlign = "center";
+          box.style.padding = "0.75rem 0.4rem";
+          box.style.border = "2px solid var(--color-border-strong)";
+          box.style.borderRadius = "8px";
+          box.style.fontWeight = "700";
+          box.style.fontSize = "var(--font-size-sm)";
+          box.style.background = "var(--color-bg-inset)";
+          boxesWrap.appendChild(box);
+          return box;
+        });
+        part2.appendChild(boxesWrap);
+
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button";
+        stepBtn.className = "btn btn-primary";
+        stepBtn.textContent = "Step →";
+        part2.appendChild(stepBtn);
+
+        var runStatus = document.createElement("p");
+        runStatus.setAttribute("role", "status");
+        runStatus.style.margin = "0.6rem 0";
+        part2.appendChild(runStatus);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 480;
+        canvas.height = 200;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "480px";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.display = "block";
+        part2.appendChild(canvas);
+
+        root.appendChild(part2);
+
+        var currentStage = 0; // index into CORRECT / boxes
+        var iteration = 0;
+        var lossHistory = [3.0];
+
+        var ctx2d = canvas.getContext("2d");
+        var padL = 34, padR = 10, padT = 10, padB = 24;
+        var plotW = canvas.width - padL - padR;
+        var plotH = canvas.height - padT - padB;
+        var yMax = 3.2;
+
+        function drawChart() {
+          ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(padL, padT);
+          ctx2d.lineTo(padL, padT + plotH);
+          ctx2d.lineTo(padL + plotW, padT + plotH);
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#4c5470";
+          ctx2d.font = "10px sans-serif";
+          ctx2d.fillText("loss", 4, padT + 10);
+          ctx2d.fillText("iteration", padL + plotW / 2 - 18, canvas.height - 4);
+
+          var n = lossHistory.length;
+          function pt(i, v) {
+            var x = padL + (n === 1 ? 0 : (i / (n - 1)) * plotW);
+            var y = padT + plotH - (v / yMax) * plotH;
+            return { x: x, y: y };
+          }
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          lossHistory.forEach(function (v, i) {
+            var p = pt(i, v);
+            if (i === 0) ctx2d.moveTo(p.x, p.y); else ctx2d.lineTo(p.x, p.y);
+          });
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#2952e3";
+          lossHistory.forEach(function (v, i) {
+            var p = pt(i, v);
+            ctx2d.beginPath();
+            ctx2d.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+            ctx2d.fill();
+          });
+        }
+
+        function updateBoxes() {
+          boxes.forEach(function (box, i) {
+            if (i === currentStage) {
+              box.style.background = "#2952e3";
+              box.style.color = "#fff";
+              box.style.borderColor = "#1c3aa9";
+            } else {
+              box.style.background = "var(--color-bg-inset)";
+              box.style.color = "var(--color-text)";
+              box.style.borderColor = "var(--color-border-strong)";
+            }
+          });
+        }
+
+        stepBtn.addEventListener("click", function () {
+          currentStage = (currentStage + 1) % boxes.length;
+          updateBoxes();
+          if (currentStage === 0) {
+            iteration++;
+            var last = lossHistory[lossHistory.length - 1];
+            var next = Math.max(0.08, last * (0.72 + Math.random() * 0.12));
+            lossHistory.push(next);
+            drawChart();
+            runStatus.textContent = "Completed iteration " + iteration + " — loss now " + next.toFixed(3) + ".";
+          } else {
+            runStatus.textContent = "Stage: " + CORRECT[currentStage] + " (step " + (currentStage + 1) + " of 4)";
+          }
+        });
+
+        updateBoxes();
+        drawChart();
+        runStatus.textContent = "Stage: " + CORRECT[0] + " (step 1 of 4) — click Step to advance.";
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the correct order of one training loop iteration?",
+          options: [
+            "Update weights → forward pass → compute loss → backward pass",
+            "Forward pass → compute loss → backward pass → update weights",
+            "Compute loss → backward pass → forward pass → update weights",
+            "Backward pass → forward pass → update weights → compute loss"
+          ],
+          answer: 1,
+          explanation: "You first run the data forward through the network, measure how wrong it was (loss), propagate that error backward to get gradients, then use those gradients to update the weights."
+        },
+        {
+          q: "What does 'automatic differentiation' save a practitioner from doing manually?",
+          options: [
+            "Loading the dataset from disk",
+            "Deriving and coding the calculus (gradients) needed for backpropagation by hand",
+            "Choosing which programming language to use",
+            "Writing the model's forward pass at all"
+          ],
+          answer: 1,
+          explanation: "Frameworks like PyTorch and TensorFlow track every operation performed on tensors during the forward pass and automatically compute the gradients needed for the backward pass — no hand-derived calculus required."
+        },
+        {
+          q: "What is a tensor, in the context of these frameworks?",
+          options: [
+            "A type of loss function",
+            "A generalization of a numpy array that supports GPU acceleration and automatic differentiation",
+            "A specific neural network architecture",
+            "A file format for saving trained models"
+          ],
+          answer: 1,
+          explanation: "Tensors are the core data structure: multi-dimensional arrays, like numpy arrays, but built to run on GPUs and to track operations for automatic differentiation."
+        },
+        {
+          q: "How are PyTorch and TensorFlow generally described relative to each other?",
+          options: [
+            "PyTorch only works on images; TensorFlow only works on text",
+            "PyTorch tends toward a more Python-native, dynamic style; TensorFlow/Keras tends toward a higher-level, more declarative style",
+            "They are two names for the exact same software",
+            "TensorFlow cannot use GPUs"
+          ],
+          answer: 1,
+          explanation: "Both accomplish the same core job (tensors + autodiff + layers), but they differ in programming style — this is a stylistic difference, not a strict capability gap."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

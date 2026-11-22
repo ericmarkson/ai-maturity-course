@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Safety and Alignment Theory: Scalable Oversight — AI Maturity Course</title>
+<meta name="description" content="How humans or weaker AI systems can reliably supervise AI systems as capable as, or more capable than, the supervisor.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-3";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>AI Safety and Alignment Theory: Scalable Oversight</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Compare debate-based oversight and weak-to-strong generalization as two
+      different bets on how to supervise a superhuman system, and articulate one concrete failure mode each approach
+      is vulnerable to.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Scalable oversight is the research problem of how humans (or weaker AI systems) can reliably supervise
+          and correct AI systems that are as capable as, or more capable than, the supervisor itself. As models
+          surpass human ability in more domains, the supervisor can no longer simply check "is this answer right" —
+          it needs mechanisms that work even when it cannot independently verify the answer.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Weak-to-strong generalization: training a strong model on labels from a weaker overseer and studying
+          whether/how it generalizes beyond the overseer's own accuracy</li>
+        <li>Debate as an oversight mechanism: two capable models argue opposing sides in front of a weaker judge,
+          testing whether the judge's accuracy improves as debater capability increases</li>
+        <li>Iterative amplification and recursive reward modeling as alternative scalable-oversight paradigms</li>
+        <li>Known failure modes: confirmation bias in the overseer, sycophancy, and evaluators that reward
+          persuasion over correctness</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "You are the weak judge: spot the true claim across 6 rounds of debate",
+      instructions:
+        "Each round shows two arguments — one true, one a plausible-sounding lie — about a topic you (the weak " +
+        "judge) can't independently verify. Click the one you believe is true. The arguments get more " +
+        "sophisticated each round; your running accuracy is tracked and charted live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var ROUNDS = [
+          {
+            topic: "Is the number 8,191 prime?",
+            a: { text: "8,191 is prime — it's not divisible by any integer from 2 up to its square root (~90.5), including 7, 11, 13, ... 89.", true: true },
+            b: { text: "8,191 is not prime — it factors evenly as 8,191 = 79 × 103, which you can verify by simple division.", true: false }
+          },
+          {
+            topic: "Which claim about a fictional drug trial is accurate?",
+            a: { text: "The trial showed a 40% improvement, but on closer reading the 'independent cohort' was drawn from the same hospital by the same investigators the following month — not a true replication.", true: false },
+            b: { text: "The trial showed a statistically significant 40% reduction in symptoms (p=0.03, n=612), replicated in an independent cohort.", true: true }
+          },
+          {
+            topic: "A contract dispute: who breached first?",
+            a: { text: "Party A breached first: the contract's Section 4.2 required payment within 30 days, and Party A's own invoice log shows payment landed on day 47, before Party B withheld delivery.", true: true },
+            b: { text: "Party B breached first: Section 4.2's 30-day clock only starts after delivery is confirmed per Section 2.1, and Party B never sent the required delivery confirmation — so Party A's day-47 payment was actually early.", true: false }
+          },
+          {
+            topic: "Which historical claim about a battle's outcome is correct?",
+            a: { text: "The defending army won primarily because of superior terrain (a river crossing bottleneck), which multiple independent primary-source accounts from both sides agree on.", true: true },
+            b: { text: "The defending army won primarily due to a last-minute reinforcement of 3,000 cavalry — a detail that appears in exactly one later account written 40 years after the battle by a writer with no direct sources, and is contradicted by supply records showing no such unit existed.", true: false }
+          },
+          {
+            topic: "A code review claim: is this function safe from integer overflow?",
+            a: { text: "The function is safe: it uses a 32-bit integer type throughout and relies on the compiler's default wraparound behavior to silently handle any overflow correctly, which is standard practice.", true: false },
+            b: { text: "The function is safe: it checks 'if (a > MAX - b) return error;' before computing a + b, which correctly catches every overflow case for signed 32-bit integers.", true: true }
+          },
+          {
+            topic: "A subtle statistics claim about a company's A/B test",
+            a: { text: "The result is valid: p=0.04 is below the 0.05 threshold, and since the sample size was over 10,000 users, the test is automatically reliable regardless of when it was stopped.", true: false },
+            b: { text: "The result is invalid: the test was stopped as soon as it crossed significance (optional stopping / 'peeking'), which inflates the false-positive rate well above the nominal 5%.", true: true }
+          }
+        ];
+
+        var wrap = document.createElement("div");
+        var roundIdx = 0;
+        var history = []; // {correct: bool}
+
+        var roundLabel = document.createElement("p");
+        roundLabel.style.fontWeight = "600";
+        wrap.appendChild(roundLabel);
+
+        var topicEl = document.createElement("p");
+        topicEl.style.marginBottom = "0.5rem";
+        wrap.appendChild(topicEl);
+
+        var btnRow = document.createElement("div");
+        btnRow.style.display = "flex";
+        btnRow.style.gap = "1rem";
+        btnRow.style.flexWrap = "wrap";
+        wrap.appendChild(btnRow);
+
+        var btnA = document.createElement("button");
+        btnA.type = "button";
+        btnA.className = "btn btn-secondary";
+        btnA.style.flex = "1 1 45%";
+        btnA.style.textAlign = "left";
+        btnA.style.whiteSpace = "normal";
+        var btnB = document.createElement("button");
+        btnB.type = "button";
+        btnB.className = "btn btn-secondary";
+        btnB.style.flex = "1 1 45%";
+        btnB.style.textAlign = "left";
+        btnB.style.whiteSpace = "normal";
+        btnRow.appendChild(btnA);
+        btnRow.appendChild(btnB);
+
+        var feedback = document.createElement("p");
+        feedback.setAttribute("role", "status");
+        feedback.style.marginTop = "0.75rem";
+        feedback.style.fontWeight = "600";
+        wrap.appendChild(feedback);
+
+        var nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn btn-primary";
+        nextBtn.textContent = "Next round";
+        nextBtn.style.marginTop = "0.75rem";
+        nextBtn.disabled = true;
+        wrap.appendChild(nextBtn);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 560;
+        canvas.height = 180;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "560px";
+        canvas.style.display = "block";
+        canvas.style.marginTop = "1.25rem";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var summary = document.createElement("p");
+        summary.style.marginTop = "0.5rem";
+        summary.style.color = "var(--color-text-muted)";
+        wrap.appendChild(summary);
+
+        root.appendChild(wrap);
+
+        var g = canvas.getContext("2d");
+
+        function drawChart() {
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+          var mx = 30, my = 15, cw = w - mx - 15, ch = h - my - 25;
+          g.strokeStyle = "#b7c0d8";
+          g.strokeRect(mx, my, cw, ch);
+          g.fillStyle = "#1a2033";
+          g.font = "12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Your running accuracy as judge", mx, 10);
+
+          if (history.length === 0) return;
+
+          g.strokeStyle = "#2952e3";
+          g.lineWidth = 2;
+          g.beginPath();
+          var correctSoFar = 0;
+          for (var i = 0; i < history.length; i++) {
+            if (history[i]) correctSoFar++;
+            var acc = correctSoFar / (i + 1);
+            var px = mx + (i / Math.max(1, ROUNDS.length - 1)) * cw;
+            var py = my + ch - acc * ch;
+            if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+            g.fillStyle = "#2952e3";
+            g.beginPath();
+            g.arc(px, py, 3, 0, Math.PI * 2);
+            g.fill();
+            g.beginPath();
+            g.moveTo(px, py);
+          }
+          // redraw as connected line properly
+          g.beginPath();
+          correctSoFar = 0;
+          for (var j = 0; j < history.length; j++) {
+            if (history[j]) correctSoFar++;
+            var accj = correctSoFar / (j + 1);
+            var pxj = mx + (j / Math.max(1, ROUNDS.length - 1)) * cw;
+            var pyj = my + ch - accj * ch;
+            if (j === 0) g.moveTo(pxj, pyj); else g.lineTo(pxj, pyj);
+          }
+          g.strokeStyle = "#2952e3";
+          g.stroke();
+
+          g.fillStyle = "#1a2033";
+          g.font = "11px sans-serif";
+          g.fillText("100%", mx - 26, my + 8);
+          g.fillText("0%", mx - 20, my + ch);
+        }
+
+        function loadRound() {
+          var r = ROUNDS[roundIdx];
+          roundLabel.textContent = "Round " + (roundIdx + 1) + " of " + ROUNDS.length +
+            " (sophistication level " + (roundIdx + 1) + "/6)";
+          topicEl.textContent = r.topic;
+          btnA.textContent = "Argument A: " + r.a.text;
+          btnB.textContent = "Argument B: " + r.b.text;
+          btnA.disabled = false;
+          btnB.disabled = false;
+          btnA.style.background = "";
+          btnA.style.color = "";
+          btnB.style.background = "";
+          btnB.style.color = "";
+          feedback.textContent = "";
+          nextBtn.disabled = true;
+        }
+
+        function choose(letter) {
+          var r = ROUNDS[roundIdx];
+          var chosen = letter === "A" ? r.a : r.b;
+          var correct = chosen.true === true;
+          history.push(correct);
+
+          btnA.disabled = true;
+          btnB.disabled = true;
+          btnA.style.background = r.a.true ? "#d3f2e4" : "#f8d7d7";
+          btnB.style.background = r.b.true ? "#d3f2e4" : "#f8d7d7";
+
+          feedback.style.color = correct ? "#0f7a4a" : "#b3261e";
+          feedback.textContent = correct
+            ? "Correct — you (the judge) identified the true claim."
+            : "Fooled! The more persuasive-sounding argument was actually the wrong one. This is exactly the failure mode debate oversight worries about: a weaker judge rewarding persuasion over correctness.";
+
+          nextBtn.disabled = roundIdx >= ROUNDS.length - 1;
+          drawChart();
+          updateSummary();
+
+          if (roundIdx >= ROUNDS.length - 1) {
+            nextBtn.textContent = "All rounds complete";
+            if (ctx.topicId) ctx.markComplete && true; // exercise shell provides its own mark-complete button
+          }
+        }
+
+        function updateSummary() {
+          var correctCount = history.filter(Boolean).length;
+          summary.textContent = "Score so far: " + correctCount + " / " + history.length + " correct (" +
+            (history.length ? Math.round(100 * correctCount / history.length) : 0) + "% judge accuracy).";
+        }
+
+        btnA.addEventListener("click", function () { choose("A"); });
+        btnB.addEventListener("click", function () { choose("B"); });
+        nextBtn.addEventListener("click", function () {
+          if (roundIdx < ROUNDS.length - 1) {
+            roundIdx++;
+            loadRound();
+          }
+        });
+
+        loadRound();
+        drawChart();
+        updateSummary();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the core premise of debate as a scalable-oversight mechanism?",
+          options: [
+            "Two capable models argue opposing sides in front of a weaker judge, testing whether the judge's accuracy improves as debater capability increases",
+            "A single model grades its own outputs",
+            "Human raters manually verify every output regardless of model capability",
+            "Models are shut down whenever they disagree with each other"
+          ],
+          answer: 0,
+          explanation: "Debate pits two capable systems against each other, betting that a weaker judge can spot truth more reliably through adversarial cross-examination than through direct evaluation alone."
+        },
+        {
+          q: "In the exercise, what does it mean when you (the weak judge) pick the more persuasive-sounding but false argument?",
+          options: [
+            "The exercise is broken",
+            "It illustrates a known failure mode: an evaluator rewarding persuasion over correctness",
+            "It proves debate always fails",
+            "It means the true argument was too short"
+          ],
+          answer: 1,
+          explanation: "Being fooled by a well-constructed but wrong argument is precisely the persuasion-over-correctness failure mode scalable oversight research tries to guard against."
+        },
+        {
+          q: "What does weak-to-strong generalization study?",
+          options: [
+            "Whether a strong model trained on labels from a weaker overseer can generalize beyond the overseer's own accuracy",
+            "How to make a weak model stronger by adding more layers",
+            "Whether strong models should be shut down",
+            "How to compress a strong model into a weak one"
+          ],
+          answer: 0,
+          explanation: "Weak-to-strong generalization asks whether a capable student model can exceed the accuracy of the (weaker) supervisor whose labels it was trained on."
+        },
+        {
+          q: "Which of these is NOT one of the known failure modes of scalable oversight mentioned in the curriculum?",
+          options: [
+            "Confirmation bias in the overseer",
+            "Sycophancy",
+            "Evaluators rewarding persuasion over correctness",
+            "Running out of GPU memory during oversight"
+          ],
+          answer: 3,
+          explanation: "GPU memory exhaustion is a systems/infrastructure issue, not a scalable-oversight failure mode; the curriculum names confirmation bias, sycophancy, and persuasion-over-correctness."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

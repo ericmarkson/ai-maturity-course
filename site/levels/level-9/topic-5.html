@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synthetic Data Generation and Curation — AI Maturity Course</title>
+<meta name="description" content="Why synthetic data is powerful but risky: model collapse, curation tradeoffs, and the hybrid consensus on mixing synthetic with real data.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-5";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Synthetic Data Generation and Curation</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain the tradeoff between synthetic-data scale and synthetic-data
+      quality/diversity, and describe at least one concrete failure mode (e.g., model collapse, distributional
+      narrowing) that unchecked synthetic-data reliance produces.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Synthetic data generation and curation means using AI models to generate — and then filter and select
+          — training data, instead of relying solely on human-produced or scraped data. Done carefully, it fills
+          gaps where real data is scarce or proprietary. Done carelessly, it can cause a model to slowly forget
+          the diversity of the real world by training on an ever-narrower echo of its own outputs.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why synthetic data matters now: high-quality generation is cheap while real, high-quality
+          human-annotated data is scarce and often proprietary</li>
+        <li>Generation pathways: direct frontier-model prompting with quality filtering, self-instruct/
+          self-questioning pipelines, and distillation from a stronger "teacher" model</li>
+        <li>Curation and quality control: deduplication, diversity filtering, human-in-the-loop down-selection,
+          and the risk of "model collapse" from training on unfiltered self-generated data</li>
+        <li>The hybrid consensus: synthetic data augments but does not replace real data as the anchor of quality
+          and grounding</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Synthetic-data curation lab: collapse vs. curated re-injection",
+      instructions:
+        "Drag 'Generations' to simulate repeated self-distillation rounds. Then use the real-data re-injection, " +
+        "quality-threshold, and dedup-strength sliders to curate each generation. Watch the distribution curve, " +
+        "dataset size, and simulated downstream-quality score respond live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var STD0 = 30;          // initial (real-data) distribution spread
+        var MEAN0 = 50;
+        var COLLAPSE_FACTOR = 0.8; // each self-distillation round shrinks variance by this factor
+        var INITIAL_SIZE = 10000;  // starting dataset size
+
+        var wrap = document.createElement("div");
+
+        function makeSliderRow(idPrefix, labelText, min, max, val, unit) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.setAttribute("for", idPrefix + "-slider");
+          label.textContent = labelText;
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = String(min);
+          slider.max = String(max);
+          slider.step = "1";
+          slider.value = String(val);
+          slider.id = idPrefix + "-slider";
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = val + unit;
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+          return { slider: slider, readout: readout, unit: unit };
+        }
+
+        var genCtl = makeSliderRow("gen", "Generations of self-distillation", 0, 10, 4, "");
+        var reinjectCtl = makeSliderRow("reinject", "Real-data re-injection", 0, 50, 0, "%");
+        var qualityCtl = makeSliderRow("quality", "Quality-threshold pruning strength", 0, 90, 30, "%");
+        var dedupCtl = makeSliderRow("dedup", "Dedup strength", 0, 90, 20, "%");
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 220;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "640px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.marginTop = "var(--space-3)";
+        wrap.appendChild(canvas);
+
+        var statsGrid = document.createElement("div");
+        statsGrid.style.display = "grid";
+        statsGrid.style.gridTemplateColumns = "repeat(auto-fill, minmax(190px, 1fr))";
+        statsGrid.style.gap = "0.75rem";
+        statsGrid.style.marginTop = "0.75rem";
+        wrap.appendChild(statsGrid);
+
+        function statBox(label) {
+          var box = document.createElement("div");
+          box.style.border = "1px solid var(--color-border)";
+          box.style.borderRadius = "8px";
+          box.style.padding = "0.5rem 0.75rem";
+          var l = document.createElement("div");
+          l.style.fontSize = "var(--font-size-sm)";
+          l.style.color = "var(--color-text-muted)";
+          l.textContent = label;
+          var v = document.createElement("div");
+          v.style.fontWeight = "700";
+          box.appendChild(l);
+          box.appendChild(v);
+          statsGrid.appendChild(box);
+          return v;
+        }
+
+        var diversityVal = statBox("Distribution diversity (vs. real data)");
+        var countVal = statBox("Dataset size remaining");
+        var perSampleVal = statBox("Avg. per-sample quality");
+        var downstreamVal = statBox("Simulated downstream-quality score");
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        root.appendChild(wrap);
+        var g = canvas.getContext("2d");
+
+        function finalStd(generations, reinjectPct) {
+          var std = STD0;
+          var r = reinjectPct / 100;
+          for (var i = 0; i < generations; i++) {
+            std = (1 - r) * std * COLLAPSE_FACTOR + r * STD0;
+          }
+          return std;
+        }
+
+        function gaussian(x, mean, std) {
+          if (std < 0.5) std = 0.5;
+          return Math.exp(-Math.pow(x - mean, 2) / (2 * std * std));
+        }
+
+        function computeAll() {
+          var generations = parseInt(genCtl.slider.value, 10);
+          var reinject = parseInt(reinjectCtl.slider.value, 10);
+          var quality = parseInt(qualityCtl.slider.value, 10);
+          var dedup = parseInt(dedupCtl.slider.value, 10);
+
+          var std = finalStd(generations, reinject);
+          var diversityScore = Math.max(0, Math.min(100, (std / STD0) * 100));
+
+          var remainingAfterQuality = INITIAL_SIZE * (1 - (quality / 100) * 0.8);
+          var remainingAfterDedup = remainingAfterQuality * (1 - (dedup / 100) * 0.6);
+          var finalCount = Math.max(1, Math.round(remainingAfterDedup));
+
+          var perSampleQuality = 50 + quality * 0.5; // 0-95
+
+          var quantityFactor = Math.min(1, finalCount / 2000);
+          var downstreamQuality = (0.6 * diversityScore + 0.4 * perSampleQuality) * quantityFactor;
+          downstreamQuality = Math.max(0, Math.min(100, downstreamQuality));
+
+          return {
+            generations: generations, reinject: reinject, quality: quality, dedup: dedup,
+            std: std, diversityScore: diversityScore, finalCount: finalCount,
+            perSampleQuality: perSampleQuality, downstreamQuality: downstreamQuality
+          };
+        }
+
+        function draw() {
+          var s = computeAll();
+          var w = canvas.width, h = canvas.height;
+          g.clearRect(0, 0, w, h);
+
+          var chartX = 30, chartY = 20, chartW = w - 60, chartH = h - 60;
+          g.strokeStyle = "#b7c0d8";
+          g.strokeRect(chartX, chartY, chartW, chartH);
+
+          function plotCurve(std, color, dashed) {
+            g.strokeStyle = color;
+            g.lineWidth = 2;
+            if (dashed) g.setLineDash([5, 4]); else g.setLineDash([]);
+            g.beginPath();
+            for (var i = 0; i <= 100; i++) {
+              var x = i; // 0-100 domain
+              var yVal = gaussian(x, MEAN0, std);
+              var px = chartX + (i / 100) * chartW;
+              var py = chartY + chartH - yVal * (chartH - 10) - 5;
+              if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+            }
+            g.stroke();
+            g.setLineDash([]);
+          }
+
+          plotCurve(STD0, "#b7c0d8", true);   // real-data reference (dashed, always full width)
+          plotCurve(s.std, "#2952e3", false); // current synthetic distribution
+
+          g.fillStyle = "#1a2033";
+          g.font = "12px sans-serif";
+          g.textAlign = "left";
+          g.fillText("Dashed grey = original real-data distribution. Solid blue = current synthetic distribution.",
+            chartX, chartY + chartH + 18);
+          g.fillText("Value space (e.g. topic/style diversity, arbitrary units) →", chartX, chartY + chartH + 34);
+
+          diversityVal.textContent = s.diversityScore.toFixed(0) + "%";
+          diversityVal.style.color = s.diversityScore < 30 ? "#b3261e" : (s.diversityScore < 65 ? "#9a6b00" : "#0f7a4a");
+          countVal.textContent = s.finalCount.toLocaleString() + " / " + INITIAL_SIZE.toLocaleString();
+          perSampleVal.textContent = s.perSampleQuality.toFixed(0) + " / 100";
+          downstreamVal.textContent = s.downstreamQuality.toFixed(0) + " / 100";
+          downstreamVal.style.color = s.downstreamQuality < 40 ? "#b3261e" : (s.downstreamQuality < 70 ? "#9a6b00" : "#0f7a4a");
+
+          if (s.diversityScore < 25 && s.reinject < 10) {
+            resultText.textContent = "Model collapse: after " + s.generations + " generations with only " +
+              s.reinject + "% real-data re-injection, the distribution has narrowed to " +
+              s.diversityScore.toFixed(0) + "% of its original diversity — the model is now mostly re-learning its own narrowing echo.";
+            resultText.style.color = "#b3261e";
+          } else if (s.finalCount < 1500) {
+            resultText.textContent = "Aggressive quality-threshold/dedup pruning cut the dataset to " +
+              s.finalCount.toLocaleString() + " samples — average per-sample quality rose, but the shrunken " +
+              "dataset size is now dragging the downstream-quality score down.";
+            resultText.style.color = "#9a6b00";
+          } else {
+            resultText.textContent = "Diversity retained at " + s.diversityScore.toFixed(0) + "%, dataset size " +
+              s.finalCount.toLocaleString() + " — a reasonable balance between synthetic scale and quality.";
+            resultText.style.color = "#0f7a4a";
+          }
+        }
+
+        [genCtl, reinjectCtl, qualityCtl, dedupCtl].forEach(function (ctl) {
+          ctl.slider.addEventListener("input", function () {
+            ctl.readout.textContent = ctl.slider.value + ctl.unit;
+            draw();
+          });
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is 'model collapse' in the context of synthetic data?",
+          options: [
+            "A model literally crashing the training hardware",
+            "A technique for compressing model weights",
+            "Progressive narrowing of a data distribution's diversity when a model repeatedly trains on its own generated, unfiltered output across generations",
+            "When training loss becomes exactly zero"
+          ],
+          answer: 2,
+          explanation: "Without real-data grounding, each generation's outputs feed the next round's training, narrowing the distribution toward its own modes — exactly what the simulator's collapsing curve shows at 0% re-injection."
+        },
+        {
+          q: "Why does synthetic data matter more now, per the described tradeoff?",
+          options: [
+            "Human data is now worthless",
+            "High-quality generation is comparatively cheap while scarce, proprietary human-annotated data is expensive and hard to source at scale",
+            "Synthetic data is always higher quality than real data",
+            "Real data no longer exists anywhere"
+          ],
+          answer: 1,
+          explanation: "Frontier models can generate plausible training data cheaply, while genuinely high-quality human annotation remains scarce, slow, and often locked behind proprietary walls."
+        },
+        {
+          q: "According to the hybrid consensus described in the material, what role should synthetic data play relative to real data?",
+          options: [
+            "It should completely replace real data",
+            "Real data should be discarded once any synthetic data exists",
+            "Synthetic and real data must never be mixed",
+            "It should augment real data but not replace it as the anchor of quality and grounding"
+          ],
+          answer: 3,
+          explanation: "The consensus view treats synthetic data as a scale multiplier on top of a real-data anchor, not a substitute for it — mixing in real data is exactly what prevents collapse in the simulator."
+        },
+        {
+          q: "In the simulator, what happens to distributional diversity across generations at 0% real-data re-injection, versus re-injecting a meaningful fraction of real data each round?",
+          options: [
+            "Both scenarios behave identically",
+            "Re-injecting real data always causes faster collapse",
+            "At 0% re-injection the distribution progressively narrows (collapses); re-injecting real data each round keeps diversity closer to the original",
+            "Diversity increases without bound in both cases"
+          ],
+          answer: 2,
+          explanation: "The simulator's collapse formula shrinks variance by a fixed factor each generation unless a re-injection fraction anchors it back toward the original real-data spread."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

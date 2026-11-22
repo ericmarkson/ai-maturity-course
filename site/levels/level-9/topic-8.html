@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross-Disciplinary AI: Biology, Robotics, Science — AI Maturity Course</title>
+<meta name="description" content="How foundation-model techniques transfer from language into protein structure, molecular design, robotics, and scientific discovery.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-8";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Cross-Disciplinary AI: Biology, Robotics, Science</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Describe one concrete way a foundation-model technique (e.g.,
+      attention, diffusion, self-supervised pretraining) transferred from language into a scientific domain, and
+      one domain-specific reliability risk that doesn't exist in a pure chat setting.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Cross-disciplinary AI means applying foundation-model techniques outside language — to protein
+          structure, molecular design, robotic control, and general scientific discovery. The same underlying
+          building blocks (attention, diffusion, self-supervised pretraining) that power chatbots get repurposed
+          to predict how a protein folds, how a molecule binds, or how a robot arm should move next.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Structural biology: AlphaFold-3-class models predicting protein/ligand/nucleic-acid structures, and
+          open-weight alternatives (e.g., ESM-family models) enabling in-house fine-tuning</li>
+        <li>Molecular design and drug discovery: models predicting binding affinity jointly with structure, and
+          emerging scaling laws in molecular AI</li>
+        <li>Embodied AI/robotics: vision-language-action models that connect perception, language instruction,
+          and physical control</li>
+        <li>Scientific reliability: the hallucination/reliability problem when generative AI is used to propose
+          or summarize scientific claims</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Technique-to-domain matcher: drag or click to pair them up",
+      instructions:
+        "Drag each AI-technique chip onto the domain slot you think it powers (or click a chip, then click a " +
+        "slot). When all four are placed, click 'Check matches' to see which pairings are correct, with an " +
+        "explanation for each.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var PAIRS = [
+          {
+            id: "structure",
+            technique: "Pairwise attention + iterative structure modules (AlphaFold-3-class)",
+            domain: "Structural biology: protein / ligand / nucleic-acid structure prediction",
+            explanation: "AlphaFold-3-class models adapt attention mechanisms to reason over pairwise residue " +
+              "and atom relationships, iteratively refining a predicted 3D structure."
+          },
+          {
+            id: "molecule",
+            technique: "Diffusion models generating candidate 3D molecular structures",
+            domain: "Molecular design & drug discovery",
+            explanation: "Diffusion, first popularized for images, is used to generate novel candidate molecules " +
+              "and jointly predict binding affinity against a target."
+          },
+          {
+            id: "robot",
+            technique: "Vision-language-action (VLA) models fusing perception, instruction, and control",
+            domain: "Embodied AI / robotics control",
+            explanation: "VLA models connect a language instruction and a camera feed to a sequence of physical " +
+              "actions, letting a robot follow natural-language commands."
+          },
+          {
+            id: "science",
+            technique: "Foundation models summarizing or proposing scientific claims from literature",
+            domain: "Scientific literature & discovery reliability",
+            explanation: "Generative summarization/claim-proposal transfers directly from chat use cases, but " +
+              "carries a domain-specific hallucination risk: a fabricated citation or claim can look scientifically plausible."
+          }
+        ];
+
+        function shuffled(arr) {
+          var a = arr.slice();
+          for (var i = a.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+          }
+          return a;
+        }
+
+        var wrap = document.createElement("div");
+
+        var board = document.createElement("div");
+        board.style.display = "grid";
+        board.style.gridTemplateColumns = "1fr 1fr";
+        board.style.gap = "1.5rem";
+        board.style.marginTop = "0.5rem";
+        wrap.appendChild(board);
+
+        var chipsCol = document.createElement("div");
+        var chipsHeading = document.createElement("h4");
+        chipsHeading.textContent = "AI techniques";
+        chipsCol.appendChild(chipsHeading);
+        board.appendChild(chipsCol);
+
+        var slotsCol = document.createElement("div");
+        var slotsHeading = document.createElement("h4");
+        slotsHeading.textContent = "Domains";
+        slotsCol.appendChild(slotsHeading);
+        board.appendChild(slotsCol);
+
+        var selectedChip = null; // for click-to-place fallback
+        var chipEls = {};   // id -> chip element
+        var slotEls = {};   // id -> slot element (domain id)
+        var placement = {}; // domainId -> techniqueId currently placed there
+
+        var chipOrder = shuffled(PAIRS.map(function (p) { return p.id; }));
+
+        chipOrder.forEach(function (id) {
+          var pair = PAIRS.filter(function (p) { return p.id === id; })[0];
+          var chip = document.createElement("div");
+          chip.textContent = pair.technique;
+          chip.draggable = true;
+          chip.tabIndex = 0;
+          chip.setAttribute("role", "button");
+          chip.dataset.techniqueId = id;
+          chip.style.border = "1px solid var(--color-border-strong)";
+          chip.style.borderRadius = "8px";
+          chip.style.padding = "0.6rem 0.75rem";
+          chip.style.marginBottom = "0.6rem";
+          chip.style.background = "var(--color-bg)";
+          chip.style.cursor = "grab";
+          chip.style.fontSize = "var(--font-size-sm)";
+
+          chip.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", id);
+            chip.style.opacity = "0.5";
+          });
+          chip.addEventListener("dragend", function () {
+            chip.style.opacity = "1";
+          });
+          chip.addEventListener("click", function () {
+            if (chip.dataset.placed === "true") return;
+            if (selectedChip === chip) {
+              chip.style.borderColor = "var(--color-border-strong)";
+              selectedChip = null;
+              return;
+            }
+            if (selectedChip) selectedChip.style.borderColor = "var(--color-border-strong)";
+            selectedChip = chip;
+            chip.style.borderColor = "var(--color-primary)";
+          });
+          chip.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); chip.click(); }
+          });
+
+          chipEls[id] = chip;
+          chipsCol.appendChild(chip);
+        });
+
+        var slotDomainOrder = PAIRS.map(function (p) { return p.id; }); // fixed order for domains
+
+        slotDomainOrder.forEach(function (id) {
+          var pair = PAIRS.filter(function (p) { return p.id === id; })[0];
+          var slot = document.createElement("div");
+          slot.dataset.domainId = id;
+          slot.style.border = "2px dashed var(--color-border-strong)";
+          slot.style.borderRadius = "8px";
+          slot.style.padding = "0.6rem 0.75rem";
+          slot.style.marginBottom = "0.6rem";
+          slot.style.minHeight = "3.2rem";
+          slot.style.background = "var(--color-bg-alt)";
+          slot.style.fontSize = "var(--font-size-sm)";
+
+          var domainLabel = document.createElement("div");
+          domainLabel.style.fontWeight = "700";
+          domainLabel.style.marginBottom = "0.25rem";
+          domainLabel.textContent = pair.domain;
+          slot.appendChild(domainLabel);
+
+          var dropZone = document.createElement("div");
+          dropZone.className = "drop-zone-content";
+          dropZone.textContent = "Drop or click a technique here";
+          dropZone.style.color = "var(--color-text-faint)";
+          dropZone.style.fontStyle = "italic";
+          slot.appendChild(dropZone);
+
+          var explanationEl = document.createElement("p");
+          explanationEl.style.margin = "0.4rem 0 0 0";
+          explanationEl.style.fontSize = "var(--font-size-sm)";
+          explanationEl.style.display = "none";
+          slot.appendChild(explanationEl);
+          slot._explanationEl = explanationEl;
+          slot._dropZone = dropZone;
+
+          function placeTechnique(techId) {
+            var existing = placement[id];
+            if (existing) {
+              // unplace previous occupant back to chip pool
+              var oldChip = chipEls[existing];
+              oldChip.dataset.placed = "false";
+              oldChip.style.display = "";
+            }
+            placement[id] = techId;
+            var chip = chipEls[techId];
+            chip.dataset.placed = "true";
+            chip.style.display = "none";
+            dropZone.textContent = chip.textContent;
+            dropZone.style.color = "var(--color-text)";
+            dropZone.style.fontStyle = "normal";
+            slot.style.borderStyle = "solid";
+            slot.style.borderColor = "var(--color-primary)";
+            explanationEl.style.display = "none";
+            slot.classList.remove("is-correct-option", "is-wrong-option");
+          }
+
+          slot.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            slot.style.background = "var(--color-primary-light)";
+          });
+          slot.addEventListener("dragleave", function () {
+            slot.style.background = "var(--color-bg-alt)";
+          });
+          slot.addEventListener("drop", function (e) {
+            e.preventDefault();
+            slot.style.background = "var(--color-bg-alt)";
+            var techId = e.dataTransfer.getData("text/plain");
+            if (!techId) return;
+            placeTechnique(techId);
+          });
+          slot.addEventListener("click", function () {
+            if (!selectedChip) return;
+            var techId = selectedChip.dataset.techniqueId;
+            selectedChip.style.borderColor = "var(--color-border-strong)";
+            selectedChip = null;
+            placeTechnique(techId);
+          });
+
+          slotEls[id] = slot;
+          slotsCol.appendChild(slot);
+        });
+
+        var toolbar = document.createElement("div");
+        toolbar.style.marginTop = "1rem";
+        toolbar.style.display = "flex";
+        toolbar.style.gap = "0.75rem";
+        toolbar.style.flexWrap = "wrap";
+
+        var checkBtn = document.createElement("button");
+        checkBtn.type = "button";
+        checkBtn.className = "btn btn-primary";
+        checkBtn.textContent = "Check matches";
+        toolbar.appendChild(checkBtn);
+
+        var scoreText = document.createElement("span");
+        scoreText.setAttribute("role", "status");
+        scoreText.style.alignSelf = "center";
+        scoreText.style.fontWeight = "600";
+        toolbar.appendChild(scoreText);
+
+        wrap.appendChild(toolbar);
+        root.appendChild(wrap);
+
+        checkBtn.addEventListener("click", function () {
+          var correctCount = 0;
+          var totalPlaced = 0;
+          slotDomainOrder.forEach(function (domainId) {
+            var slot = slotEls[domainId];
+            var placedTechId = placement[domainId];
+            if (!placedTechId) {
+              slot.classList.remove("is-correct-option", "is-wrong-option");
+              return;
+            }
+            totalPlaced++;
+            var isCorrect = placedTechId === domainId;
+            var pair = PAIRS.filter(function (p) { return p.id === domainId; })[0];
+            if (isCorrect) {
+              correctCount++;
+              slot.style.borderColor = "var(--color-success)";
+              slot.style.background = "var(--color-success-bg)";
+            } else {
+              slot.style.borderColor = "var(--color-error)";
+              slot.style.background = "var(--color-error-bg)";
+            }
+            slot._explanationEl.style.display = "block";
+            slot._explanationEl.textContent = isCorrect
+              ? "Correct — " + pair.explanation
+              : "Not quite — " + pair.explanation;
+          });
+
+          if (totalPlaced < PAIRS.length) {
+            scoreText.textContent = "Place all " + PAIRS.length + " techniques before checking (" + totalPlaced +
+              "/" + PAIRS.length + " placed).";
+            scoreText.style.color = "#9a6b00";
+          } else {
+            scoreText.textContent = correctCount + " / " + PAIRS.length + " correct.";
+            scoreText.style.color = correctCount === PAIRS.length ? "#0f7a4a" : "#b3261e";
+            if (correctCount === PAIRS.length && ctx.topicId) {
+              ctx.markComplete();
+            }
+          }
+        });
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What do AlphaFold-3-class models and their open-weight alternatives (e.g., ESM-family) predict?",
+          options: [
+            "Protein, ligand, and nucleic-acid structures",
+            "Stock market prices",
+            "Only 2D images of cats",
+            "Network bandwidth requirements"
+          ],
+          answer: 0,
+          explanation: "These models take biological sequences and predict the 3D structures they fold into, including complexes with ligands and nucleic acids."
+        },
+        {
+          q: "What is a vision-language-action (VLA) model designed to do?",
+          options: [
+            "Connect perception, language instruction, and physical control for embodied/robotic systems",
+            "Only generate text with no other modality",
+            "Predict protein folding exclusively",
+            "Compress video files"
+          ],
+          answer: 0,
+          explanation: "VLA models fuse a camera feed and a natural-language instruction into a sequence of physical robot actions."
+        },
+        {
+          q: "What reliability risk is specifically called out as a concern when generative AI is used in scientific contexts?",
+          options: [
+            "The hallucination/reliability problem when AI proposes or summarizes scientific claims that may be false but sound plausible",
+            "AI is always 100% correct in scientific domains",
+            "Scientific claims can never be verified by any means",
+            "AI models refuse to engage with scientific topics at all"
+          ],
+          answer: 0,
+          explanation: "A fabricated citation or a subtly wrong scientific claim can look just as fluent and confident as a correct one, making scientific hallucination a distinct reliability risk."
+        },
+        {
+          q: "Which foundation-model technique transferring from language into biology best illustrates cross-disciplinary transfer, per the material?",
+          options: [
+            "Attention and self-supervised pretraining techniques from language models being adapted to model protein sequences and structures",
+            "Building physical robots with no software",
+            "Ignoring transformers entirely for biology",
+            "Using only rule-based expert systems, no learning"
+          ],
+          answer: 0,
+          explanation: "Attention and self-supervised pretraining, first developed for language, were repurposed to model residue relationships and protein structure."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

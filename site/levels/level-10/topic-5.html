@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGI-Adjacent Research Directions — AI Maturity Course</title>
+<meta name="description" content="The open research questions clustered around what it would take to build (or safely avoid prematurely building) systems with broad, human-level-or-beyond general capability.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-5";
+</script>
+<style>
+  .rb-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .rb-sliders { display: flex; flex-direction: column; gap: var(--space-3); }
+  .rb-slider-row { display: grid; grid-template-columns: 200px 1fr 60px; align-items: center; gap: var(--space-3); }
+  .rb-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
+  .rb-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .rb-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .rb-summary { font-weight: 700; margin-top: var(--space-2); }
+  .rb-warning { margin-top: var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-warning-bg); font-size: var(--font-size-sm); display: none; }
+  .rb-warning.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>AGI-Adjacent Research Directions</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Articulate your own working definition of "AGI-adjacent progress" with explicit, falsifiable criteria, and explain why at least one commonly cited proxy metric is an imperfect measure of generality.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          AGI-adjacent research directions are the open research questions clustered around what it would take to
+          build — or safely avoid prematurely building — systems with broad, human-level-or-beyond general
+          capability. Because "AGI" itself has no consensus technical definition, researchers work with proxy
+          measures and place different bets on which research direction actually moves the field toward general
+          capability.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Why AGI still lacks a consensus technical definition</strong>, and the practical proxies the
+          field uses instead (economically valuable task coverage, generality across domains, sample efficiency).</li>
+        <li><strong>Capability trajectories</strong> — what current scaling/agentic/tool-use trends do and don't
+          predict about generality.</li>
+        <li><strong>Superintelligence and takeoff-speed debates</strong> — fast vs. slow takeoff scenarios and their
+          differing safety implications.</li>
+        <li><strong>Model welfare</strong> as an emerging, contested research question in 2026 discourse (whether
+          advanced models could warrant moral consideration).</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "AGI research-bet portfolio allocator",
+      instructions:
+        "Distribute a fixed research-effort budget across four AGI-adjacent bets. Drag any slider and the others " +
+        "rebalance automatically to hold the total at 100%. Watch the risk/reward plot and expected-timeline " +
+        "readout update live as your portfolio shifts.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "rb-wrap";
+
+        var bets = [
+          { key: "scaling", label: "Continued scaling", value: 35, risk: 25, reward: 68, years: 3 },
+          { key: "agentic", label: "Agentic / tool-use systems", value: 30, risk: 45, reward: 65, years: 2.5 },
+          { key: "interp", label: "Interpretability & alignment", value: 20, risk: 55, reward: 52, years: 5 },
+          { key: "paradigm", label: "New algorithmic paradigms", value: 15, risk: 85, reward: 90, years: 7 }
+        ];
+
+        var sliderContainer = document.createElement("div");
+        sliderContainer.className = "rb-sliders";
+        var sliderEls = {};
+
+        bets.forEach(function (b) {
+          var row = document.createElement("div");
+          row.className = "rb-slider-row";
+          var label = document.createElement("label");
+          label.textContent = b.label;
+          label.setAttribute("for", "rb-slider-" + b.key);
+          var input = document.createElement("input");
+          input.type = "range";
+          input.min = "5";
+          input.max = "85";
+          input.value = String(b.value);
+          input.id = "rb-slider-" + b.key;
+          var readout = document.createElement("span");
+          readout.className = "rb-readout";
+          readout.textContent = b.value + "%";
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(readout);
+          sliderContainer.appendChild(row);
+          sliderEls[b.key] = { input: input, readout: readout };
+        });
+        wrap.appendChild(sliderContainer);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "rb-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 560;
+        canvas.height = 260;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "560px";
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        var summary = document.createElement("p");
+        summary.className = "rb-summary";
+        canvasWrap.appendChild(summary);
+        var warning = document.createElement("p");
+        warning.className = "rb-warning";
+        canvasWrap.appendChild(warning);
+        wrap.appendChild(canvasWrap);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function normalizeFrom(changedKey) {
+          var total = bets.reduce(function (s, b) { return s + b.value; }, 0);
+          if (total === 100) return;
+          var others = bets.filter(function (b) { return b.key !== changedKey; });
+          var othersTotal = others.reduce(function (s, b) { return s + b.value; }, 0);
+          var remaining = 100 - bets.filter(function (b) { return b.key === changedKey; })[0].value;
+          if (othersTotal <= 0) {
+            others.forEach(function (b) { b.value = remaining / others.length; });
+          } else {
+            others.forEach(function (b) { b.value = Math.max(1, (b.value / othersTotal) * remaining); });
+          }
+        }
+
+        function refreshSliderUI() {
+          bets.forEach(function (b) {
+            var rounded = Math.round(b.value);
+            sliderEls[b.key].input.value = String(rounded);
+            sliderEls[b.key].readout.textContent = rounded + "%";
+          });
+        }
+
+        function portfolioStats() {
+          var risk = 0, reward = 0, years = 0;
+          bets.forEach(function (b) {
+            var w = b.value / 100;
+            risk += w * b.risk;
+            reward += w * b.reward;
+            years += w * b.years;
+          });
+          return { risk: risk, reward: reward, years: years };
+        }
+
+        function draw() {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+
+          var marginL = 45, marginR = 20, marginT = 20, marginB = 35;
+          var plotW = w - marginL - marginR;
+          var plotH = h - marginT - marginB;
+
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginL, marginT);
+          ctx2d.lineTo(marginL, h - marginB);
+          ctx2d.lineTo(w - marginR, h - marginB);
+          ctx2d.stroke();
+
+          ctx2d.fillStyle = "#6b7390";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.fillText("risk →", marginL + plotW / 2 - 15, h - 8);
+          ctx2d.save();
+          ctx2d.translate(14, marginT + plotH / 2 + 20);
+          ctx2d.rotate(-Math.PI / 2);
+          ctx2d.fillText("reward →", 0, 0);
+          ctx2d.restore();
+
+          function pointFor(risk, reward) {
+            var x = marginL + (risk / 100) * plotW;
+            var y = marginT + (1 - reward / 100) * plotH;
+            return { x: x, y: y };
+          }
+
+          // individual bet reference dots
+          bets.forEach(function (b) {
+            var p = pointFor(b.risk, b.reward);
+            ctx2d.fillStyle = "#b7c0d8";
+            ctx2d.beginPath();
+            ctx2d.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            ctx2d.fill();
+            ctx2d.fillStyle = "#6b7390";
+            ctx2d.font = "10px sans-serif";
+            ctx2d.fillText(b.label, p.x + 8, p.y + 3);
+          });
+
+          var stats = portfolioStats();
+          var pp = pointFor(stats.risk, stats.reward);
+          ctx2d.fillStyle = "#2952e3";
+          ctx2d.beginPath();
+          ctx2d.arc(pp.x, pp.y, 9, 0, Math.PI * 2);
+          ctx2d.fill();
+          ctx2d.strokeStyle = "#1c3aa9";
+          ctx2d.lineWidth = 2;
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#1a2033";
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.fillText("your portfolio", pp.x + 12, pp.y - 8);
+
+          summary.textContent = "Portfolio risk: " + Math.round(stats.risk) +
+            " / 100  |  expected reward: " + Math.round(stats.reward) +
+            " / 100  |  expected timeline to payoff: " + stats.years.toFixed(1) + " years";
+
+          var maxWeight = Math.max.apply(null, bets.map(function (b) { return b.value; }));
+          var concentrated = bets.filter(function (b) { return b.value === maxWeight; })[0];
+          if (maxWeight > 55) {
+            warning.classList.add("show");
+            warning.textContent = "Heavily concentrated portfolio: over half your effort is in \"" +
+              concentrated.label + "\". A single-bet portfolio at this level of generality is a high-variance strategy — " +
+              "if that direction stalls, the whole portfolio's expected payoff stalls with it.";
+          } else {
+            warning.classList.remove("show");
+          }
+        }
+
+        bets.forEach(function (b) {
+          sliderEls[b.key].input.addEventListener("input", function () {
+            b.value = parseInt(sliderEls[b.key].input.value, 10);
+            normalizeFrom(b.key);
+            refreshSliderUI();
+            draw();
+          });
+        });
+
+        refreshSliderUI();
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why do researchers rely on proxy measures (like economically valuable task coverage or sample efficiency) instead of a direct 'AGI test'?",
+          options: [
+            "Because AGI has already been formally achieved and measured",
+            "Because there is no consensus technical definition of AGI itself, so the field substitutes measurable stand-ins",
+            "Because proxies are required by government regulation",
+            "Because direct tests are illegal to run"
+          ],
+          answer: 1,
+          explanation: "Without an agreed-upon technical definition of AGI, the field falls back on proxies like task breadth or sample efficiency, each of which is an imperfect stand-in for genuine generality."
+        },
+        {
+          q: "What is the key difference between 'fast takeoff' and 'slow takeoff' scenarios in the superintelligence debate?",
+          options: [
+            "Fast takeoff refers to faster internet speeds, slow takeoff to slower ones",
+            "They describe how quickly capability could move from human-level to far-superhuman, with different implications for how much time there is to course-correct safety measures",
+            "They are two names for the same scenario",
+            "They refer only to hardware manufacturing speed"
+          ],
+          answer: 1,
+          explanation: "Takeoff-speed scenarios describe the pace of capability gain past human level; a faster takeoff implies much less time for oversight and correction than a slower one, changing which safety strategies are viable."
+        },
+        {
+          q: "In the portfolio allocator exercise, why does concentrating over half the effort budget in one direction trigger a concentration warning?",
+          options: [
+            "Because the tool has a bug",
+            "Because a single-bet-dominant portfolio is high-variance: if that one direction stalls, the whole portfolio's expected payoff stalls with it",
+            "Because all directions must always be funded equally",
+            "Because concentration always increases risk to exactly zero"
+          ],
+          answer: 1,
+          explanation: "Portfolio thinking under uncertainty generally favors diversification; over-concentrating in one bet means the whole strategy's success now hinges on that single direction panning out."
+        },
+        {
+          q: "Why is model welfare described as a 'contested' research question rather than a settled one in 2026 discourse?",
+          options: [
+            "It has been definitively proven false",
+            "It raises genuinely open, actively debated questions about whether advanced models could warrant moral consideration, without field-wide consensus",
+            "It is a purely legal matter with no research content",
+            "It was resolved by a single benchmark score"
+          ],
+          answer: 1,
+          explanation: "Model welfare has moved from a fringe topic into mainstream discourse, but whether and how it applies remains genuinely disputed among researchers."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Augmentation and Class Imbalance Handling — AI Maturity Course</title>
+<meta name="description" content="Why raw accuracy is misleading on imbalanced datasets, and how augmentation, oversampling, and class weighting address it.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-9";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Data Augmentation and Class Imbalance Handling</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why a classifier trained on a heavily imbalanced
+      dataset (e.g. 90% one class, 10% the other) can look highly accurate while almost completely
+      failing to detect the rare class, and describe how oversampling, data augmentation, and class
+      weighting each address that problem differently.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Real-world datasets are often <strong>imbalanced</strong> — one class (say, "not fraud" or
+          "healthy") vastly outnumbers another (say, "fraud" or "disease"). A model can reach very
+          high accuracy just by mostly predicting the common class, while being nearly useless at the
+          thing you actually cared about detecting. <strong>Data augmentation</strong> — creating
+          realistic modified copies of existing training examples — and other rebalancing techniques
+          exist to fix this without needing to collect an unrealistic amount of new labeled data for
+          the rare class.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why class imbalance breaks naive accuracy as a metric, and why recall on the minority
+          class is often what actually matters</li>
+        <li><strong>Data augmentation</strong>: generating new, realistic training variations from
+          existing examples — image flips/crops/rotations/color jitter, text paraphrasing or synonym
+          swaps, audio pitch/speed shifts — to increase effective data diversity without new labels</li>
+        <li><strong>Oversampling</strong> the minority class (duplicating it, or augmenting it into
+          new variations) vs. <strong>undersampling</strong> the majority class (throwing some of it
+          away) — and why naive duplication risks overfitting to the exact duplicated examples</li>
+        <li><strong>Class weighting</strong>: penalizing mistakes on the minority class more heavily
+          in the loss function, as an alternative that changes training instead of the dataset itself</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Rebalance an imbalanced dataset and watch minority recall respond",
+      instructions:
+        "This toy dataset starts at 900 majority-class examples vs. 100 minority-class examples " +
+        "(a 9:1 imbalance). Drag the oversampling slider and toggle augmentation — watch the live " +
+        "class-distribution bar chart rebalance and a simulated minority-class recall (and overall " +
+        "accuracy) update based on illustrative heuristics.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        var MAJORITY = 900;
+
+        var wrap = document.createElement("div");
+
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "oversample-slider");
+        label.textContent = "Target minority share (oversampling)";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "10";
+        slider.max = "50";
+        slider.value = "10";
+        slider.id = "oversample-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "10%";
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(readout);
+        wrap.appendChild(row);
+
+        var checkRow = document.createElement("div");
+        checkRow.style.margin = "0.5rem 0 1rem 0";
+        var checkLabel = document.createElement("label");
+        checkLabel.style.display = "flex";
+        checkLabel.style.alignItems = "center";
+        checkLabel.style.gap = "0.5rem";
+        checkLabel.style.fontWeight = "600";
+        checkLabel.style.cursor = "pointer";
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "aug-checkbox";
+        checkLabel.setAttribute("for", "aug-checkbox");
+        checkLabel.appendChild(checkbox);
+        checkLabel.appendChild(document.createTextNode("Apply data augmentation to the added minority examples (not just plain duplicates)"));
+        checkRow.appendChild(checkLabel);
+        wrap.appendChild(checkRow);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 420;
+        canvas.height = 220;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "420px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var statsP = document.createElement("p");
+        statsP.setAttribute("role", "status");
+        statsP.style.marginTop = "0.75rem";
+        statsP.style.fontFamily = "var(--font-mono)";
+        statsP.style.lineHeight = "1.9";
+        wrap.appendChild(statsP);
+
+        var verdictP = document.createElement("p");
+        verdictP.style.fontWeight = "700";
+        wrap.appendChild(verdictP);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function update() {
+          var pct = parseInt(slider.value, 10);
+          readout.textContent = pct + "%";
+          var r = pct / 100;
+          var augOn = checkbox.checked;
+
+          var minorityCount = Math.round(MAJORITY * (r / (1 - r)));
+
+          var oversamplingGain = ((r - 0.10) / 0.40) * 0.45;
+          var augGain = augOn ? (0.05 + ((r - 0.10) / 0.40) * 0.10) : 0;
+          var recall = Math.min(0.97, Math.max(0, 0.20 + oversamplingGain + augGain));
+
+          var accuracyLoss = ((r - 0.10) / 0.40) * (augOn ? 0.15 : 0.25);
+          var accuracy = Math.min(0.95, Math.max(0.5, 0.91 - accuracyLoss));
+
+          // ---- draw bar chart ----
+          ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+          var padL = 50, padB = 30, padT = 16;
+          var chartH = canvas.height - padT - padB;
+          var maxCount = MAJORITY; // majority is always the tallest reference bar
+          var barW = 100;
+
+          function barHeight(count) { return (count / maxCount) * chartH; }
+
+          // majority bar
+          var majH = barHeight(MAJORITY);
+          ctx2d.fillStyle = "#2952e3";
+          ctx2d.fillRect(padL, padT + chartH - majH, barW, majH);
+          ctx2d.fillStyle = "var(--color-text)";
+          ctx2d.font = "12px sans-serif";
+          ctx2d.textAlign = "center";
+          ctx2d.fillText("Majority: " + MAJORITY, padL + barW / 2, padT + chartH - majH - 8);
+          ctx2d.fillText("class A", padL + barW / 2, padT + chartH + 16);
+
+          // minority bar
+          var minH = barHeight(Math.min(minorityCount, maxCount));
+          var minX = padL + barW + 60;
+          ctx2d.fillStyle = "#0f9d78";
+          ctx2d.fillRect(minX, padT + chartH - minH, barW, minH);
+          ctx2d.fillStyle = "var(--color-text)";
+          ctx2d.fillText("Minority: " + minorityCount, minX + barW / 2, padT + chartH - minH - 8);
+          ctx2d.fillText("class B", minX + barW / 2, padT + chartH + 16);
+
+          statsP.innerHTML =
+            "Effective dataset: <strong>" + MAJORITY + "</strong> class A vs. <strong>" + minorityCount + "</strong> class B " +
+            "(" + (100 - Math.round(minorityCount / (minorityCount + MAJORITY) * 100)) + "/" +
+            Math.round(minorityCount / (minorityCount + MAJORITY) * 100) + " split)<br>" +
+            "Simulated minority-class recall: <strong>" + (recall * 100).toFixed(0) + "%</strong><br>" +
+            "Simulated overall accuracy: <strong>" + (accuracy * 100).toFixed(0) + "%</strong>";
+
+          if (pct === 10 && !augOn) {
+            verdictP.textContent = "Baseline 9:1 imbalance: high overall accuracy, but the model barely detects class B at all.";
+            verdictP.style.color = "#b3261e";
+          } else if (recall >= 0.75) {
+            verdictP.textContent = "Much better minority recall" + (augOn ? ", with a smaller accuracy cost thanks to augmentation adding real variation instead of exact duplicates." : ", though overall accuracy is dropping as the model shifts attention toward class B.");
+            verdictP.style.color = "#0f7a4a";
+          } else {
+            verdictP.textContent = "Recall is improving as the classes rebalance, but there's more headroom" + (augOn ? "." : " — try enabling augmentation to raise recall further without paying as much accuracy.");
+            verdictP.style.color = "var(--color-text)";
+          }
+        }
+
+        slider.addEventListener("input", update);
+        checkbox.addEventListener("change", update);
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A dataset is 95% \"not fraud\" and 5% \"fraud.\" A model that always predicts \"not fraud\" reaches 95% accuracy. Why is that accuracy figure misleading?",
+          options: [
+            "It isn't misleading — 95% accuracy always means a good model",
+            "The model catches 0% of actual fraud cases despite the high accuracy number, because it never predicts the minority class at all",
+            "Accuracy can never be computed on imbalanced datasets",
+            "95% accuracy is mathematically impossible on imbalanced data"
+          ],
+          answer: 1,
+          explanation: "On an imbalanced dataset, a model can score very high accuracy purely by favoring the majority class, while its recall on the class you actually care about (often the rare one) is zero."
+        },
+        {
+          q: "What is data augmentation?",
+          options: [
+            "Manually re-labeling incorrect examples in the dataset",
+            "Creating new, realistic variations of existing training examples (e.g. flipped/cropped images, paraphrased text) to increase effective data diversity without collecting new labels",
+            "Deleting examples from the majority class",
+            "Increasing the learning rate during training"
+          ],
+          answer: 1,
+          explanation: "Augmentation manufactures plausible variations of data you already have, giving the model more diversity to learn from without the cost of labeling entirely new examples."
+        },
+        {
+          q: "What's a key risk of oversampling the minority class purely by duplicating existing examples, rather than using augmentation?",
+          options: [
+            "It automatically deletes majority-class data",
+            "It can lead the model to overfit to those exact duplicated examples, since no new information was actually added",
+            "It always improves accuracy with no tradeoffs",
+            "It makes the dataset smaller"
+          ],
+          answer: 1,
+          explanation: "Plain duplication repeats the same exact points, so the model can effectively 'memorize' them rather than learning a generalizable pattern for that class — augmentation instead introduces real variation."
+        },
+        {
+          q: "Besides changing the dataset (oversampling, undersampling, augmentation), what's another common way to handle class imbalance?",
+          options: [
+            "Class weighting: penalize misclassifying the minority class more heavily in the loss function, without changing the dataset itself",
+            "Ignoring the minority class entirely",
+            "Always training for exactly one epoch",
+            "Converting the classification problem into a regression problem"
+          ],
+          answer: 0,
+          explanation: "Class weighting adjusts the loss function so that mistakes on the rare class cost more during training, pushing the model to pay attention to it even without resampling the data."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

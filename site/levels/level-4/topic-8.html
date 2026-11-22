@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transfer Learning — AI Maturity Course</title>
+<meta name="description" content="Reusing a model pretrained on a large general dataset as the starting point for a new, related task.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-8";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Transfer Learning</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why a model pretrained on general images can be
+      adapted to a narrow task (e.g. classifying a specific product type) with much less data than
+      training from scratch, and describe the tradeoff between freezing vs. fine-tuning layers.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Transfer learning</strong> means reusing a model that's already been trained on a
+          large, general dataset as the starting point for a new, related task — instead of training
+          a new model from scratch. The early layers of a pretrained network tend to have learned
+          general-purpose features (edges, textures, common word patterns); the later layers tend to
+          be more specific to the original task. Transfer learning reuses the general part and adapts
+          the specific part.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Why training large models from scratch is expensive and often unnecessary</li>
+        <li><strong>Freezing</strong> early layers (keep their general features fixed) vs.
+          <strong>fine-tuning</strong> later layers (adapt task-specific features)</li>
+        <li>Feature extraction vs. full fine-tuning as two ends of a spectrum</li>
+        <li>When transfer learning works well vs. when the source and target domains are too
+          different for it to help</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Freeze or fine-tune each layer",
+      instructions:
+        "This 5-layer pretrained network is being adapted to a new, narrow task with a small labeled " +
+        "dataset. Click any layer to toggle it between Frozen (locked, keeps its pretrained weights) " +
+        "and Fine-tune (unlocked, weights get updated). Watch the estimated data needed, compute " +
+        "cost, and accuracy update live, based on simplified illustrative heuristics.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        // layer 1 = earliest/most general ... layer 5 = latest/most task-specific
+        var layers = [
+          { name: "Layer 1 (edges/textures)", depthWeight: 5, frozen: true },
+          { name: "Layer 2 (shapes)", depthWeight: 4, frozen: true },
+          { name: "Layer 3 (parts)", depthWeight: 3, frozen: true },
+          { name: "Layer 4 (objects)", depthWeight: 2, frozen: false },
+          { name: "Layer 5 (task head)", depthWeight: 1, frozen: false }
+        ];
+
+        var wrap = document.createElement("div");
+
+        var diagramWrap = document.createElement("div");
+        diagramWrap.style.display = "flex";
+        diagramWrap.style.gap = "0.6rem";
+        diagramWrap.style.flexWrap = "wrap";
+        diagramWrap.style.marginBottom = "1rem";
+        wrap.appendChild(diagramWrap);
+
+        var flow = document.createElement("p");
+        flow.style.fontSize = "var(--font-size-sm)";
+        flow.style.color = "var(--color-text-muted)";
+        flow.textContent = "Input → Layer 1 → Layer 2 → Layer 3 → Layer 4 → Layer 5 → Output. Click a box to toggle it.";
+        wrap.appendChild(flow);
+
+        var statsBox = document.createElement("div");
+        statsBox.style.background = "var(--color-bg)";
+        statsBox.style.border = "1px solid var(--color-border)";
+        statsBox.style.borderRadius = "10px";
+        statsBox.style.padding = "1rem 1.25rem";
+        statsBox.style.marginTop = "0.5rem";
+        wrap.appendChild(statsBox);
+
+        var noteP = document.createElement("p");
+        noteP.style.fontSize = "var(--font-size-sm)";
+        noteP.style.color = "var(--color-text-faint)";
+        noteP.style.marginTop = "0.75rem";
+        noteP.innerHTML = "<em>These numbers are simplified illustrative estimates for teaching the " +
+          "tradeoff, not a real training run.</em>";
+        wrap.appendChild(noteP);
+
+        root.appendChild(wrap);
+
+        var boxEls = [];
+
+        function renderLayers() {
+          diagramWrap.innerHTML = "";
+          boxEls = [];
+          layers.forEach(function (layer, i) {
+            var box = document.createElement("button");
+            box.type = "button";
+            box.style.flex = "1 1 90px";
+            box.style.padding = "0.9rem 0.4rem";
+            box.style.borderRadius = "8px";
+            box.style.fontSize = "var(--font-size-sm)";
+            box.style.fontWeight = "700";
+            box.style.cursor = "pointer";
+            box.style.textAlign = "center";
+            box.setAttribute("aria-pressed", String(!layer.frozen));
+            updateBoxStyle(box, layer);
+            box.addEventListener("click", function () {
+              layer.frozen = !layer.frozen;
+              updateBoxStyle(box, layer);
+              updateStats();
+            });
+            diagramWrap.appendChild(box);
+            boxEls.push(box);
+          });
+        }
+
+        function updateBoxStyle(box, layer) {
+          box.innerHTML = layer.name + "<br>" + (layer.frozen ? "&#128274; Frozen" : "&#128275; Fine-tune");
+          if (layer.frozen) {
+            box.style.background = "var(--color-bg-inset)";
+            box.style.border = "2px solid var(--color-border-strong)";
+            box.style.color = "var(--color-text-muted)";
+          } else {
+            box.style.background = "var(--color-primary-light)";
+            box.style.border = "2px solid var(--color-primary)";
+            box.style.color = "var(--color-primary-dark)";
+          }
+        }
+
+        function updateStats() {
+          var unfrozen = layers.filter(function (l) { return !l.frozen; });
+          var n = unfrozen.length;
+          // Layers 1-3 are the general-purpose ("early") features; layers 4-5 are the
+          // task-specific ("late") ones. With only a small (~500-example) dataset,
+          // unfreezing early layers should cost more accuracy than it can possibly
+          // gain (overfitting / catastrophic forgetting of general features), while
+          // unfreezing later, task-specific layers should still help.
+          var earlyUnfrozen = layers.slice(0, 3).filter(function (l) { return !l.frozen; }).length;
+          var lateUnfrozen = layers.slice(3, 5).filter(function (l) { return !l.frozen; }).length;
+          var dataWeightSum = unfrozen.reduce(function (s, l) { return s + l.depthWeight; }, 0);
+
+          var dataNeededK = (0.5 + dataWeightSum * 0.4);
+          var computeUnits = (1 + n * 0.6);
+          var acc = 0.65 + 0.06 * lateUnfrozen - 0.07 * earlyUnfrozen;
+          acc = Math.max(0.40, Math.min(0.93, acc));
+
+          statsBox.innerHTML =
+            "<p style='margin:0 0 0.4rem 0;'><strong>Layers set to fine-tune:</strong> " + n + " of 5</p>" +
+            "<p style='margin:0 0 0.4rem 0;'><strong>Estimated labeled data needed:</strong> ~" + dataNeededK.toFixed(1) + "k examples</p>" +
+            "<p style='margin:0 0 0.4rem 0;'><strong>Estimated relative compute cost:</strong> " + computeUnits.toFixed(1) + "&times; (vs. 1.0&times; for training only a new head)</p>" +
+            "<p style='margin:0;'><strong>Estimated accuracy with a small (~500-example) dataset:</strong> " + (acc * 100).toFixed(0) + "%</p>";
+        }
+
+        renderLayers();
+        updateStats();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why can a model pretrained on a large general image dataset be adapted to a narrow new task with much less data than training from scratch?",
+          options: [
+            "Because pretrained models are always smaller than models trained from scratch",
+            "Because it already learned general-purpose features (edges, shapes, textures) that are reusable, so only the task-specific part needs to be learned from the new, smaller dataset",
+            "Because transfer learning removes the need for any labeled data at all",
+            "Because pretrained models automatically adjust their own architecture"
+          ],
+          answer: 1,
+          explanation: "The expensive part — learning broadly useful low-level features — was already done on a huge dataset. The new task only needs to adapt or learn the more specific, later part of the network."
+        },
+        {
+          q: "What does 'freezing' a layer mean during transfer learning?",
+          options: [
+            "Deleting that layer from the network",
+            "Keeping that layer's pretrained weights fixed so they don't change during training on the new task",
+            "Doubling that layer's learning rate",
+            "Copying that layer's weights to every other layer"
+          ],
+          answer: 1,
+          explanation: "A frozen layer's weights stay exactly as they were from pretraining — it still processes data during the forward pass, but gradients don't update it during training."
+        },
+        {
+          q: "In the exercise's heuristic, why does unfreezing early layers (vs. only later layers) tend to hurt accuracy when the new dataset is small?",
+          options: [
+            "Early layers have no effect on the output at all",
+            "Early layers hold general-purpose features; disturbing them with too little data risks overfitting or destroying useful general features (sometimes called catastrophic forgetting)",
+            "Early layers are always frozen no matter what, so this can never actually happen",
+            "Because early layers require negative compute"
+          ],
+          answer: 1,
+          explanation: "With only a small labeled dataset, retraining the general early layers risks overwriting broadly useful features with noise fit to the small new dataset, hurting generalization."
+        },
+        {
+          q: "When does transfer learning tend to work poorly?",
+          options: [
+            "When the new task is closely related to the original pretraining data",
+            "When the source domain the model was pretrained on and the target domain are too different for the learned features to transfer usefully",
+            "Whenever a GPU is available",
+            "Only when using PyTorch specifically"
+          ],
+          answer: 1,
+          explanation: "Transfer learning relies on shared structure between the source and target domains. If they're too dissimilar, the pretrained features may not be relevant, and training from scratch (or finding a more relevant pretrained model) can work better."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

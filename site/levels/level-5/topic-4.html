@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embeddings and Vector Search — AI Maturity Course</title>
+<meta name="description" content="How embeddings place similar meanings near each other in vector space, enabling semantic search beyond exact keyword match.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-4";
+</script>
+<style>
+  .emb-legend-row { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--font-size-sm); color: var(--color-text-muted); margin: var(--space-2) 0; }
+  .emb-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .emb-results { margin-top: var(--space-3); display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 640px) { .emb-results { grid-template-columns: 1fr; } }
+  .emb-results-box { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg-alt); }
+  .emb-results-box h4 { margin: 0 0 6px 0; }
+  .emb-results-box ul { margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Embeddings and Vector Search</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why two differently-worded sentences with the same meaning end up
+      near each other in embedding space, and manually compute/compare similarity between simple toy vectors.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Embeddings</strong> turn words, sentences, or documents into lists of numbers (vectors) positioned
+          so that similar meanings end up close together in that number-space, enabling "search by meaning" instead
+          of exact keyword match. Two phrases can share zero words in common and still land near each other in
+          embedding space if they mean similar things.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>What a vector embedding represents geometrically (distance = similarity)</li>
+        <li>Cosine similarity / dot product as a similarity measure</li>
+        <li>Vector databases/indexes at a conceptual level (why brute-force search doesn't scale)</li>
+        <li>Semantic search vs. keyword search</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "2D embedding scatter playground",
+      instructions:
+        "Preset phrases are plotted using toy 2D embeddings, grouped by meaning. Type a query (try a phrase that " +
+        "shares NO exact words with any preset phrase, like \"the famished feline meowed\") and click Place Query " +
+        "to see it positioned by meaning, with lines to its nearest semantic neighbors — contrasted against a " +
+        "literal keyword-match baseline below.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        // Toy word -> 2D embedding lexicon. Synonyms deliberately share coordinates with
+        // their cluster so semantic search can succeed even with zero literal word overlap.
+        var WORD_VECTORS = {
+          dog: [120, 100], hound: [120, 100], puppy: [110, 90], bark: [100, 80], barked: [100, 80],
+          cat: [150, 130], kitten: [150, 130], kitty: [150, 130], feline: [150, 130], meow: [160, 140], meowed: [160, 140],
+          rain: [400, 100], downpour: [400, 100], storm: [430, 90], umbrella: [420, 120], cloudy: [410, 130], wet: [405, 110],
+          pizza: [120, 330], cheese: [110, 310], cheesy: [115, 320], hungry: [140, 340], famished: [140, 340], ate: [130, 335], food: [125, 325],
+          code: [430, 320], software: [420, 340], app: [450, 355], laptop: [410, 350], computer: [400, 330], programmer: [440, 310],
+          soccer: [250, 220], team: [260, 235], teammate: [265, 225], score: [270, 245], scored: [270, 245], goal: [255, 250], player: [230, 210]
+        };
+
+        var PHRASES = [
+          "The dog barked loudly",
+          "My kitten chased a ball of yarn",
+          "It started to rain heavily",
+          "She carried an umbrella just in case",
+          "I ordered a cheesy pizza",
+          "I was so hungry I ate two slices",
+          "He wrote code for the new app",
+          "My laptop needs new software",
+          "The soccer team scored a goal",
+          "The player passed to his teammate"
+        ];
+
+        function embed(text) {
+          var words = text.toLowerCase().split(/\s+/).map(function (w) { return w.replace(/[^\w]/g, ""); });
+          var vecs = words.map(function (w) { return WORD_VECTORS[w]; }).filter(Boolean);
+          if (vecs.length === 0) return [300, 220]; // unknown -> falls in the empty middle
+          var sx = 0, sy = 0;
+          vecs.forEach(function (v) { sx += v[0]; sy += v[1]; });
+          return [sx / vecs.length, sy / vecs.length];
+        }
+
+        function dist(a, b) {
+          return Math.sqrt(Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2));
+        }
+
+        var presetPoints = PHRASES.map(function (p) { return { text: p, pos: embed(p) }; });
+
+        var wrap = document.createElement("div");
+
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "emb-query");
+        label.textContent = "Query";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.id = "emb-query";
+        input.value = "the famished feline meowed";
+        input.style.flex = "1";
+        input.style.minWidth = "220px";
+        input.style.padding = "6px 8px";
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-primary";
+        btn.textContent = "Place Query";
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(btn);
+        wrap.appendChild(row);
+
+        var legendRow = document.createElement("div");
+        legendRow.className = "emb-legend-row";
+        legendRow.innerHTML =
+          "<span><span class='emb-swatch' style='background:#2952e3;'></span>preset phrase</span>" +
+          "<span><span class='emb-swatch' style='background:#0f9d78;'></span>semantic nearest neighbor</span>" +
+          "<span><span class='emb-swatch' style='background:#e08a00; border-radius:0;'></span>keyword-match baseline (orange ring)</span>" +
+          "<span><span class='emb-swatch' style='background:#b3261e;'></span>your query</span>";
+        wrap.appendChild(legendRow);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 520;
+        canvas.height = 420;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "520px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var resultsBox = document.createElement("div");
+        resultsBox.className = "emb-results";
+        var semBox = document.createElement("div");
+        semBox.className = "emb-results-box";
+        var kwBox = document.createElement("div");
+        kwBox.className = "emb-results-box";
+        resultsBox.appendChild(semBox);
+        resultsBox.appendChild(kwBox);
+        wrap.appendChild(resultsBox);
+
+        root.appendChild(wrap);
+        var cvsCtx = canvas.getContext("2d");
+
+        function drawPoint(pos, color, label2, radius) {
+          cvsCtx.fillStyle = color;
+          cvsCtx.beginPath();
+          cvsCtx.arc(pos[0], pos[1], radius || 6, 0, Math.PI * 2);
+          cvsCtx.fill();
+          if (label2) {
+            cvsCtx.fillStyle = "#1a2033";
+            cvsCtx.font = "10px sans-serif";
+            cvsCtx.textAlign = "left";
+            cvsCtx.fillText(label2, pos[0] + 8, pos[1] + 3);
+          }
+        }
+
+        function render() {
+          var queryText = input.value.trim() || "the famished feline meowed";
+          var qPos = embed(queryText);
+          var queryWords = queryText.toLowerCase().split(/\s+/).map(function (w) { return w.replace(/[^\w]/g, ""); });
+
+          var ranked = presetPoints
+            .map(function (p) { return { text: p.text, pos: p.pos, d: dist(qPos, p.pos) }; })
+            .sort(function (a, b) { return a.d - b.d; });
+          var topSemantic = ranked.slice(0, 3);
+
+          var keywordMatches = presetPoints.filter(function (p) {
+            var pWords = p.text.toLowerCase().split(/\s+/).map(function (w) { return w.replace(/[^\w]/g, ""); });
+            return queryWords.some(function (qw) { return qw.length > 2 && pWords.indexOf(qw) !== -1; });
+          });
+
+          cvsCtx.clearRect(0, 0, canvas.width, canvas.height);
+          cvsCtx.strokeStyle = "#e5e8f4";
+          cvsCtx.lineWidth = 1;
+          cvsCtx.strokeRect(0, 0, canvas.width, canvas.height);
+
+          // nearest-neighbor lines first (under the dots)
+          topSemantic.forEach(function (n) {
+            cvsCtx.strokeStyle = "#0f9d78";
+            cvsCtx.lineWidth = 2;
+            cvsCtx.beginPath();
+            cvsCtx.moveTo(qPos[0], qPos[1]);
+            cvsCtx.lineTo(n.pos[0], n.pos[1]);
+            cvsCtx.stroke();
+          });
+
+          presetPoints.forEach(function (p, i) {
+            var isTop = topSemantic.indexOf(topSemantic.filter(function (t) { return t.text === p.text; })[0]) !== -1 &&
+              topSemantic.some(function (t) { return t.text === p.text; });
+            var isKw = keywordMatches.indexOf(p) !== -1;
+            drawPoint(p.pos, isTop ? "#0f9d78" : "#2952e3", "P" + (i + 1), 6);
+            if (isKw) {
+              cvsCtx.strokeStyle = "#e08a00";
+              cvsCtx.lineWidth = 2.5;
+              cvsCtx.beginPath();
+              cvsCtx.arc(p.pos[0], p.pos[1], 10, 0, Math.PI * 2);
+              cvsCtx.stroke();
+            }
+          });
+
+          drawPoint(qPos, "#b3261e", "query", 8);
+
+          semBox.innerHTML = "<h4>Semantic nearest neighbors (embedding distance)</h4><ul>" +
+            topSemantic.map(function (n) { return "<li>" + n.text + " — distance " + n.d.toFixed(1) + "</li>"; }).join("") +
+            "</ul>";
+          kwBox.innerHTML = "<h4>Keyword-match baseline (literal word overlap)</h4>" +
+            (keywordMatches.length
+              ? "<ul>" + keywordMatches.map(function (m) { return "<li>" + m.text + "</li>"; }).join("") + "</ul>"
+              : "<p style='margin:0; color:var(--color-text-muted);'>No literal word overlap found — a pure keyword search would return nothing, even though the meaning clearly matches something above.</p>");
+        }
+
+        btn.addEventListener("click", render);
+        input.addEventListener("keydown", function (e) { if (e.key === "Enter") render(); });
+
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In embedding space, what does it mean for two points to be close together?",
+          options: ["The underlying text is the same length", "The underlying meanings are similar, according to the model that produced the embeddings", "They were entered by the same user", "They must share every word"],
+          answer: 1,
+          explanation: "Embeddings are positioned so that geometric closeness (small distance) corresponds to similarity in meaning, not surface text overlap."
+        },
+        {
+          q: "In the exercise, the query 'the famished feline meowed' shares zero literal words with any preset phrase, yet it lands near the cat/food phrases. Why?",
+          options: [
+            "It's a coincidence",
+            "Its words ('famished', 'feline', 'meowed') are synonyms mapped to the same region of embedding space as 'hungry', 'cat', and 'meow'",
+            "The canvas randomly places unmatched queries",
+            "Keyword search found the match first"
+          ],
+          answer: 1,
+          explanation: "The toy embedding lexicon maps synonyms to the same coordinates as their related concept words, which is exactly what a real embedding model learns from data — semantically related words end up nearby even without literal overlap."
+        },
+        {
+          q: "Why doesn't a real-world semantic search system typically compare a query against every single stored vector with brute force?",
+          options: [
+            "Brute-force comparison doesn't scale to millions/billions of vectors, so approximate vector indexes are used instead",
+            "Brute force is illegal",
+            "Vectors can't be compared mathematically",
+            "It's actually always the best approach at any scale"
+          ],
+          answer: 0,
+          explanation: "Comparing a query to every vector is O(n) per query; at large scale this becomes too slow, so specialized vector indexes (e.g. approximate nearest-neighbor structures) trade a little accuracy for large speed gains."
+        },
+        {
+          q: "What is a key limitation of pure keyword search that semantic (embedding) search addresses?",
+          options: [
+            "Keyword search is always faster",
+            "Keyword search can miss relevant results that use different words for the same meaning, while semantic search can still find them",
+            "Keyword search requires more storage than embeddings",
+            "There is no meaningful difference between the two"
+          ],
+          answer: 1,
+          explanation: "Keyword/exact-match search fails when the relevant content uses different wording; embeddings capture meaning, so semantically related content can still be found."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

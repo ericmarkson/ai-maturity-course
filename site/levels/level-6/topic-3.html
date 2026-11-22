@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrieval-Augmented Generation (RAG) — AI Maturity Course</title>
+<meta name="description" content="How grounding an LLM's answer in retrieved documents reduces hallucination and enables up-to-date or private knowledge.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-3";
+</script>
+<style>
+  .rag-input-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .rag-input-row input[type="text"] { flex: 1 1 260px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); }
+  .rag-docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-4); }
+  .rag-doc { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: var(--font-size-sm); }
+  .rag-doc-title { font-weight: 700; margin-bottom: 2px; }
+  .rag-results { margin-bottom: var(--space-4); }
+  .rag-result { background: #fff; border: 1px solid var(--color-border); border-left: 4px solid var(--color-primary); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-2); }
+  .rag-score-bar { height: 8px; background: var(--color-bg-inset); border-radius: 4px; overflow: hidden; margin: var(--space-2) 0; }
+  .rag-score-fill { height: 100%; background: var(--color-primary); }
+  mark { background: #fff2a8; padding: 0 1px; border-radius: 2px; }
+  .rag-answers { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  @media (max-width: 700px) { .rag-answers { grid-template-columns: 1fr; } }
+  .rag-answer-panel { border-radius: var(--radius-md); padding: var(--space-4); }
+  .rag-answer-panel.grounded { background: var(--color-success-bg); }
+  .rag-answer-panel.baseline { background: var(--color-error-bg); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Retrieval-Augmented Generation (RAG)</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can diagram the full RAG pipeline from a raw user question to
+      a grounded answer, and explain one concrete failure mode (e.g., irrelevant chunk retrieved) and its effect
+      on the final answer.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          RAG is a technique where a language model's answer is grounded by first retrieving relevant
+          documents/snippets from an external knowledge source and feeding them into the prompt, rather than
+          relying purely on what the model memorized during training.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The retrieve-then-generate pipeline (query -&gt; embed -&gt; search -&gt; retrieve -&gt; augment prompt -&gt; generate)</li>
+        <li>Why RAG reduces hallucination and enables up-to-date/private knowledge</li>
+        <li>Chunking documents for retrieval</li>
+        <li>Basic evaluation of retrieval quality (are the right documents coming back?)</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var DOCS = [
+      { id: "d1", title: "Pricing", text: "Nimbus Cloud Storage costs $0.02 per gigabyte per month for standard storage, with a free tier of 5 gigabytes." },
+      { id: "d2", title: "Uptime SLA", text: "Nimbus guarantees 99.95 percent uptime, and customers receive service credits automatically if that threshold is missed in a billing month." },
+      { id: "d3", title: "Data Encryption", text: "All files in Nimbus are encrypted at rest using AES-256 and encrypted in transit using TLS 1.3." },
+      { id: "d4", title: "File Size Limits", text: "A single file uploaded to Nimbus can be at most 5 terabytes; larger files must be split before upload." },
+      { id: "d5", title: "Support Hours", text: "Nimbus support is available 24 hours a day for enterprise customers, and business-hours only for the free and standard tiers." },
+      { id: "d6", title: "Regions", text: "Nimbus stores data in six regions: US East, US West, EU Central, EU West, Asia Southeast, and Asia Northeast." },
+      { id: "d7", title: "Deletion Policy", text: "Deleted files remain recoverable in the Nimbus trash for 30 days before being permanently erased from all regions." },
+      { id: "d8", title: "API Rate Limits", text: "The Nimbus API allows 1000 requests per minute per account, after which requests are throttled with a 429 response." },
+      { id: "d9", title: "Sharing Permissions", text: "Files in Nimbus can be shared as view-only, comment, or edit links, and link expiration can be set from 1 hour to never." },
+      { id: "d10", title: "Backup Frequency", text: "Nimbus automatically snapshots enterprise account data every 6 hours and retains the last 14 snapshots." }
+    ];
+
+    var STOPWORDS = ["the","a","an","is","are","of","to","in","for","and","or","on","at","how","what","does","do","can","i","it","with","be"];
+
+    function tokenize(str) {
+      return str.toLowerCase().match(/[a-z0-9]+/g) || [];
+    }
+
+    function scoreDoc(queryWords, doc) {
+      var docWords = tokenize(doc.title + " " + doc.text);
+      var overlap = queryWords.filter(function (w) { return docWords.indexOf(w) !== -1; });
+      return { score: overlap.length, matched: overlap };
+    }
+
+    function highlight(text, matched) {
+      if (matched.length === 0) return text;
+      var re = new RegExp("\\b(" + matched.map(function (w) {
+        return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }).join("|") + ")\\b", "gi");
+      return text.replace(re, "<mark>$1</mark>");
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Mini RAG simulator",
+      instructions:
+        "Ten toy \"knowledge base\" documents are listed below. Type a question and click \"Ask\" — the app " +
+        "computes a real keyword-overlap relevance score against each document, retrieves the top matches, " +
+        "and compares a grounded (RAG) answer that cites the retrieved chunk against a generic no-RAG baseline.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var docsHeading = document.createElement("h4");
+        docsHeading.textContent = "Knowledge base (10 documents)";
+        wrap.appendChild(docsHeading);
+
+        var docsGrid = document.createElement("div");
+        docsGrid.className = "rag-docs";
+        DOCS.forEach(function (d) {
+          var el = document.createElement("div");
+          el.className = "rag-doc";
+          el.innerHTML = '<div class="rag-doc-title">' + d.title + "</div>" + d.text;
+          docsGrid.appendChild(el);
+        });
+        wrap.appendChild(docsGrid);
+
+        var inputRow = document.createElement("div");
+        inputRow.className = "rag-input-row";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "e.g. How long are deleted files recoverable?";
+        input.value = "How long are deleted files recoverable?";
+        var askBtn = document.createElement("button");
+        askBtn.type = "button";
+        askBtn.className = "btn btn-primary";
+        askBtn.textContent = "Ask";
+        inputRow.appendChild(input);
+        inputRow.appendChild(askBtn);
+        wrap.appendChild(inputRow);
+
+        var resultsHeading = document.createElement("h4");
+        resultsHeading.textContent = "Retrieved chunks (ranked by relevance score)";
+        wrap.appendChild(resultsHeading);
+        var results = document.createElement("div");
+        results.className = "rag-results";
+        wrap.appendChild(results);
+
+        var answers = document.createElement("div");
+        answers.className = "rag-answers";
+        var groundedPanel = document.createElement("div");
+        groundedPanel.className = "rag-answer-panel grounded";
+        var baselinePanel = document.createElement("div");
+        baselinePanel.className = "rag-answer-panel baseline";
+        answers.appendChild(groundedPanel);
+        answers.appendChild(baselinePanel);
+        wrap.appendChild(answers);
+
+        root.appendChild(wrap);
+
+        function run() {
+          var query = input.value.trim();
+          var queryWords = tokenize(query).filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
+
+          var scored = DOCS.map(function (doc) {
+            var r = scoreDoc(queryWords, doc);
+            return { doc: doc, score: r.score, matched: r.matched };
+          }).sort(function (a, b) { return b.score - a.score; });
+
+          var maxScore = scored[0] ? Math.max(scored[0].score, 1) : 1;
+          var top = scored.slice(0, 3);
+
+          results.innerHTML = "";
+          top.forEach(function (r) {
+            var el = document.createElement("div");
+            el.className = "rag-result";
+            var pct = Math.round((r.score / maxScore) * 100);
+            el.innerHTML =
+              '<div class="rag-doc-title">' + r.doc.title + " — relevance score " + r.score + "</div>" +
+              '<div class="rag-score-bar"><div class="rag-score-fill" style="width:' + pct + '%"></div></div>' +
+              "<div>" + highlight(r.doc.text, r.matched) + "</div>";
+            results.appendChild(el);
+          });
+
+          var best = top[0];
+          if (!best || best.score === 0) {
+            groundedPanel.innerHTML = "<h4>RAG answer (grounded)</h4><p>No document in the knowledge base overlaps enough with this question — a well-built RAG system would say it doesn't know rather than guessing.</p>";
+          } else {
+            groundedPanel.innerHTML = "<h4>RAG answer (grounded)</h4><p>Based on <strong>" + best.doc.title + "</strong>: “" + best.doc.text + "”</p>";
+          }
+
+          baselinePanel.innerHTML = "<h4>No-RAG baseline answer</h4><p>I don't have access to this company's specific internal details, but generally, cloud storage providers vary widely on this — you'd need to check their documentation.</p>";
+        }
+
+        askBtn.addEventListener("click", run);
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") run();
+        });
+
+        run();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the correct order of stages in a basic RAG pipeline?",
+          options: [
+            "Generate -> retrieve -> embed -> query",
+            "Query -> embed -> search -> retrieve -> augment prompt -> generate",
+            "Chunk -> generate -> query -> retrieve",
+            "Embed -> generate -> query -> chunk"
+          ],
+          answer: 1,
+          explanation: "A user query is embedded, used to search a knowledge base, the top matches are retrieved, added into the prompt as context, and only then does the model generate its answer."
+        },
+        {
+          q: "Why does RAG typically reduce hallucination compared to relying purely on a model's memorized training data?",
+          options: [
+            "It makes the model larger",
+            "It grounds the answer in retrieved source text the model can quote or paraphrase, instead of only recalling (possibly wrong or outdated) memorized facts",
+            "It disables the model's ability to generate text",
+            "It removes the need for a prompt entirely"
+          ],
+          answer: 1,
+          explanation: "By feeding relevant, verifiable snippets into the prompt, the model has concrete material to ground its answer in rather than relying solely on fuzzy memorized knowledge."
+        },
+        {
+          q: "In the RAG simulator above, what determines which documents are retrieved for a given question?",
+          options: [
+            "A random selection of 3 documents",
+            "A real keyword/word-overlap score computed between the question and each document's text",
+            "Alphabetical order of document titles",
+            "The order the documents were added to the page"
+          ],
+          answer: 1,
+          explanation: "The widget tokenizes the query and each document, counts overlapping meaningful words, and ranks documents by that score — a simplified stand-in for embedding-based similarity search."
+        },
+        {
+          q: "What is one concrete failure mode of RAG, and its effect on the final answer?",
+          options: [
+            "The model becomes too fast",
+            "An irrelevant or low-quality chunk gets retrieved (e.g. due to keyword overlap without real topical relevance), leading the model to produce an answer grounded in the wrong context",
+            "The vector database becomes too accurate",
+            "The prompt becomes too short to process"
+          ],
+          answer: 1,
+          explanation: "If retrieval surfaces an irrelevant chunk, the generation step may confidently build an answer around it anyway — a mismatch between retrieval quality and generation quality is a classic RAG failure mode."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

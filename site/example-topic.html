@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REFERENCE TEMPLATE: The Confidence Dial — AI Maturity Course</title>
+<meta name="description" content="Gold-standard reference topic page for content builders. Not a real curriculum topic — copy this pattern for every real topic page.">
+
+<!--
+  ============================================================================
+  THIS IS A REFERENCE / TEMPLATE PAGE, NOT A REAL LESSON.
+  Content builders: copy the STRUCTURE of this file (head includes, the
+  lesson-content/exercise/quiz/prev-next pattern, and the inline wiring
+  script at the bottom) for every real topic page you build. See
+  site/COMPONENTS.md for the copy-pasteable skeleton and full API docs.
+
+  IMPORTANT PATH DIFFERENCE: this file lives at the SITE ROOT
+  (site/example-topic.html), so its asset paths below are "assets/...".
+  Real topic pages live two folders deep at
+  site/levels/level-N/topic-T.html, so THEIR asset paths must be
+  "../../assets/..." instead. Don't copy the paths literally — copy the
+  pattern and adjust the prefix. COMPONENTS.md spells this out.
+  ============================================================================
+-->
+
+<link rel="stylesheet" href="assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "";
+  // Real topic pages set this to THEIR OWN course-data.js id, e.g. "3-4".
+  // We point it at a real id (1-1) purely so the prev/next nav below has
+  // something real to demonstrate against. This page's quiz/exercise use a
+  // separate, clearly-fake id ("example-topic") so this demo can never
+  // inflate real course progress counts.
+  window.CURRENT_TOPIC_ID = "1-1";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Reference Template — Not a Real Curriculum Topic</p>
+  <h1>The Confidence Dial: How a Decision Threshold Changes a Classifier's Answer</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can explain why moving a decision threshold
+      changes which side of a boundary a fixed confidence score falls on, without the underlying
+      score itself changing.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Many classifiers don't just output "yes" or "no" — they output a confidence score
+          (e.g. "72% likely spam"), and a separate <strong>decision threshold</strong> converts
+          that score into a final label. Raise the threshold and fewer items get labeled
+          positive; lower it and more do — even though no score changed.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Confidence score vs. final label — two different things</li>
+        <li>Why raising the threshold trades fewer false positives for more false negatives</li>
+        <li>Why the "right" threshold depends on which mistake costs more in context</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <section aria-labelledby="complete-heading" class="progress-summary" style="margin-top: var(--space-6);">
+    <div>
+      <h2 id="complete-heading" style="margin-bottom: var(--space-2);">Mark this topic</h2>
+      <p id="complete-status" style="margin: 0;">Status: not complete</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="mark-complete-btn">Mark topic complete</button>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/course-data.js"></script>
+<script src="assets/js/progress.js"></script>
+<script src="assets/js/quiz.js"></script>
+<script src="assets/js/exercise.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+  (function () {
+    var DEMO_TOPIC_ID = "example-topic"; // fake id on purpose — see head comment
+
+    // ---- Exercise: a REAL, functioning slider + canvas widget ----------
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Move the threshold, watch the label flip",
+      instructions:
+        "This item has a fixed confidence score of 72%. Drag the threshold slider and watch " +
+        "the canvas marker, the readout, and the final label update live.",
+      topicId: DEMO_TOPIC_ID,
+      mount: function (root, ctx) {
+        var SCORE = 72; // fixed score for this toy example, 0-100
+
+        var wrap = document.createElement("div");
+
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "threshold-slider");
+        label.textContent = "Decision threshold";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "100";
+        slider.value = "50";
+        slider.id = "threshold-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.id = "threshold-readout";
+        readout.textContent = "50%";
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(readout);
+        wrap.appendChild(row);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 480;
+        canvas.height = 90;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "480px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function draw(threshold) {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+
+          var axisY = h / 2;
+          var marginX = 20;
+          var axisW = w - marginX * 2;
+
+          // axis line
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginX, axisY);
+          ctx2d.lineTo(w - marginX, axisY);
+          ctx2d.stroke();
+
+          // threshold line
+          var threshX = marginX + (threshold / 100) * axisW;
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          ctx2d.moveTo(threshX, axisY - 30);
+          ctx2d.lineTo(threshX, axisY + 30);
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#2952e3";
+          ctx2d.font = "12px sans-serif";
+          ctx2d.textAlign = "center";
+          ctx2d.fillText("threshold", threshX, axisY - 36);
+
+          // score dot
+          var scoreX = marginX + (SCORE / 100) * axisW;
+          var isPositive = SCORE >= threshold;
+          ctx2d.fillStyle = isPositive ? "#0f9d78" : "#b3261e";
+          ctx2d.beginPath();
+          ctx2d.arc(scoreX, axisY, 9, 0, Math.PI * 2);
+          ctx2d.fill();
+          ctx2d.fillStyle = "#1a2033";
+          ctx2d.fillText("score " + SCORE + "%", scoreX, axisY + 28);
+
+          resultText.textContent = isPositive
+            ? "72% ≥ " + threshold + "% → classified POSITIVE (e.g. \"spam\")."
+            : "72% < " + threshold + "% → classified NEGATIVE (e.g. \"not spam\").";
+          resultText.style.color = isPositive ? "#0f7a4a" : "#b3261e";
+        }
+
+        slider.addEventListener("input", function () {
+          var t = parseInt(slider.value, 10);
+          readout.textContent = t + "%";
+          draw(t);
+        });
+
+        draw(50);
+      }
+    });
+
+    // ---- Quiz: real grading ---------------------------------------------
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: DEMO_TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "As you RAISE the decision threshold, what happens to the number of items labeled positive?",
+          options: ["It increases", "It decreases (or stays the same)", "It always stays exactly the same", "It becomes negative"],
+          answer: 1,
+          explanation: "A higher bar to clear means fewer scores can reach it, so positive labels can only decrease or stay flat as threshold rises."
+        },
+        {
+          q: "An item scores 72%. The threshold is set to 80%. How is it classified?",
+          options: ["Positive", "Negative", "Undefined", "Both at once"],
+          answer: 1,
+          explanation: "72% is below the 80% threshold, so it falls on the negative side of the boundary."
+        },
+        {
+          q: "True or false: dragging the threshold slider changes the item's underlying 72% confidence score.",
+          options: ["True", "False"],
+          answer: 1,
+          explanation: "False — the threshold only changes where the decision boundary sits. The score itself is fixed by the model."
+        }
+      ]
+    });
+
+    // ---- Manual "mark complete" control -----------------------------------
+    var statusEl = document.getElementById("complete-status");
+    var markBtn = document.getElementById("mark-complete-btn");
+
+    function refreshStatus() {
+      var done = Progress.isComplete(DEMO_TOPIC_ID);
+      statusEl.textContent = "Status: " + (done ? "complete" : "not complete");
+      markBtn.textContent = done ? "Mark topic incomplete" : "Mark topic complete";
+    }
+
+    markBtn.addEventListener("click", function () {
+      Progress.toggle(DEMO_TOPIC_ID);
+    });
+
+    Progress.onChange(refreshStatus);
+    refreshStatus();
+
+    // ---- Prev/next topic nav ----------------------------------------------
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

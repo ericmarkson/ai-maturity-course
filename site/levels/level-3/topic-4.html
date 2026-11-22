@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature Engineering and Data Cleaning — AI Maturity Course</title>
+<meta name="description" content="Turning raw, messy data into the clean, informative inputs a model actually needs to learn well.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-4";
+</script>
+<style>
+  .fe-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); }
+  .fe-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+  .fe-table th, .fe-table td { border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left; white-space: nowrap; }
+  .fe-table th { background: var(--color-bg-inset); }
+  .fe-table td.is-missing { background: var(--color-error-bg); color: var(--color-error); font-style: italic; }
+  .fe-table td.is-fixed { background: var(--color-success-bg); }
+  .fe-fix-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin: var(--space-4) 0; }
+  .fe-checklist { list-style: none; margin: var(--space-4) 0 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .fe-checklist li { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg); }
+  .fe-checklist li.is-done { background: var(--color-success-bg); border-color: var(--color-success); color: var(--color-success); font-weight: 600; }
+  .fe-checklist li .mark { display: inline-block; width: 1.4em; font-weight: 700; }
+  .fe-score { margin-top: var(--space-3); font-weight: 700; font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>Feature Engineering and Data Cleaning</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a small messy dataset (missing values, mixed scales,
+      text categories), you should be able to propose a specific cleaning/encoding step for each
+      problem you spot, and explain why an un-normalized feature can distort a distance-based model
+      like k-NN.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Feature engineering and data cleaning</strong> is the practice of transforming raw,
+          messy data into the clean, informative inputs a model actually needs to learn well. Real
+          data almost never arrives ready to feed into a model — it has blanks, inconsistent
+          spellings of the same value, and numeric columns on wildly different scales, all of which
+          can quietly wreck a model's performance if left as-is.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Handling missing values (drop, impute)</strong> — filling a blank with a sensible
+          value (like the column's mean) instead of leaving a hole a model can't process.</li>
+        <li><strong>Encoding categorical variables (one-hot, ordinal)</strong> — turning text categories
+          into numbers a model can use, without implying a false order between them.</li>
+        <li><strong>Scaling/normalizing numeric features</strong> — putting columns on comparable scales
+          so no single feature dominates just because its numbers happen to be bigger.</li>
+        <li><strong>Creating new features from existing ones</strong> — e.g. combining a date field into
+          a more informative "day of week."</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Before/after data-cleaning game",
+      instructions:
+        "This table has four real problems: missing Age values, inconsistent Subscribed labels " +
+        "(Y / yes / 1 / N / no / 0), an un-normalized Income column, and a text Category column that " +
+        "needs one-hot encoding. Click each fix button to apply it and watch the table and checklist " +
+        "update live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        // raw messy data, deliberately inconsistent
+        var rows = [
+          { name: "Ada",  age: 34,   income: 62000, sub: "yes", category: "Retail" },
+          { name: "Bo",    age: null, income: 108000, sub: "Y",   category: "Tech" },
+          { name: "Cy",    age: 41,   income: 45000, sub: "0",   category: "Retail" },
+          { name: "Dee",   age: null, income: 91000, sub: "no",  category: "Health" },
+          { name: "Emi",   age: 29,   income: 53000, sub: "1",   category: "Tech" },
+          { name: "Fen",   age: 52,   income: 76000, sub: "N",   category: "Health" }
+        ];
+
+        var fixes = {
+          imputeAge: false,
+          standardizeSub: false,
+          normalizeIncome: false,
+          oneHotCategory: false
+        };
+
+        var wrap = document.createElement("div");
+
+        var tableWrap = document.createElement("div");
+        tableWrap.className = "fe-table-wrap";
+        var table = document.createElement("table");
+        table.className = "fe-table";
+        var thead = document.createElement("thead");
+        var tbody = document.createElement("tbody");
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        tableWrap.appendChild(table);
+        wrap.appendChild(tableWrap);
+
+        var fixRow = document.createElement("div");
+        fixRow.className = "fe-fix-row";
+
+        var btnAge = document.createElement("button");
+        btnAge.type = "button"; btnAge.className = "btn btn-secondary";
+        btnAge.textContent = "Impute missing Age (fill with mean)";
+
+        var btnSub = document.createElement("button");
+        btnSub.type = "button"; btnSub.className = "btn btn-secondary";
+        btnSub.textContent = "Standardize Subscribed labels (Yes/No)";
+
+        var btnIncome = document.createElement("button");
+        btnIncome.type = "button"; btnIncome.className = "btn btn-secondary";
+        btnIncome.textContent = "Normalize Income (0-1 scale)";
+
+        var btnCategory = document.createElement("button");
+        btnCategory.type = "button"; btnCategory.className = "btn btn-secondary";
+        btnCategory.textContent = "One-hot encode Category";
+
+        [btnAge, btnSub, btnIncome, btnCategory].forEach(function (b) { fixRow.appendChild(b); });
+        wrap.appendChild(fixRow);
+
+        var checklist = document.createElement("ul");
+        checklist.className = "fe-checklist";
+        var items = {
+          imputeAge: makeChecklistItem("Missing Age values imputed"),
+          standardizeSub: makeChecklistItem("Subscribed labels standardized to Yes/No"),
+          normalizeIncome: makeChecklistItem("Income scaled to a comparable 0-1 range"),
+          oneHotCategory: makeChecklistItem("Category one-hot encoded into separate columns")
+        };
+        Object.keys(items).forEach(function (k) { checklist.appendChild(items[k].el); });
+        wrap.appendChild(checklist);
+
+        var scoreEl = document.createElement("p");
+        scoreEl.className = "fe-score";
+        wrap.appendChild(scoreEl);
+
+        root.appendChild(wrap);
+
+        function makeChecklistItem(text) {
+          var li = document.createElement("li");
+          var mark = document.createElement("span");
+          mark.className = "mark";
+          mark.textContent = "□";
+          var label = document.createElement("span");
+          label.textContent = text;
+          li.appendChild(mark);
+          li.appendChild(label);
+          return { el: li, mark: mark };
+        }
+
+        function updateChecklist() {
+          Object.keys(fixes).forEach(function (k) {
+            var done = fixes[k];
+            items[k].el.classList.toggle("is-done", done);
+            items[k].mark.textContent = done ? "✓" : "□";
+          });
+          var doneCount = Object.keys(fixes).filter(function (k) { return fixes[k]; }).length;
+          scoreEl.textContent = "Checklist score: " + doneCount + " / " + Object.keys(fixes).length + " fixes applied";
+        }
+
+        function meanAge() {
+          var known = rows.filter(function (r) { return r.age !== null; }).map(function (r) { return r.age; });
+          var sum = known.reduce(function (a, b) { return a + b; }, 0);
+          return Math.round(sum / known.length);
+        }
+
+        function normalizedIncome(income) {
+          var vals = rows.map(function (r) { return r.income; });
+          var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+          return ((income - min) / (max - min)).toFixed(2);
+        }
+
+        function standardizedSub(v) {
+          var s = String(v).toLowerCase();
+          return (s === "y" || s === "yes" || s === "1") ? "Yes" : "No";
+        }
+
+        var categories = ["Retail", "Tech", "Health"];
+
+        function renderTable() {
+          // header
+          var headCols = ["Name", "Age", fixes.normalizeIncome ? "Income (scaled)" : "Income", "Subscribed"];
+          if (fixes.oneHotCategory) {
+            categories.forEach(function (c) { headCols.push("Category_" + c); });
+          } else {
+            headCols.push("Category");
+          }
+          thead.innerHTML = "";
+          var headTr = document.createElement("tr");
+          headCols.forEach(function (h) {
+            var th = document.createElement("th");
+            th.textContent = h;
+            headTr.appendChild(th);
+          });
+          thead.appendChild(headTr);
+
+          // body
+          tbody.innerHTML = "";
+          var avgAge = meanAge();
+          rows.forEach(function (r) {
+            var tr = document.createElement("tr");
+
+            var nameTd = document.createElement("td");
+            nameTd.textContent = r.name;
+            tr.appendChild(nameTd);
+
+            var ageTd = document.createElement("td");
+            if (r.age === null) {
+              if (fixes.imputeAge) {
+                ageTd.textContent = avgAge + " (imputed)";
+                ageTd.className = "is-fixed";
+              } else {
+                ageTd.textContent = "(blank)";
+                ageTd.className = "is-missing";
+              }
+            } else {
+              ageTd.textContent = r.age;
+            }
+            tr.appendChild(ageTd);
+
+            var incomeTd = document.createElement("td");
+            if (fixes.normalizeIncome) {
+              incomeTd.textContent = normalizedIncome(r.income);
+              incomeTd.className = "is-fixed";
+            } else {
+              incomeTd.textContent = "$" + r.income.toLocaleString();
+            }
+            tr.appendChild(incomeTd);
+
+            var subTd = document.createElement("td");
+            if (fixes.standardizeSub) {
+              subTd.textContent = standardizedSub(r.sub);
+              subTd.className = "is-fixed";
+            } else {
+              subTd.textContent = r.sub;
+            }
+            tr.appendChild(subTd);
+
+            if (fixes.oneHotCategory) {
+              categories.forEach(function (c) {
+                var td = document.createElement("td");
+                td.textContent = r.category === c ? "1" : "0";
+                td.className = "is-fixed";
+                tr.appendChild(td);
+              });
+            } else {
+              var catTd = document.createElement("td");
+              catTd.textContent = r.category;
+              tr.appendChild(catTd);
+            }
+
+            tbody.appendChild(tr);
+          });
+        }
+
+        btnAge.addEventListener("click", function () { fixes.imputeAge = true; renderTable(); updateChecklist(); });
+        btnSub.addEventListener("click", function () { fixes.standardizeSub = true; renderTable(); updateChecklist(); });
+        btnIncome.addEventListener("click", function () { fixes.normalizeIncome = true; renderTable(); updateChecklist(); });
+        btnCategory.addEventListener("click", function () { fixes.oneHotCategory = true; renderTable(); updateChecklist(); });
+
+        renderTable();
+        updateChecklist();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why can an un-normalized feature (e.g. income in dollars, ranging into six figures) distort a distance-based model like k-NN?",
+          options: [
+            "It can't — k-NN ignores the scale of any feature automatically",
+            "Because distance calculations are dominated by whichever feature has the largest raw numeric range, drowning out smaller-scale features like age",
+            "Because k-NN only accepts values between 0 and 1 and will crash otherwise",
+            "Because income is always irrelevant to any prediction"
+          ],
+          answer: 1,
+          explanation: "Euclidean distance sums squared differences across features; a feature with a much larger numeric range will dominate the distance calculation unless features are scaled comparably."
+        },
+        {
+          q: "In the exercise, what does clicking \"Standardize Subscribed labels\" do?",
+          options: [
+            "Deletes the Subscribed column entirely",
+            "Converts inconsistent values like Y/yes/1/N/no/0 into a consistent Yes/No label",
+            "Sorts the table by Subscribed status",
+            "Converts Subscribed into a numeric income-like scale"
+          ],
+          answer: 1,
+          explanation: "The messy column mixes several different spellings/representations of the same yes/no idea; standardizing maps all of them onto one consistent label."
+        },
+        {
+          q: "What does one-hot encoding a categorical column like \"Category\" (Retail/Tech/Health) actually produce?",
+          options: [
+            "A single numeric column where Retail=1, Tech=2, Health=3",
+            "Separate 0/1 columns, one per category, so no false ordering is implied between categories",
+            "It removes the category information entirely",
+            "A column of random numbers"
+          ],
+          answer: 1,
+          explanation: "One-hot encoding creates one binary column per category value, avoiding the false implication of order/magnitude that a single numeric code (1, 2, 3) would introduce."
+        },
+        {
+          q: "Why might a data scientist choose to impute a missing Age value with the column's mean instead of just dropping that row?",
+          options: [
+            "Dropping rows always improves model accuracy",
+            "Imputing lets you keep the rest of that row's information (income, subscription, category) instead of throwing the whole row away",
+            "Imputation is required by law",
+            "Missing values crash every ML algorithm if not imputed"
+          ],
+          answer: 1,
+          explanation: "If only one field is missing, dropping the entire row discards otherwise-useful data in the other columns; imputing a reasonable estimate preserves that information."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

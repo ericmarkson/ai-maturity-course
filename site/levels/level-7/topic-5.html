@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracing and Observability for AI Systems — AI Maturity Course</title>
+<meta name="description" content="How structured traces of prompts, tool calls, latency, and cost let AI systems be debugged and monitored in production.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-5";
+</script>
+<style>
+  .trc-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); cursor: pointer; padding: var(--space-1); border-radius: var(--radius-sm); }
+  .trc-row:hover { background: var(--color-bg-inset); }
+  .trc-row.selected { background: var(--color-primary-light); }
+  .trc-name { flex: 0 0 220px; font-size: var(--font-size-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trc-track { position: relative; flex: 1; height: 26px; background: var(--color-bg-inset); border-radius: var(--radius-sm); }
+  .trc-bar { position: absolute; top: 2px; height: 22px; border-radius: var(--radius-sm); background: var(--color-primary); color: #fff; font-size: 0.7rem; display: flex; align-items: center; padding-left: 6px; white-space: nowrap; overflow: hidden; transition: left 0.2s ease, width 0.2s ease, background 0.2s ease; }
+  .trc-bar.slow { background: var(--color-error); }
+  .trc-detail { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3); margin-top: var(--space-3); font-size: var(--font-size-sm); }
+  .trc-detail dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); margin: 0; }
+  .trc-detail dt { font-weight: 600; color: var(--color-text-muted); }
+  .trc-warning { background: var(--color-warning-bg); border: 1px solid #e8c766; border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); margin-top: var(--space-2); font-size: var(--font-size-sm); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Tracing and Observability for AI Systems</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can read a nested trace of an agent run, identify
+      which span caused a slowdown or error, and list the minimum fields a useful LLM trace should capture.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Tracing/observability means capturing structured records of every step an AI system takes —
+          prompts, tool calls, latencies, costs, errors — so the system can be debugged and monitored in
+          production. One end-to-end run is represented as a tree of nested <strong>spans</strong>, each with
+          a start time and duration, which can be visualized as a waterfall to spot exactly where time or
+          money is being spent.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Spans and traces — representing one LLM/agent run as a tree of nested steps</li>
+        <li>Key signals to capture: inputs/outputs, token usage, latency, cost, errors</li>
+        <li>Aggregating traces into dashboards and metrics (error rate, p95 latency, cost per run)</li>
+        <li>Standardization efforts (e.g. OpenTelemetry's GenAI semantic conventions) and vendor tools
+          (LangSmith, Langfuse) as illustrative examples only</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Base spans (durations in ms). "tool1" duration gets extra injected latency from the slider.
+    var BASE_SPANS = [
+      { id: "llm1", name: "LLM call: initial reasoning", depth: 0, duration: 400, tokens: 350, cost: 0.0022, status: "ok" },
+      { id: "tool1", name: "Tool call: vector_search", depth: 0, duration: 150, tokens: 0, cost: 0.0005, status: "ok", injectable: true },
+      { id: "subagent", name: "Sub-agent call: summarizer", depth: 0, duration: 300, tokens: 180, cost: 0.0011, status: "ok" },
+      { id: "llm2", name: "  ↳ LLM call: summarize results", depth: 1, duration: 250, tokens: 150, cost: 0.0009, status: "ok", parent: "subagent", offsetInParent: 20 },
+      { id: "llm3", name: "LLM call: final answer", depth: 0, duration: 350, tokens: 220, cost: 0.0015, status: "ok" }
+    ];
+
+    function computeLayout(injectedMs) {
+      var spans = BASE_SPANS.map(function (s) { return Object.assign({}, s); });
+      var byId = {};
+      spans.forEach(function (s) { byId[s.id] = s; });
+
+      var toolSpan = byId["tool1"];
+      toolSpan.duration = 150 + injectedMs;
+
+      var cursor = 0;
+      spans.forEach(function (s) {
+        if (s.parent) return; // nested spans positioned relative to their parent below
+        s.start = cursor;
+        cursor += s.duration;
+      });
+      spans.forEach(function (s) {
+        if (s.parent) {
+          s.start = byId[s.parent].start + s.offsetInParent;
+        }
+      });
+
+      var total = Math.max.apply(null, spans.map(function (s) { return s.start + s.duration; }));
+
+      var maxDuration = Math.max.apply(null, spans.map(function (s) { return s.duration; }));
+      spans.forEach(function (s) {
+        s.isSlowest = s.duration === maxDuration && s.duration >= 400;
+      });
+
+      return { spans: spans, total: total };
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Read a trace waterfall and find the bottleneck",
+      instructions:
+        "Click any span's bar to see its latency, token count, cost, and status in the detail panel. Drag " +
+        "the slider to inject extra latency into the vector-search tool call and watch the waterfall — and " +
+        "the total trace duration — respond live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var sliderRow = document.createElement("div");
+        sliderRow.className = "slider-row";
+        var sLabel = document.createElement("label");
+        sLabel.setAttribute("for", "trc-slow-slider");
+        sLabel.textContent = "Inject extra latency into vector_search tool call (ms)";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "2000";
+        slider.step = "50";
+        slider.value = "0";
+        slider.id = "trc-slow-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "+0 ms";
+        sliderRow.appendChild(sLabel);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(readout);
+        wrap.appendChild(sliderRow);
+
+        var totalReadout = document.createElement("p");
+        totalReadout.style.fontWeight = "600";
+        wrap.appendChild(totalReadout);
+
+        var waterfall = document.createElement("div");
+        wrap.appendChild(waterfall);
+
+        var warningBox = document.createElement("div");
+        wrap.appendChild(warningBox);
+
+        var detailBox = document.createElement("div");
+        detailBox.className = "trc-detail";
+        detailBox.textContent = "Click a span above to see its details.";
+        detailBox.style.color = "var(--color-text-faint)";
+        wrap.appendChild(detailBox);
+
+        root.appendChild(wrap);
+
+        var selectedId = null;
+        var TRACK_WIDTH_PX = 480;
+
+        function renderDetail(span) {
+          if (!span) {
+            detailBox.textContent = "Click a span above to see its details.";
+            detailBox.style.color = "var(--color-text-faint)";
+            return;
+          }
+          detailBox.style.color = "";
+          detailBox.innerHTML =
+            "<dl>" +
+            "<dt>Span</dt><dd>" + span.name.replace("↳", "").trim() + "</dd>" +
+            "<dt>Latency</dt><dd>" + span.duration.toFixed(0) + " ms</dd>" +
+            "<dt>Tokens</dt><dd>" + span.tokens + "</dd>" +
+            "<dt>Cost</dt><dd>$" + span.cost.toFixed(4) + "</dd>" +
+            "<dt>Status</dt><dd>" + span.status + "</dd>" +
+            "</dl>";
+        }
+
+        function render() {
+          var injected = parseInt(slider.value, 10);
+          readout.textContent = "+" + injected + " ms";
+          var layout = computeLayout(injected);
+
+          totalReadout.textContent = "Total trace duration: " + layout.total.toFixed(0) + " ms";
+
+          waterfall.innerHTML = "";
+          layout.spans.forEach(function (span) {
+            var row = document.createElement("div");
+            row.className = "trc-row" + (span.id === selectedId ? " selected" : "");
+            row.addEventListener("click", function () {
+              selectedId = span.id;
+              render();
+            });
+
+            var nameEl = document.createElement("div");
+            nameEl.className = "trc-name";
+            nameEl.style.paddingLeft = (span.depth * 16) + "px";
+            nameEl.textContent = span.name;
+            row.appendChild(nameEl);
+
+            var track = document.createElement("div");
+            track.className = "trc-track";
+            var bar = document.createElement("div");
+            bar.className = "trc-bar" + (span.isSlowest ? " slow" : "");
+            var leftPct = (span.start / layout.total) * 100;
+            var widthPct = Math.max(2, (span.duration / layout.total) * 100);
+            bar.style.left = leftPct + "%";
+            bar.style.width = widthPct + "%";
+            bar.textContent = span.duration.toFixed(0) + " ms";
+            track.appendChild(bar);
+            row.appendChild(track);
+
+            waterfall.appendChild(row);
+          });
+
+          var selectedSpan = layout.spans.filter(function (s) { return s.id === selectedId; })[0];
+          renderDetail(selectedSpan);
+
+          var slowest = layout.spans.filter(function (s) { return s.isSlowest; })[0];
+          warningBox.innerHTML = "";
+          if (slowest && injected > 0) {
+            var pct = Math.round((slowest.duration / layout.total) * 100);
+            var w = document.createElement("div");
+            w.className = "trc-warning";
+            w.textContent = "⚠ \"" + slowest.name.replace("↳", "").trim() + "\" is now the slowest span, accounting for about " +
+              pct + "% of total trace latency.";
+            warningBox.appendChild(w);
+          }
+        }
+
+        slider.addEventListener("input", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In tracing terminology, what is a \"span\"?",
+          options: [
+            "A single step or operation within a run (e.g. one LLM call or tool call) with a start time and duration",
+            "The entire multi-week model training run",
+            "A type of neural network layer",
+            "A database index used for vector search"
+          ],
+          answer: 0,
+          explanation: "A span represents one discrete operation inside a trace — an LLM call, a tool call, a sub-agent call — each with timing and metadata."
+        },
+        {
+          q: "Which fields does a genuinely useful LLM trace need to capture, at minimum?",
+          options: [
+            "Just the span's name, nothing else",
+            "Inputs/outputs, token usage, latency, cost, and errors",
+            "Only the GPU's current temperature",
+            "The developer's name and nothing about execution"
+          ],
+          answer: 1,
+          explanation: "Without inputs/outputs, token usage, latency, cost, and error status, a trace can't actually be used to debug or monitor an AI system."
+        },
+        {
+          q: "In the exercise, what happens as you increase the injected latency slider on the vector_search tool call?",
+          options: [
+            "Nothing else in the trace changes",
+            "That span's bar grows, later spans shift right in time, and the total trace duration increases correspondingly",
+            "The total trace duration decreases",
+            "Only the span's token count changes"
+          ],
+          answer: 1,
+          explanation: "Because later spans start only after earlier ones finish, slowing one span down pushes every subsequent span later and increases the overall trace duration."
+        },
+        {
+          q: "Which of these are legitimate reasons to aggregate individual traces into dashboards? (select all that apply)",
+          options: [
+            "Tracking p95 latency trends across many runs",
+            "Tracking cost per run over time",
+            "Tracking error rate trends across runs",
+            "Aggregation removes any need to ever inspect an individual trace"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Dashboards are for spotting trends across many runs (latency, cost, errors); they complement, but don't replace, drilling into an individual trace when something specific goes wrong."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

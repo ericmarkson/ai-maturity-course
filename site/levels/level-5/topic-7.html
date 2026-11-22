@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basic Model Deployment and Serving — AI Maturity Course</title>
+<meta name="description" content="Batch vs. real-time inference, wrapping a model behind an API, and the latency/throughput trade-off.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-7";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Basic Model Deployment and Serving</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can distinguish batch vs. real-time serving
+      scenarios from a description of a use case, and can describe the basic request/response path
+      from client to a served model.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Deployment/serving</strong> is the process of taking a trained model and making it
+          available so real applications can send it input and get predictions back, reliably and at
+          scale. A served model usually sits behind an API endpoint: a client sends a request, the
+          server runs the model (inference), and a response comes back — with real engineering
+          questions about how fast, how many at once, and what happens when something changes.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Batch inference vs. real-time/online inference</strong> — processing many inputs
+          together on a schedule (e.g. nightly) vs. responding to one request at a time as it arrives.</li>
+        <li><strong>Wrapping a model behind an API endpoint</strong> — the client never needs to know
+          how the model works internally, only how to call the endpoint.</li>
+        <li><strong>Latency, throughput, and cost considerations</strong> — latency is how long one
+          request takes; throughput is how many requests can be handled per unit time; the two often
+          trade off against each other.</li>
+        <li><strong>Versioning and rollback of deployed models</strong> — being able to identify which
+          model version served a given prediction, and revert quickly if a new version misbehaves.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Send requests to a simulated /predict endpoint",
+      instructions:
+        "Type a message and send it to a mock endpoint to see a real simulated latency delay and JSON " +
+        "response. Then switch between real-time and batch mode, adjust the sliders, and send a burst " +
+        "of requests to see how batching trades individual latency for overall throughput.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- Part A: single mock request/response ----
+        var single = document.createElement("div");
+        var singleLabel = document.createElement("label");
+        singleLabel.setAttribute("for", "req-text");
+        singleLabel.style.fontWeight = "600";
+        singleLabel.style.display = "block";
+        singleLabel.style.marginBottom = "0.3rem";
+        singleLabel.textContent = "Request body (sent to POST /predict)";
+        var textarea = document.createElement("textarea");
+        textarea.id = "req-text";
+        textarea.rows = 2;
+        textarea.style.width = "100%";
+        textarea.style.maxWidth = "480px";
+        textarea.style.display = "block";
+        textarea.style.padding = "0.5rem";
+        textarea.style.borderRadius = "6px";
+        textarea.style.border = "1px solid var(--color-border)";
+        textarea.value = "The new laptop screen is amazing.";
+        single.appendChild(singleLabel);
+        single.appendChild(textarea);
+
+        var latRow = document.createElement("div");
+        latRow.className = "slider-row";
+        latRow.style.marginTop = "0.6rem";
+        var latLabel = document.createElement("label");
+        latLabel.setAttribute("for", "lat-slider");
+        latLabel.textContent = "Simulated model compute time";
+        var latSlider = document.createElement("input");
+        latSlider.type = "range"; latSlider.min = "20"; latSlider.max = "800"; latSlider.value = "150";
+        latSlider.id = "lat-slider";
+        var latReadout = document.createElement("span");
+        latReadout.className = "readout";
+        latReadout.textContent = "150ms";
+        latRow.appendChild(latLabel); latRow.appendChild(latSlider); latRow.appendChild(latReadout);
+        single.appendChild(latRow);
+        latSlider.addEventListener("input", function () {
+          latReadout.textContent = latSlider.value + "ms";
+        });
+
+        var sendBtn = document.createElement("button");
+        sendBtn.type = "button";
+        sendBtn.className = "btn btn-primary";
+        sendBtn.textContent = "Send request";
+        sendBtn.style.marginTop = "0.6rem";
+        single.appendChild(sendBtn);
+
+        var responseBox = document.createElement("pre");
+        responseBox.style.background = "var(--color-bg-inset)";
+        responseBox.style.padding = "0.75rem";
+        responseBox.style.borderRadius = "8px";
+        responseBox.style.marginTop = "0.75rem";
+        responseBox.style.whiteSpace = "pre-wrap";
+        responseBox.style.fontSize = "0.85rem";
+        responseBox.textContent = "// response will appear here";
+        single.appendChild(responseBox);
+
+        wrap.appendChild(single);
+
+        sendBtn.addEventListener("click", function () {
+          var t0 = performance.now();
+          sendBtn.disabled = true;
+          responseBox.textContent = "// request sent, awaiting response...";
+          var delay = parseInt(latSlider.value, 10);
+          setTimeout(function () {
+            var elapsed = Math.round(performance.now() - t0);
+            var text = textarea.value || "";
+            var score = Math.min(0.98, Math.max(0.02, (text.length % 37) / 37 + 0.1));
+            var label = score >= 0.5 ? "positive" : "negative";
+            var body = {
+              model_version: "sentiment-v3",
+              input: text,
+              prediction: label,
+              confidence: Number(score.toFixed(3)),
+              server_latency_ms: delay
+            };
+            responseBox.textContent = "HTTP 200 OK  (round-trip: " + elapsed + "ms)\n" + JSON.stringify(body, null, 2);
+            sendBtn.disabled = false;
+          }, delay);
+        });
+
+        // ---- Part B: batch vs real-time burst comparison ----
+        var divider = document.createElement("hr");
+        divider.style.margin = "1.25rem 0";
+        divider.style.border = "none";
+        divider.style.borderTop = "1px solid var(--color-border)";
+        wrap.appendChild(divider);
+
+        var modeHeading = document.createElement("p");
+        modeHeading.style.fontWeight = "600";
+        modeHeading.style.marginBottom = "0.4rem";
+        modeHeading.textContent = "Send a burst of 10 requests — compare serving modes";
+        wrap.appendChild(modeHeading);
+
+        var modeRow = document.createElement("div");
+        modeRow.style.display = "flex";
+        modeRow.style.gap = "1.25rem";
+        modeRow.style.marginBottom = "0.6rem";
+
+        function makeRadio(name, value, text, checked) {
+          var label = document.createElement("label");
+          label.style.display = "flex";
+          label.style.alignItems = "center";
+          label.style.gap = "0.35rem";
+          var input = document.createElement("input");
+          input.type = "radio"; input.name = name; input.value = value; input.checked = !!checked;
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(text));
+          return { label: label, input: input };
+        }
+        var realtimeRadio = makeRadio("serve-mode", "realtime", "Real-time (one at a time)", true);
+        var batchRadio = makeRadio("serve-mode", "batch", "Batch", false);
+        modeRow.appendChild(realtimeRadio.label);
+        modeRow.appendChild(batchRadio.label);
+        wrap.appendChild(modeRow);
+
+        var batchSizeRow = document.createElement("div");
+        batchSizeRow.className = "slider-row";
+        var batchSizeLabel = document.createElement("label");
+        batchSizeLabel.setAttribute("for", "batch-size-slider");
+        batchSizeLabel.textContent = "Batch size";
+        var batchSizeSlider = document.createElement("input");
+        batchSizeSlider.type = "range"; batchSizeSlider.min = "2"; batchSizeSlider.max = "10"; batchSizeSlider.value = "5";
+        batchSizeSlider.id = "batch-size-slider";
+        var batchSizeReadout = document.createElement("span");
+        batchSizeReadout.className = "readout";
+        batchSizeReadout.textContent = "5";
+        batchSizeRow.appendChild(batchSizeLabel); batchSizeRow.appendChild(batchSizeSlider); batchSizeRow.appendChild(batchSizeReadout);
+        wrap.appendChild(batchSizeRow);
+        batchSizeSlider.addEventListener("input", function () {
+          batchSizeReadout.textContent = batchSizeSlider.value;
+        });
+
+        var burstBtn = document.createElement("button");
+        burstBtn.type = "button";
+        burstBtn.className = "btn btn-secondary";
+        burstBtn.textContent = "Send burst of 10 requests";
+        wrap.appendChild(burstBtn);
+
+        var burstCanvas = document.createElement("canvas");
+        burstCanvas.width = 460; burstCanvas.height = 200;
+        burstCanvas.style.display = "block";
+        burstCanvas.style.marginTop = "0.75rem";
+        burstCanvas.style.background = "#fff";
+        burstCanvas.style.border = "1px solid var(--color-border)";
+        burstCanvas.style.borderRadius = "8px";
+        wrap.appendChild(burstCanvas);
+
+        var burstStats = document.createElement("p");
+        burstStats.setAttribute("role", "status");
+        burstStats.style.fontWeight = "600";
+        burstStats.style.marginTop = "0.6rem";
+        wrap.appendChild(burstStats);
+
+        root.appendChild(wrap);
+
+        var bc = burstCanvas.getContext("2d");
+
+        function drawBurstChart(latencies, throughput, mode) {
+          bc.clearRect(0, 0, burstCanvas.width, burstCanvas.height);
+          var n = latencies.length;
+          var maxLat = Math.max.apply(null, latencies.concat([50]));
+          var chartH = burstCanvas.height - 40;
+          var barW = (burstCanvas.width - 20) / n;
+
+          latencies.forEach(function (lat, i) {
+            var barH = (lat / maxLat) * (chartH - 10);
+            var x = 10 + i * barW;
+            var y = chartH - barH + 20;
+            bc.fillStyle = mode === "batch" ? "#e07b00" : "#2952e3";
+            bc.fillRect(x, y, barW - 4, barH);
+            bc.fillStyle = "#4c5470";
+            bc.font = "10px sans-serif";
+            bc.textAlign = "center";
+            bc.fillText("#" + (i + 1), x + (barW - 4) / 2, chartH + 34);
+          });
+
+          bc.fillStyle = "#1a2033";
+          bc.font = "12px sans-serif";
+          bc.textAlign = "left";
+          bc.fillText("Per-request latency (ms) — " + (mode === "batch" ? "batch mode" : "real-time mode"), 10, 14);
+        }
+
+        function runBurst() {
+          var mode = batchRadio.input.checked ? "batch" : "realtime";
+          var perItem = parseInt(latSlider.value, 10);
+          var n = 10;
+          var interArrival = 40; // ms between request arrivals
+          var latencies = [];
+          var lastFinish = 0;
+
+          if (mode === "realtime") {
+            // FIFO single-worker queue: each request processed as soon as previous one finishes
+            for (var i = 0; i < n; i++) {
+              var arrival = i * interArrival;
+              var start = Math.max(arrival, lastFinish);
+              var finish = start + perItem;
+              latencies.push(finish - arrival);
+              lastFinish = finish;
+            }
+          } else {
+            var batchSize = parseInt(batchSizeSlider.value, 10);
+            var overhead = perItem * 1.15; // whole batch processed together, small overhead
+            var i2 = 0;
+            var clock = 0;
+            while (i2 < n) {
+              var groupSize = Math.min(batchSize, n - i2);
+              var lastArrivalInGroup = (i2 + groupSize - 1) * interArrival;
+              var batchStart = Math.max(lastArrivalInGroup, clock);
+              var batchFinish = batchStart + overhead;
+              for (var j = 0; j < groupSize; j++) {
+                var arr = (i2 + j) * interArrival;
+                latencies.push(batchFinish - arr);
+              }
+              clock = batchFinish;
+              i2 += groupSize;
+            }
+          }
+
+          var totalSpan = (n - 1) * interArrival + latencies[latencies.length - 1];
+          var throughput = (n / (totalSpan / 1000)).toFixed(2);
+          var avgLatency = (latencies.reduce(function (a, b) { return a + b; }, 0) / n).toFixed(0);
+
+          drawBurstChart(latencies, throughput, mode);
+          burstStats.textContent = "Mode: " + (mode === "batch" ? "batch" : "real-time") +
+            " — average latency: " + avgLatency + "ms — throughput: ~" + throughput + " requests/sec";
+        }
+
+        burstBtn.addEventListener("click", runBurst);
+        realtimeRadio.input.addEventListener("change", runBurst);
+        batchRadio.input.addEventListener("change", runBurst);
+        batchSizeSlider.addEventListener("input", function () {
+          if (batchRadio.input.checked) runBurst();
+        });
+
+        runBurst();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A retailer needs same-day fraud scores for every credit card swipe as it happens. Which serving style fits best?",
+          options: ["Batch inference run once a day", "Real-time/online inference", "No serving needed", "Manual review only"],
+          answer: 1,
+          explanation: "Immediate, per-event decisions call for real-time serving, where each request is scored as it arrives rather than queued for a later batch job."
+        },
+        {
+          q: "A company wants to re-score its entire customer list for churn risk once a week, with no urgency on any single prediction. What's the better fit?",
+          options: ["Real-time inference", "Batch inference", "No model is needed", "A brand-new model architecture"],
+          answer: 1,
+          explanation: "Processing everything together on a schedule (batch inference) is typically more efficient when individual predictions aren't needed instantly."
+        },
+        {
+          q: "In the batch-vs-real-time exercise, why did batch mode tend to increase the latency of the FIRST request in a group?",
+          options: [
+            "Batch mode is always slower for every request with no exceptions",
+            "The first request had to wait for enough other requests to accumulate before the batch was processed",
+            "Real-time mode does not exist in production systems",
+            "Latency is unrelated to batch size"
+          ],
+          answer: 1,
+          explanation: "Batching trades some added wait time (for the batch to fill) for better overall throughput, so early arrivals in a batch can wait longer than they would under real-time, one-at-a-time processing."
+        },
+        {
+          q: "Why is model versioning important in deployment?",
+          options: [
+            "It's only relevant for training, not serving",
+            "So you can identify which model produced a given prediction and roll back quickly if a new version misbehaves",
+            "It prevents the model from ever being updated",
+            "It replaces the need for an API endpoint"
+          ],
+          answer: 1,
+          explanation: "Versioning lets you trace predictions back to a specific model and revert to a known-good version if a newly deployed one causes problems."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

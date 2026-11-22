@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced RAG: Hybrid Search, Reranking, Chunking — AI Maturity Course</title>
+<meta name="description" content="How chunking strategy, hybrid keyword+vector search, and reranking each shape which passages actually reach the model.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-4";
+</script>
+<style>
+  .rag-doc { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3); font-size: var(--font-size-sm); line-height: 1.6; margin-bottom: var(--space-2); }
+  .rag-chunk { display: inline; }
+  .rag-chunk-boundary { background: var(--color-primary-light); border-radius: 3px; padding: 0 2px; }
+  .rag-chunk-count { font-weight: 600; margin-bottom: var(--space-3); }
+  .rag-query { background: var(--color-bg-inset); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-weight: 600; margin-bottom: var(--space-3); }
+  .rag-toggles { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .rag-toggle { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; font-size: var(--font-size-sm); }
+  .rag-results { display: flex; flex-direction: column; gap: var(--space-2); }
+  .rag-result { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3); display: flex; justify-content: space-between; gap: var(--space-3); align-items: flex-start; transition: transform 0.2s ease; }
+  .rag-result-text { flex: 1; font-size: var(--font-size-sm); }
+  .rag-result-scores { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap; text-align: right; }
+  .rag-score-active { font-weight: 700; color: var(--color-primary); }
+  .rag-score-inactive { color: var(--color-text-faint); }
+  .rag-rank-badge { font-weight: 800; color: #fff; background: var(--color-accent); border-radius: 999px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: var(--font-size-sm); flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Advanced RAG: Hybrid Search, Reranking, Chunking</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can explain how chunk size and overlap affect
+      retrieval quality, and can walk through a hybrid-search-plus-reranking pipeline explaining what each
+      stage filters or reorders.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Advanced RAG is a set of techniques that improve on basic retrieval-augmented generation by
+          combining multiple search strategies and refining which retrieved chunks actually reach the model.
+          Instead of relying on a single embedding search over arbitrarily-split text, real pipelines tune
+          how documents are chunked, blend keyword and vector search ("hybrid search"), and rerank the
+          combined candidates before anything is handed to the LLM.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Chunking strategies (fixed-size, semantic, overlapping) and their tradeoffs</li>
+        <li>Hybrid search — combining keyword/BM25 search with vector/embedding search</li>
+        <li>Reranking retrieved candidates before they're passed to the model</li>
+        <li>Evaluating retrieval quality separately from final generation quality</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var DOC = "Our company reimburses employee travel expenses up to $2,500 per trip. Flights must be " +
+      "booked in economy class unless the trip exceeds six hours, in which case premium economy is " +
+      "allowed. Hotel costs are capped at $250 per night in major cities and $150 per night elsewhere. " +
+      "Meals are reimbursed up to $75 per day with itemized receipts required for anything over $25. " +
+      "Reimbursement requests must be submitted within 30 days of trip completion using the expense portal.";
+
+    var QUERY = "What is the reimbursement limit for flights?";
+
+    // Fixed candidate passages with hardcoded scores for the retrieval-stage demo
+    // (no real embeddings — illustrative numbers chosen to show keyword vs. vector vs. rerank disagreement).
+    var CANDIDATES = [
+      { text: "Flights must be booked in economy class unless the trip exceeds six hours, in which case premium economy is allowed.", kw: 0.55, vec: 0.82, rerank: 0.95 },
+      { text: "Our company reimburses employee travel expenses up to $2,500 per trip.", kw: 0.35, vec: 0.60, rerank: 0.40 },
+      { text: "Reimbursement requests must be submitted within 30 days of trip completion using the expense portal.", kw: 0.60, vec: 0.35, rerank: 0.30 },
+      { text: "Hotel costs are capped at $250 per night in major cities and $150 per night elsewhere.", kw: 0.20, vec: 0.30, rerank: 0.10 },
+      { text: "Meals are reimbursed up to $75 per day with itemized receipts required for anything over $25.", kw: 0.15, vec: 0.25, rerank: 0.08 }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Chunk a document and reorder retrieval results",
+      instructions:
+        "Drag the chunk-size slider to see the sample document re-split in real time. Below, toggle " +
+        "keyword search, vector search, and reranking on/off to watch the fixed candidate list reorder " +
+        "against the query, with its relevance score updating live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- Chunking demo ----
+        var chunkHeading = document.createElement("h4");
+        chunkHeading.textContent = "1. Chunking a sample document";
+        chunkHeading.style.marginBottom = "var(--space-2)";
+        wrap.appendChild(chunkHeading);
+
+        var sliderRow = document.createElement("div");
+        sliderRow.className = "slider-row";
+        var sLabel = document.createElement("label");
+        sLabel.setAttribute("for", "chunk-size-slider");
+        sLabel.textContent = "Chunk size (characters)";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "40";
+        slider.max = "260";
+        slider.step = "10";
+        slider.value = "120";
+        slider.id = "chunk-size-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "120 chars";
+        sliderRow.appendChild(sLabel);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(readout);
+        wrap.appendChild(sliderRow);
+
+        var chunkCount = document.createElement("p");
+        chunkCount.className = "rag-chunk-count";
+        wrap.appendChild(chunkCount);
+
+        var docBox = document.createElement("div");
+        docBox.className = "rag-doc";
+        wrap.appendChild(docBox);
+
+        function renderChunks() {
+          var size = parseInt(slider.value, 10);
+          readout.textContent = size + " chars";
+          var chunks = [];
+          for (var i = 0; i < DOC.length; i += size) {
+            chunks.push(DOC.slice(i, i + size));
+          }
+          chunkCount.textContent = chunks.length + " chunk(s) generated at this size.";
+          docBox.innerHTML = "";
+          chunks.forEach(function (c, idx) {
+            var span = document.createElement("span");
+            span.className = "rag-chunk";
+            if (idx % 2 === 0) span.classList.add("rag-chunk-boundary");
+            span.textContent = c;
+            span.title = "Chunk " + (idx + 1);
+            docBox.appendChild(span);
+          });
+        }
+
+        slider.addEventListener("input", renderChunks);
+        renderChunks();
+
+        // ---- Retrieval reordering demo ----
+        var retrHeading = document.createElement("h4");
+        retrHeading.textContent = "2. Hybrid search + reranking against a fixed query";
+        retrHeading.style.marginTop = "var(--space-5)";
+        retrHeading.style.marginBottom = "var(--space-2)";
+        wrap.appendChild(retrHeading);
+
+        var queryBox = document.createElement("div");
+        queryBox.className = "rag-query";
+        queryBox.textContent = "Query: \"" + QUERY + "\"";
+        wrap.appendChild(queryBox);
+
+        var toggles = document.createElement("div");
+        toggles.className = "rag-toggles";
+
+        function makeToggle(id, labelText, checked) {
+          var wrapper = document.createElement("label");
+          wrapper.className = "rag-toggle";
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.id = id;
+          cb.checked = checked;
+          wrapper.appendChild(cb);
+          var span = document.createElement("span");
+          span.textContent = labelText;
+          wrapper.appendChild(span);
+          toggles.appendChild(wrapper);
+          return cb;
+        }
+
+        var kwToggle = makeToggle("rag-kw-toggle", "Keyword (BM25) search", true);
+        var vecToggle = makeToggle("rag-vec-toggle", "Vector (embedding) search", false);
+        var rerankToggle = makeToggle("rag-rerank-toggle", "Rerank top candidates", false);
+        wrap.appendChild(toggles);
+
+        var resultsBox = document.createElement("div");
+        resultsBox.className = "rag-results";
+        wrap.appendChild(resultsBox);
+
+        var explainText = document.createElement("p");
+        explainText.style.marginTop = "var(--space-3)";
+        explainText.style.fontSize = "var(--font-size-sm)";
+        explainText.style.color = "var(--color-text-muted)";
+        wrap.appendChild(explainText);
+
+        root.appendChild(wrap);
+
+        function renderResults() {
+          var useKw = kwToggle.checked;
+          var useVec = vecToggle.checked;
+          var useRerank = rerankToggle.checked;
+
+          var scored = CANDIDATES.map(function (c, originalIndex) {
+            var combined;
+            if (useKw && useVec) combined = (c.kw + c.vec) / 2;
+            else if (useKw) combined = c.kw;
+            else if (useVec) combined = c.vec;
+            else combined = null; // no retrieval scoring active — original doc order
+
+            var finalScore = useRerank ? c.rerank : combined;
+            return { c: c, originalIndex: originalIndex, combined: combined, finalScore: finalScore };
+          });
+
+          if (useKw || useVec || useRerank) {
+            scored.sort(function (a, b) {
+              var av = a.finalScore === null ? -1 : a.finalScore;
+              var bv = b.finalScore === null ? -1 : b.finalScore;
+              return bv - av;
+            });
+          }
+
+          resultsBox.innerHTML = "";
+          scored.forEach(function (item, rank) {
+            var row = document.createElement("div");
+            row.className = "rag-result";
+
+            var badge = document.createElement("div");
+            badge.className = "rag-rank-badge";
+            badge.textContent = String(rank + 1);
+            row.appendChild(badge);
+
+            var textEl = document.createElement("div");
+            textEl.className = "rag-result-text";
+            textEl.textContent = item.c.text;
+            row.appendChild(textEl);
+
+            var scoresEl = document.createElement("div");
+            scoresEl.className = "rag-result-scores";
+            scoresEl.innerHTML =
+              "<span class=\"" + (useKw ? "rag-score-active" : "rag-score-inactive") + "\">kw " + item.c.kw.toFixed(2) + "</span>" +
+              "<span class=\"" + (useVec ? "rag-score-active" : "rag-score-inactive") + "\">vec " + item.c.vec.toFixed(2) + "</span>" +
+              "<span class=\"" + (useRerank ? "rag-score-active" : "rag-score-inactive") + "\">rerank " + item.c.rerank.toFixed(2) + "</span>";
+            row.appendChild(scoresEl);
+
+            resultsBox.appendChild(row);
+          });
+
+          if (!useKw && !useVec && !useRerank) {
+            explainText.textContent = "No retrieval stage active — results are shown in raw document order, unranked.";
+          } else if (useRerank) {
+            explainText.textContent = "Reranking is on — final order now follows the rerank score, which best matches the query's real intent (flight cost limit), regardless of the earlier retrieval toggles.";
+          } else if (useKw && useVec) {
+            explainText.textContent = "Hybrid search is on — order follows the average of keyword and vector scores.";
+          } else if (useKw) {
+            explainText.textContent = "Keyword-only search is on — notice it can rank a passage about the reimbursement deadline above the actual flight-cost passage, just because it shares more literal words with the query.";
+          } else {
+            explainText.textContent = "Vector-only search is on — it favors the passage that is semantically about flight cost, even with less literal word overlap.";
+          }
+        }
+
+        kwToggle.addEventListener("change", renderResults);
+        vecToggle.addEventListener("change", renderResults);
+        rerankToggle.addEventListener("change", renderResults);
+        renderResults();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In the exercise, why can keyword-only (BM25) search rank the reimbursement-deadline passage above the flight-cost passage for the query \"What is the reimbursement limit for flights?\"",
+          options: [
+            "Because keyword search ignores the query entirely",
+            "Because the deadline passage shares literal words like “reimbursement” even though it isn't the semantically best answer",
+            "Because keyword search always returns results in alphabetical order",
+            "Because vector search was actually running instead"
+          ],
+          answer: 1,
+          explanation: "Keyword/BM25 search matches on literal term overlap, so a passage that repeats query words can outrank a more semantically relevant passage that uses different wording."
+        },
+        {
+          q: "What does reranking do in an advanced RAG pipeline?",
+          options: [
+            "It re-splits the source document into new chunks",
+            "It re-scores and reorders an already-retrieved set of candidates using a (typically more expensive/accurate) model, refining the final order before generation",
+            "It trains a brand-new embedding model from scratch",
+            "It deletes all but one retrieved passage at random"
+          ],
+          answer: 1,
+          explanation: "Reranking is a refinement stage: it takes the candidates hybrid/keyword/vector search already retrieved and reorders them using a model tuned for accurate relevance judgments."
+        },
+        {
+          q: "How does increasing chunk size in the exercise's chunking demo affect the document?",
+          options: [
+            "It has no effect at all on the number of chunks",
+            "It produces fewer, larger chunks covering more text each",
+            "It produces more, smaller chunks",
+            "It deletes part of the document"
+          ],
+          answer: 1,
+          explanation: "A larger chunk-size setting means each chunk spans more characters, so fewer chunks are needed to cover the same document."
+        },
+        {
+          q: "Which of the following are legitimate reasons advanced RAG combines multiple techniques (hybrid search, reranking, tuned chunking) rather than relying on plain vector search alone? (select all that apply)",
+          options: [
+            "Keyword search catches exact-term matches (like IDs or rare jargon) that embeddings can miss",
+            "Reranking can correct ordering mistakes made by the initial retrieval stage",
+            "Chunk size/overlap choices materially affect whether the right passage is even retrievable",
+            "Combining techniques guarantees the LLM will never hallucinate"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Keyword matching, reranking, and good chunking each address real weaknesses of plain vector search. None of these techniques eliminates hallucination risk entirely, so the last option is false."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

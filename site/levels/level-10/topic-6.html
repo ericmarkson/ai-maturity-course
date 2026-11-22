@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advising Policy and Governance on Frontier AI — AI Maturity Course</title>
+<meta name="description" content="Translating technical frontier-AI realities into guidance usable by regulators, legislators, and international bodies.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-6";
+</script>
+<style>
+  .pg-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .pg-sliders { display: flex; flex-direction: column; gap: var(--space-3); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .pg-slider-row { display: grid; grid-template-columns: 220px 1fr 60px; align-items: center; gap: var(--space-3); }
+  .pg-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
+  .pg-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .pg-meters { display: flex; flex-direction: column; gap: var(--space-3); }
+  .pg-meter-row label { font-weight: 700; font-size: var(--font-size-sm); display: flex; justify-content: space-between; }
+  .pg-meter-track { width: 100%; height: 16px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; margin-top: var(--space-1); }
+  .pg-meter-fill { height: 100%; border-radius: 999px; transition: width 0.15s ease, background-color 0.15s ease; }
+  .pg-tension { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); font-size: var(--font-size-sm); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Advising Policy and Governance on Frontier AI</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a specific frontier-AI risk scenario, draft a one-page policy recommendation that names the governance lever (disclosure requirement, compute threshold, audit mandate, etc.) best suited to it and explain why a different lever would be less effective.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Advising policy and governance on frontier AI means translating technical realities about frontier models
+          into guidance usable by regulators, legislators, and international bodies — people who must make binding
+          decisions without necessarily having deep technical background, under real uncertainty about what a given
+          model can actually do.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>The current governance landscape</strong> — the EU's risk-tiered prescriptive model, the US's
+          voluntary-standards-plus-state-patchwork model (NIST AI RMF, state laws), and China's centrally
+          administered filing/review model.</li>
+        <li><strong>Frontier-specific governance tools</strong> — capability/compute thresholds for triggering
+          oversight, frontier safety frameworks, and internal audit functions at AI developers.</li>
+        <li><strong>The policymaker's information problem</strong> — frontier AI is built by a small number of
+          firms, but capabilities and risks are hard for outsiders to verify independently.</li>
+        <li><strong>International coordination efforts</strong> and their limits given competitive dynamics between
+          states and labs.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Policy-tradeoff simulator",
+      instructions:
+        "Move each governance lever below and watch the live dashboard show the resulting tension between " +
+        "innovation pace, safety assurance, and enforceability. There is no lever setting that maximizes all three " +
+        "at once — that tension is the point.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "pg-wrap";
+
+        var levers = [
+          { key: "compute", label: "Compute-threshold stringency", value: 40 },
+          { key: "eval", label: "Eval / red-team requirement", value: 40 },
+          { key: "disclosure", label: "Disclosure requirement", value: 40 },
+          { key: "audit", label: "Audit / enforcement intensity", value: 40 }
+        ];
+
+        var sliderContainer = document.createElement("div");
+        sliderContainer.className = "pg-sliders";
+        var sliderEls = {};
+
+        levers.forEach(function (l) {
+          var row = document.createElement("div");
+          row.className = "pg-slider-row";
+          var label = document.createElement("label");
+          label.textContent = l.label;
+          label.setAttribute("for", "pg-slider-" + l.key);
+          var input = document.createElement("input");
+          input.type = "range";
+          input.min = "0";
+          input.max = "100";
+          input.value = String(l.value);
+          input.id = "pg-slider-" + l.key;
+          var readout = document.createElement("span");
+          readout.className = "pg-readout";
+          readout.textContent = l.value + "%";
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(readout);
+          sliderContainer.appendChild(row);
+          sliderEls[l.key] = { input: input, readout: readout };
+        });
+        wrap.appendChild(sliderContainer);
+
+        var meters = document.createElement("div");
+        meters.className = "pg-meters";
+        meters.style.marginTop = "var(--space-4)";
+
+        function makeMeter(key, title) {
+          var row = document.createElement("div");
+          row.className = "pg-meter-row";
+          var label = document.createElement("label");
+          var titleSpan = document.createElement("span");
+          titleSpan.textContent = title;
+          var valSpan = document.createElement("span");
+          valSpan.id = "pg-val-" + key;
+          label.appendChild(titleSpan);
+          label.appendChild(valSpan);
+          var track = document.createElement("div");
+          track.className = "pg-meter-track";
+          var fill = document.createElement("div");
+          fill.className = "pg-meter-fill";
+          fill.id = "pg-fill-" + key;
+          track.appendChild(fill);
+          row.appendChild(label);
+          row.appendChild(track);
+          meters.appendChild(row);
+        }
+
+        makeMeter("innovation", "Innovation pace");
+        makeMeter("safety", "Safety assurance");
+        makeMeter("enforceability", "Enforceability");
+        wrap.appendChild(meters);
+
+        var tension = document.createElement("p");
+        tension.className = "pg-tension";
+        wrap.appendChild(tension);
+
+        root.appendChild(wrap);
+
+        function update() {
+          var avg = 0;
+          levers.forEach(function (l) {
+            l.value = parseInt(sliderEls[l.key].input.value, 10);
+            sliderEls[l.key].readout.textContent = l.value + "%";
+            avg += l.value;
+          });
+          avg = avg / levers.length;
+
+          var innovation = Math.max(0, Math.min(100, 100 - avg * 0.85));
+          var safety = Math.max(0, Math.min(100, avg * 0.95));
+          var enforceability = Math.max(0, Math.min(100, 100 - Math.abs(avg - 65) * 1.3));
+
+          function setMeter(key, val) {
+            var fill = document.getElementById("pg-fill-" + key);
+            var valSpan = document.getElementById("pg-val-" + key);
+            fill.style.width = val + "%";
+            valSpan.textContent = Math.round(val) + " / 100";
+            var color = val < 35 ? "var(--color-error)" : (val < 65 ? "#c98a12" : "var(--color-success)");
+            fill.style.background = color;
+          }
+
+          setMeter("innovation", innovation);
+          setMeter("safety", safety);
+          setMeter("enforceability", enforceability);
+
+          var msg;
+          if (avg < 25) {
+            msg = "Light-touch regime: innovation pace is high, but safety assurance is low — capability could outrun oversight.";
+          } else if (avg > 80) {
+            msg = "Very heavy regime: safety assurance is high, but innovation pace is badly constrained and enforceability is starting to slip as compliance complexity grows.";
+          } else if (enforceability > safety && enforceability > innovation) {
+            msg = "Balanced-but-moderate regime: enforceability is currently the strongest leg of the stool.";
+          } else {
+            msg = "Mixed regime: safety assurance of " + Math.round(safety) + " comes at the cost of innovation pace of " +
+              Math.round(innovation) + " — check whether enforceability (" + Math.round(enforceability) +
+              ") can actually back up what these levers promise on paper.";
+          }
+          tension.textContent = msg;
+        }
+
+        levers.forEach(function (l) {
+          sliderEls[l.key].input.addEventListener("input", update);
+        });
+
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the key structural difference between the EU's approach to AI governance and the US's approach, as described in the current landscape?",
+          options: [
+            "The EU uses a risk-tiered prescriptive model, while the US relies more on voluntary standards plus a state-level patchwork",
+            "The EU has no AI regulation at all",
+            "The US model is identical to China's centrally administered filing/review model",
+            "Both use the exact same compute-threshold rules"
+          ],
+          answer: 0,
+          explanation: "The EU's model imposes prescriptive, risk-tiered obligations, whereas the US approach currently leans on voluntary frameworks like the NIST AI RMF plus a patchwork of state laws."
+        },
+        {
+          q: "Why is the 'policymaker's information problem' a distinct challenge for frontier-AI governance?",
+          options: [
+            "Because there is too much publicly available information about frontier models",
+            "Because frontier AI is built by a small number of firms, and capabilities/risks are hard for outsiders to independently verify",
+            "Because policymakers already have full access to model weights",
+            "Because there is no problem — frontier AI is fully transparent by default"
+          ],
+          answer: 1,
+          explanation: "With frontier development concentrated in a handful of firms and limited independent verification of capabilities, regulators often must act on asymmetric or incomplete information."
+        },
+        {
+          q: "In the policy-tradeoff simulator, why does enforceability follow a non-monotonic ('sweet spot') pattern rather than always increasing with stringency?",
+          options: [
+            "It's a random number with no logic behind it",
+            "Because both very low stringency (nothing to enforce) and very high stringency (compliance becomes too costly/complex to verify) can undermine practical enforceability",
+            "Enforceability always equals safety assurance exactly",
+            "Because enforceability only depends on the disclosure lever"
+          ],
+          answer: 1,
+          explanation: "Too little regulation leaves nothing meaningful to enforce, while excessive stringency can make compliance so costly or complex that real-world enforcement degrades — enforceability peaks somewhere in the middle."
+        },
+        {
+          q: "What is a key limitation of international coordination efforts on frontier AI governance?",
+          options: [
+            "They have already fully solved the coordination problem",
+            "Competitive dynamics between states and labs limit how far coordination can go, even when summits or dialogues produce agreements",
+            "International coordination is legally impossible under any circumstances",
+            "No countries have ever discussed AI governance together"
+          ],
+          answer: 1,
+          explanation: "Even where international dialogues and summits produce stated agreements, competitive pressures between states and between labs limit how binding or durable that coordination actually is."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hyperparameter Tuning — AI Maturity Course</title>
+<meta name="description" content="Learning rate, batch size, grid search vs. random search, and why you tune on the validation set, not the test set.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "5-6";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 5 — Intermediate+</p>
+  <h1>Hyperparameter Tuning</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can explain why tuning on the validation set (not
+      the test set) matters, and can describe the difference between grid search and random search in
+      terms of cost vs. coverage.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Hyperparameters</strong> are the settings you choose <em>before</em> training —
+          like learning rate or batch size — rather than values the model learns on its own from data
+          (those are ordinary parameters/weights). <strong>Tuning</strong> means systematically
+          searching for the combination of hyperparameters that produces the best model, usually
+          judged by performance on a held-out validation set.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Common hyperparameters</strong> — learning rate, batch size, number of epochs,
+          network depth/width.</li>
+        <li><strong>Grid search vs. random search vs. Bayesian/automated search</strong> — grid search
+          tries every combination on a fixed grid (expensive, exhaustive); random search samples
+          combinations at random (often finds good regions faster with the same budget); Bayesian/automated
+          search uses past results to intelligently pick the next combination to try.</li>
+        <li><strong>Validation-set-driven tuning</strong> — and the risk of overfitting to the
+          validation/tuning set itself if you search it too aggressively.</li>
+        <li><strong>Learning rate schedules and early stopping</strong> — adjusting the learning rate
+          over time and stopping training once validation performance stops improving.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Search a simulated loss landscape",
+      instructions:
+        "The heatmap plots simulated validation loss over learning rate (x-axis, log scale) and " +
+        "batch size (y-axis). Drag the sliders and click Run to test one configuration, or let Grid " +
+        "Search and Random Search each spend 9 trials automatically and compare which finds a lower " +
+        "loss for the same budget.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var BATCH_SIZES = [8, 16, 32, 64, 128, 256, 512];
+        var OPT_LOG_LR = -2;   // optimal lr = 0.01
+        var OPT_BATCH_IDX = 2; // optimal batch = 32
+        var LOG_LR_MIN = -4, LOG_LR_MAX = 0;
+        var MAX_LOSS_NORM = 6;
+
+        function lossOf(lr, batchIdx, withNoise) {
+          var logLR = Math.log(lr) / Math.LN10;
+          var dLR = logLR - OPT_LOG_LR;
+          var dBatch = batchIdx - OPT_BATCH_IDX;
+          var base = 0.15 + 0.9 * dLR * dLR + 0.12 * dBatch * dBatch;
+          if (withNoise) base += (Math.random() - 0.5) * 0.08;
+          return Math.max(0.05, base);
+        }
+
+        var wrap = document.createElement("div");
+
+        var lrRow = document.createElement("div");
+        lrRow.className = "slider-row";
+        var lrLabel = document.createElement("label");
+        lrLabel.setAttribute("for", "lr-slider");
+        lrLabel.textContent = "Learning rate";
+        var lrSlider = document.createElement("input");
+        lrSlider.type = "range"; lrSlider.min = "0"; lrSlider.max = "100"; lrSlider.value = "50";
+        lrSlider.id = "lr-slider";
+        var lrReadout = document.createElement("span");
+        lrReadout.className = "readout";
+        lrRow.appendChild(lrLabel); lrRow.appendChild(lrSlider); lrRow.appendChild(lrReadout);
+        wrap.appendChild(lrRow);
+
+        var batchRow = document.createElement("div");
+        batchRow.className = "slider-row";
+        var batchLabel = document.createElement("label");
+        batchLabel.setAttribute("for", "batch-slider");
+        batchLabel.textContent = "Batch size";
+        var batchSlider = document.createElement("input");
+        batchSlider.type = "range"; batchSlider.min = "0"; batchSlider.max = "6"; batchSlider.value = "3";
+        batchSlider.id = "batch-slider";
+        var batchReadout = document.createElement("span");
+        batchReadout.className = "readout";
+        batchRow.appendChild(batchLabel); batchRow.appendChild(batchSlider); batchRow.appendChild(batchReadout);
+        wrap.appendChild(batchRow);
+
+        function currentLR() {
+          var val = parseInt(lrSlider.value, 10);
+          var logLR = LOG_LR_MIN + (LOG_LR_MAX - LOG_LR_MIN) * (val / 100);
+          return Math.pow(10, logLR);
+        }
+        function currentBatchIdx() { return parseInt(batchSlider.value, 10); }
+
+        function updateReadouts() {
+          lrReadout.textContent = currentLR().toFixed(4);
+          batchReadout.textContent = String(BATCH_SIZES[currentBatchIdx()]);
+        }
+        lrSlider.addEventListener("input", updateReadouts);
+        batchSlider.addEventListener("input", updateReadouts);
+        updateReadouts();
+
+        var toolbar = document.createElement("div");
+        toolbar.className = "exercise-toolbar";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button"; runBtn.className = "btn btn-primary"; runBtn.textContent = "Run this configuration";
+        var gridBtn = document.createElement("button");
+        gridBtn.type = "button"; gridBtn.className = "btn btn-secondary"; gridBtn.textContent = "Run Grid Search (9 trials)";
+        var randBtn = document.createElement("button");
+        randBtn.type = "button"; randBtn.className = "btn btn-secondary"; randBtn.textContent = "Run Random Search (9 trials)";
+        toolbar.appendChild(runBtn); toolbar.appendChild(gridBtn); toolbar.appendChild(randBtn);
+        wrap.appendChild(toolbar);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 420; canvas.height = 260;
+        canvas.style.display = "block";
+        canvas.style.marginTop = "1rem";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var axisNote = document.createElement("p");
+        axisNote.style.fontSize = "0.85rem";
+        axisNote.style.color = "var(--color-text-faint)";
+        axisNote.style.margin = "0.4rem 0 0 0";
+        axisNote.textContent = "x-axis: learning rate 0.0001 → 1 (log scale). y-axis: batch size 8 → 512.";
+        wrap.appendChild(axisNote);
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "0.75rem";
+        resultText.style.fontWeight = "600";
+        wrap.appendChild(resultText);
+
+        var curveCanvas = document.createElement("canvas");
+        curveCanvas.width = 420; curveCanvas.height = 130;
+        curveCanvas.style.display = "block";
+        curveCanvas.style.marginTop = "0.5rem";
+        curveCanvas.style.background = "#fff";
+        curveCanvas.style.border = "1px solid var(--color-border)";
+        curveCanvas.style.borderRadius = "8px";
+        wrap.appendChild(curveCanvas);
+        var curveLabel = document.createElement("p");
+        curveLabel.style.fontSize = "0.85rem";
+        curveLabel.style.color = "var(--color-text-faint)";
+        curveLabel.style.margin = "0.3rem 0 0 0";
+        curveLabel.textContent = "Simulated validation loss curve for the last single run (x = epoch).";
+        wrap.appendChild(curveLabel);
+
+        root.appendChild(wrap);
+        var c = canvas.getContext("2d");
+        var cc = curveCanvas.getContext("2d");
+
+        var W = canvas.width, H = canvas.height;
+        var COLS = 60, ROWS = BATCH_SIZES.length;
+        var cellW = W / COLS, cellH = H / ROWS;
+
+        var manualPoints = [];
+        var gridPoints = [];
+        var randomPoints = [];
+        var bestGrid = null;
+        var bestRandom = null;
+
+        function xForLR(lr) {
+          var logLR = Math.log(lr) / Math.LN10;
+          var t = (logLR - LOG_LR_MIN) / (LOG_LR_MAX - LOG_LR_MIN);
+          return t * W;
+        }
+        function yForBatchIdx(idx) { return (idx + 0.5) * cellH; }
+
+        function drawLandscape() {
+          c.clearRect(0, 0, W, H);
+          for (var row = 0; row < ROWS; row++) {
+            for (var col = 0; col < COLS; col++) {
+              var logLR = LOG_LR_MIN + (LOG_LR_MAX - LOG_LR_MIN) * ((col + 0.5) / COLS);
+              var lr = Math.pow(10, logLR);
+              var loss = lossOf(lr, row, false);
+              var t = Math.max(0, Math.min(1, loss / MAX_LOSS_NORM));
+              var hue = (1 - t) * 130; // green (low loss) -> red (high loss)
+              c.fillStyle = "hsl(" + hue + ", 65%, 60%)";
+              c.fillRect(col * cellW, row * cellH, cellW + 1, cellH + 1);
+            }
+          }
+          for (var r = 0; r <= ROWS; r++) {
+            c.strokeStyle = "rgba(255,255,255,0.5)";
+            c.beginPath(); c.moveTo(0, r * cellH); c.lineTo(W, r * cellH); c.stroke();
+          }
+
+          drawMarkers(gridPoints, "#7c3aed", "square");
+          drawMarkers(randomPoints, "#e07b00", "triangle");
+          drawMarkers(manualPoints, "#1a2033", "circle");
+        }
+
+        function drawMarkers(points, color, shape) {
+          points.forEach(function (p) {
+            var x = xForLR(p.lr), y = yForBatchIdx(p.batchIdx);
+            c.fillStyle = color;
+            c.strokeStyle = "#fff";
+            c.lineWidth = 1.5;
+            if (shape === "circle") {
+              c.beginPath(); c.arc(x, y, 6, 0, Math.PI * 2); c.fill(); c.stroke();
+            } else if (shape === "square") {
+              c.fillRect(x - 5, y - 5, 10, 10);
+              c.strokeRect(x - 5, y - 5, 10, 10);
+            } else {
+              c.beginPath();
+              c.moveTo(x, y - 7); c.lineTo(x - 6, y + 5); c.lineTo(x + 6, y + 5); c.closePath();
+              c.fill(); c.stroke();
+            }
+          });
+        }
+
+        function drawCurve(finalLoss, logLR) {
+          cc.clearRect(0, 0, curveCanvas.width, curveCanvas.height);
+          var w = curveCanvas.width, h = curveCanvas.height;
+          var margin = 24;
+          cc.strokeStyle = "#b7c0d8";
+          cc.beginPath();
+          cc.moveTo(margin, h - margin); cc.lineTo(w - 8, h - margin);
+          cc.moveTo(margin, 8); cc.lineTo(margin, h - margin);
+          cc.stroke();
+
+          var diverging = logLR > -0.4; // very high LR: loss blows up instead of converging
+          var points = [];
+          var epochs = 24;
+          for (var e = 0; e <= epochs; e++) {
+            var loss;
+            if (diverging) {
+              loss = 1.2 + e * (0.35 + Math.random() * 0.1);
+            } else {
+              loss = finalLoss + (2.6 - finalLoss) * Math.exp(-e * 0.22);
+            }
+            points.push(loss);
+          }
+          var maxLoss = Math.max.apply(null, points.concat([0.1]));
+          var minLoss = 0;
+
+          cc.strokeStyle = "#2952e3";
+          cc.lineWidth = 2;
+          cc.beginPath();
+          points.forEach(function (loss, i) {
+            var x = margin + (w - margin - 8) * (i / epochs);
+            var norm = (loss - minLoss) / (maxLoss - minLoss || 1);
+            var y = (h - margin) - norm * (h - margin - 8);
+            if (i === 0) cc.moveTo(x, y); else cc.lineTo(x, y);
+          });
+          cc.stroke();
+
+          cc.fillStyle = "#4c5470";
+          cc.font = "11px sans-serif";
+          cc.textAlign = "left";
+          cc.fillText("loss", 2, 14);
+          cc.fillText("epoch " + epochs, w - 60, h - 6);
+        }
+
+        runBtn.addEventListener("click", function () {
+          var lr = currentLR();
+          var batchIdx = currentBatchIdx();
+          var loss = lossOf(lr, batchIdx, true);
+          manualPoints.push({ lr: lr, batchIdx: batchIdx });
+          if (manualPoints.length > 6) manualPoints.shift();
+          drawLandscape();
+          drawCurve(loss, Math.log(lr) / Math.LN10);
+          resultText.textContent = "Run result: lr=" + lr.toFixed(4) + ", batch=" + BATCH_SIZES[batchIdx] +
+            " → simulated validation loss = " + loss.toFixed(3);
+          resultText.style.color = loss < 0.4 ? "#0f7a4a" : (loss < 1.2 ? "#4c5470" : "#b3261e");
+        });
+
+        gridBtn.addEventListener("click", function () {
+          gridPoints = [];
+          bestGrid = null;
+          var lrChoices = [-3, -2, -1]; // 3 log-LR values
+          var batchChoices = [1, 2, 3]; // 3 batch indices
+          lrChoices.forEach(function (logLR) {
+            batchChoices.forEach(function (bIdx) {
+              var lr = Math.pow(10, logLR);
+              var loss = lossOf(lr, bIdx, true);
+              gridPoints.push({ lr: lr, batchIdx: bIdx, loss: loss });
+              if (bestGrid === null || loss < bestGrid.loss) bestGrid = { lr: lr, batchIdx: bIdx, loss: loss };
+            });
+          });
+          drawLandscape();
+          reportSearchResults();
+        });
+
+        randBtn.addEventListener("click", function () {
+          randomPoints = [];
+          bestRandom = null;
+          for (var i = 0; i < 9; i++) {
+            var logLR = LOG_LR_MIN + Math.random() * (LOG_LR_MAX - LOG_LR_MIN);
+            var lr = Math.pow(10, logLR);
+            var bIdx = Math.floor(Math.random() * BATCH_SIZES.length);
+            var loss = lossOf(lr, bIdx, true);
+            randomPoints.push({ lr: lr, batchIdx: bIdx, loss: loss });
+            if (bestRandom === null || loss < bestRandom.loss) bestRandom = { lr: lr, batchIdx: bIdx, loss: loss };
+          }
+          drawLandscape();
+          reportSearchResults();
+        });
+
+        function reportSearchResults() {
+          var lines = [];
+          if (bestGrid) {
+            lines.push("Grid search (9 trials) best: loss=" + bestGrid.loss.toFixed(3) +
+              " at lr=" + bestGrid.lr.toFixed(4) + ", batch=" + BATCH_SIZES[bestGrid.batchIdx]);
+          }
+          if (bestRandom) {
+            lines.push("Random search (9 trials) best: loss=" + bestRandom.loss.toFixed(3) +
+              " at lr=" + bestRandom.lr.toFixed(4) + ", batch=" + BATCH_SIZES[bestRandom.batchIdx]);
+          }
+          if (bestGrid && bestRandom) {
+            lines.push(bestRandom.loss < bestGrid.loss
+              ? "For this budget, random search found a lower loss than grid search."
+              : (bestRandom.loss > bestGrid.loss
+                ? "For this budget, grid search found a lower loss than random search."
+                : "Both searches found the same best loss this time."));
+          }
+          resultText.textContent = lines.join(" ");
+          resultText.style.color = "#1a2033";
+        }
+
+        drawLandscape();
+        drawCurve(lossOf(currentLR(), currentBatchIdx(), false), Math.log(currentLR()) / Math.LN10);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which of these is a hyperparameter rather than a learned parameter?",
+          options: ["A weight in a hidden layer", "The learning rate", "A learned bias term", "A trained word embedding vector"],
+          answer: 1,
+          explanation: "The learning rate is chosen by the practitioner before/during training; it is not learned from data the way weights and biases are."
+        },
+        {
+          q: "Why should you tune hyperparameters using the validation set rather than the test set?",
+          options: [
+            "The test set is always smaller",
+            "Tuning on the test set would let information from your final evaluation set leak into your model choices, making the test score an unreliable estimate of real-world performance",
+            "Validation sets are required by law",
+            "It doesn't matter which one you use"
+          ],
+          answer: 1,
+          explanation: "The test set is meant to be a final, untouched check. If you tune choices based on test performance, you're effectively fitting to the test set, and its score stops being a trustworthy estimate of generalization."
+        },
+        {
+          q: "What is the key practical difference between grid search and random search?",
+          options: [
+            "Grid search tries every combination on a fixed grid; random search samples combinations at random and often finds good regions with fewer total trials",
+            "Random search only works for learning rate, never batch size",
+            "Grid search is always faster",
+            "They are two names for the same algorithm"
+          ],
+          answer: 0,
+          explanation: "Grid search is exhaustive over its grid (cost grows fast with more hyperparameters), while random sampling often covers the important dimensions more efficiently for the same trial budget."
+        },
+        {
+          q: "In the exercise, what happened when the learning rate was pushed very high in the loss-curve chart?",
+          options: [
+            "Loss decreased smoothly to zero",
+            "Loss stayed perfectly flat",
+            "Loss increased/diverged over epochs instead of converging",
+            "The batch size automatically corrected it"
+          ],
+          answer: 2,
+          explanation: "A learning rate that's too high can cause training to overshoot and diverge, with loss growing instead of shrinking over epochs — one reason careful tuning matters."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

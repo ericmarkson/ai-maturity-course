@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regularization: Dropout, L1/L2 — AI Maturity Course</title>
+<meta name="description" content="How L1/L2 penalties and dropout deliberately handicap a model during training so it generalizes instead of memorizing.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-6";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Regularization: Dropout, L1/L2</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Look at a plot of training vs. validation loss and identify
+      signs of overfitting, then explain how adding dropout or an L2 penalty would be expected to
+      change that plot.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Regularization</strong> is a set of techniques that deliberately handicap a model
+          during training so it learns general patterns instead of memorizing the training data. A
+          model with plenty of capacity can always drive training error toward zero by memorizing
+          noise — regularization trades away a little training performance for much better
+          performance on data it hasn't seen.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Overfitting recap and regularization as the fix</li>
+        <li><strong>L1/L2 penalties</strong>: adding a cost for large weights to the loss function so
+          the model prefers smaller, simpler weights</li>
+        <li><strong>Dropout</strong>: randomly disabling neurons during training so the network can't
+          over-rely on any single one of them</li>
+        <li>The regularization-strength tradeoff: too little and the model overfits; too much and it
+          underfits</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "L2-regularization strength vs. a wiggly overfit curve",
+      instructions:
+        "This fits a real high-degree polynomial (ridge regression, computed live in your browser) " +
+        "to a fixed noisy dataset. Drag the slider to raise the L2 penalty — watch the curve go from " +
+        "wildly overfit, to a smooth generalized fit, to a flattened underfit line, while the " +
+        "training/validation error numbers update.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        // ---- fixed toy dataset (training + a separate validation set) ----
+        var xs = [0, 0.7, 1.4, 2.1, 2.8, 3.5, 4.2, 4.9, 5.6, 6.3, 7.0, 7.7, 8.4, 9.1, 9.8];
+        var noise = [0.9, -1.3, 0.5, 1.6, -0.7, 1.1, -1.7, 0.3, 1.3, -0.4, 0.9, -1.1, 1.5, -0.6, 0.4];
+        function trueFn(x) { return 4 + 2 * Math.sin(x * 0.9) + 0.3 * x; }
+        var ys = xs.map(function (x, i) { return trueFn(x) + noise[i]; });
+
+        var valXs = [0.35, 1.75, 3.15, 4.55, 5.95, 7.35, 8.75, 9.45];
+        var valNoise = [-0.3, 0.4, -0.5, 0.3, -0.2, 0.6, -0.4, 0.3];
+        var valYs = valXs.map(function (x, i) { return trueFn(x) + valNoise[i]; });
+
+        var DEGREE = 11;
+        function norm(x) { return (x - 5) / 5; }
+        function basisRow(x) {
+          var xn = norm(x), row = [], p = 1;
+          for (var d = 0; d <= DEGREE; d++) { row.push(p); p *= xn; }
+          return row;
+        }
+
+        // ---- tiny linear-algebra helpers (real ridge regression, no fakery) ----
+        function transpose(M) {
+          var r = M.length, c = M[0].length, T = [];
+          for (var j = 0; j < c; j++) { T.push([]); for (var i = 0; i < r; i++) T[j].push(M[i][j]); }
+          return T;
+        }
+        function matMul(A, B) {
+          var r = A.length, k = A[0].length, c = B[0].length, R = [];
+          for (var i = 0; i < r; i++) {
+            R.push(new Array(c).fill(0));
+            for (var j = 0; j < c; j++) {
+              var s = 0;
+              for (var x = 0; x < k; x++) s += A[i][x] * B[x][j];
+              R[i][j] = s;
+            }
+          }
+          return R;
+        }
+        function solve(A, b) {
+          var n = A.length;
+          var M = A.map(function (row, i) { return row.concat([b[i]]); });
+          for (var col = 0; col < n; col++) {
+            var piv = col;
+            for (var r = col + 1; r < n; r++) { if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r; }
+            var tmp = M[col]; M[col] = M[piv]; M[piv] = tmp;
+            var pv = M[col][col];
+            for (var c2 = col; c2 <= n; c2++) M[col][c2] /= pv;
+            for (var r2 = 0; r2 < n; r2++) {
+              if (r2 !== col) {
+                var f = M[r2][col];
+                for (var c3 = col; c3 <= n; c3++) M[r2][c3] -= f * M[col][c3];
+              }
+            }
+          }
+          return M.map(function (row) { return row[n]; });
+        }
+
+        function fitRidge(lambda) {
+          var X = xs.map(basisRow);
+          var y = ys.map(function (v) { return [v]; });
+          var Xt = transpose(X);
+          var XtX = matMul(Xt, X);
+          for (var i = 0; i < XtX.length; i++) XtX[i][i] += lambda;
+          var XtY = matMul(Xt, y).map(function (r) { return r[0]; });
+          return solve(XtX, XtY);
+        }
+        function predict(beta, x) {
+          var row = basisRow(x), s = 0;
+          for (var i = 0; i < row.length; i++) s += beta[i] * row[i];
+          return s;
+        }
+        function mse(beta, X, Y) {
+          var s = 0;
+          for (var i = 0; i < X.length; i++) { var e = predict(beta, X[i]) - Y[i]; s += e * e; }
+          return s / X.length;
+        }
+
+        // ---- UI ----
+        var wrap = document.createElement("div");
+
+        var row = document.createElement("div");
+        row.className = "slider-row";
+        var label = document.createElement("label");
+        label.setAttribute("for", "reg-slider");
+        label.textContent = "L2 regularization strength";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "100";
+        slider.value = "0";
+        slider.id = "reg-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "λ ≈ 0.000001";
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(readout);
+        wrap.appendChild(row);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 520;
+        canvas.height = 320;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "520px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var legend = document.createElement("p");
+        legend.style.fontSize = "var(--font-size-sm)";
+        legend.style.color = "var(--color-text-muted)";
+        legend.style.marginTop = "0.5rem";
+        legend.innerHTML = "<span style='color:#2952e3;font-weight:700;'>&#9679;</span> training points &nbsp; " +
+          "<span style='color:#d3390c;font-weight:700;'>&#9679;</span> validation points &nbsp; " +
+          "<span style='color:#0f9d78;font-weight:700;'>&#8213;</span> fitted curve";
+        wrap.appendChild(legend);
+
+        var statsP = document.createElement("p");
+        statsP.setAttribute("role", "status");
+        statsP.style.fontFamily = "var(--font-mono)";
+        statsP.style.marginTop = "0.5rem";
+        wrap.appendChild(statsP);
+
+        var verdictP = document.createElement("p");
+        verdictP.style.fontWeight = "700";
+        wrap.appendChild(verdictP);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+        var padL = 36, padR = 14, padT = 14, padB = 30;
+        var plotW = canvas.width - padL - padR;
+        var plotH = canvas.height - padT - padB;
+        var yMin = -1, yMax = 12, xMin = 0, xMax = 9.8;
+
+        function toPx(x, y) {
+          return {
+            x: padL + (x - xMin) / (xMax - xMin) * plotW,
+            y: padT + plotH - (y - yMin) / (yMax - yMin) * plotH
+          };
+        }
+
+        function draw(lambda) {
+          var beta = fitRidge(lambda);
+          var trainMSE = mse(beta, xs, ys);
+          var valMSE = mse(beta, valXs, valYs);
+
+          ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+
+          // axes
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          var o = toPx(xMin, yMin);
+          var xEnd = toPx(xMax, yMin);
+          var yEnd = toPx(xMin, yMax);
+          ctx2d.moveTo(yEnd.x, yEnd.y);
+          ctx2d.lineTo(o.x, o.y);
+          ctx2d.lineTo(xEnd.x, xEnd.y);
+          ctx2d.stroke();
+
+          // fitted curve
+          ctx2d.strokeStyle = "#0f9d78";
+          ctx2d.lineWidth = 2.5;
+          ctx2d.beginPath();
+          for (var xv = xMin; xv <= xMax + 1e-9; xv += 0.05) {
+            var yv = predict(beta, xv);
+            yv = Math.max(yMin, Math.min(yMax, yv));
+            var p = toPx(xv, yv);
+            if (xv === xMin) ctx2d.moveTo(p.x, p.y); else ctx2d.lineTo(p.x, p.y);
+          }
+          ctx2d.stroke();
+
+          // training points
+          ctx2d.fillStyle = "#2952e3";
+          xs.forEach(function (x, i) {
+            var p = toPx(x, ys[i]);
+            ctx2d.beginPath();
+            ctx2d.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+            ctx2d.fill();
+          });
+
+          // validation points
+          ctx2d.fillStyle = "#d3390c";
+          valXs.forEach(function (x, i) {
+            var p = toPx(x, valYs[i]);
+            ctx2d.beginPath();
+            ctx2d.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+            ctx2d.fill();
+          });
+
+          statsP.innerHTML = "Training loss (MSE): <strong>" + trainMSE.toFixed(2) +
+            "</strong> &nbsp;|&nbsp; Validation loss (MSE): <strong>" + valMSE.toFixed(2) + "</strong>";
+
+          var ratio = valMSE / (trainMSE + 1e-9);
+          if (ratio > 1.15) {
+            verdictP.textContent = "Overfitting: the curve hugs training noise — validation loss is clearly worse than training loss.";
+            verdictP.style.color = "#b3261e";
+          } else if (trainMSE > 2.5) {
+            verdictP.textContent = "Underfitting: the curve is too constrained — both training and validation loss are high.";
+            verdictP.style.color = "#b3261e";
+          } else {
+            verdictP.textContent = "Good balance: the curve follows the underlying trend without chasing noise.";
+            verdictP.style.color = "#0f7a4a";
+          }
+        }
+
+        slider.addEventListener("input", function () {
+          var s = parseInt(slider.value, 10);
+          var lambda = Math.pow(10, (s / 100) * 9 - 6); // 1e-6 (almost none) to 1e3 (very strong)
+          readout.textContent = "λ ≈ " + (lambda < 0.01 ? lambda.toExponential(1) : lambda.toFixed(2));
+          draw(lambda);
+        });
+
+        draw(Math.pow(10, -6));
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "On a plot of training loss vs. validation loss over time, which pattern is the clearest sign of overfitting?",
+          options: [
+            "Both losses steadily decrease together and stay close",
+            "Training loss keeps dropping while validation loss flattens out or starts rising",
+            "Both losses stay flat and high from the start",
+            "Validation loss is always lower than training loss"
+          ],
+          answer: 1,
+          explanation: "That growing gap — training loss still falling while validation loss stalls or worsens — means the model is increasingly fitting training-set quirks that don't generalize."
+        },
+        {
+          q: "What does an L2 penalty add to the loss function?",
+          options: [
+            "A bonus that rewards larger weights",
+            "A cost proportional to the size of the model's weights, discouraging any single weight from growing too large",
+            "A random shuffle of the training labels",
+            "Extra training data generated automatically"
+          ],
+          answer: 1,
+          explanation: "L2 (and L1) regularization adds a penalty term based on weight magnitude, so the optimizer has to trade off fitting the data against keeping weights small — which tends to produce smoother, less noise-fitting models."
+        },
+        {
+          q: "What does dropout do during training?",
+          options: [
+            "Permanently deletes a fraction of the training examples",
+            "Randomly disables a fraction of neurons on each forward pass so the network can't over-rely on any one of them",
+            "Removes the last layer of the network entirely",
+            "Lowers the learning rate over time"
+          ],
+          answer: 1,
+          explanation: "By randomly zeroing out different neurons each pass, dropout forces the network to spread useful signal across many neurons instead of depending heavily on a few, which improves generalization."
+        },
+        {
+          q: "In the exercise, what happens if the regularization strength is pushed far too high?",
+          options: [
+            "The model overfits even more severely",
+            "Nothing changes — regularization strength has no effect on the fitted curve",
+            "The fitted curve becomes too simple/flat to capture the real pattern, and both training and validation loss rise — underfitting",
+            "Training loss becomes negative"
+          ],
+          answer: 2,
+          explanation: "Regularization strength is a tradeoff dial: too little allows overfitting, but too much over-constrains the model so it can't capture even the real underlying pattern, raising error on both training and validation data."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

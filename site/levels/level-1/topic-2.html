@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narrow AI vs. General AI — AI Maturity Course</title>
+<meta name="description" content="The difference between narrow AI (what exists today) and general AI (AGI, still hypothetical), with a spectrum-slider placement exercise.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-2";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>Narrow AI vs. General AI</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can explain, in one or two sentences, why a
+      system like a chess engine or a chatbot is narrow AI even if it seems very capable in its
+      domain.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Narrow AI</strong> (also called Artificial Narrow Intelligence, or ANI) is built
+          to do one specific task, or a bounded family of tasks, well. Every AI system that exists
+          today — no matter how impressive — is narrow in this sense. <strong>General AI</strong>
+          (Artificial General Intelligence, AGI) is a still-hypothetical system that would match
+          human-level reasoning and adaptability across essentially any task, including tasks it
+          was never specifically built or trained for. Nobody has built one yet.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Artificial Narrow Intelligence (ANI) — task-specific systems like voice assistants, recommendation engines, and image classifiers</li>
+        <li>Artificial General Intelligence (AGI) — theoretical, human-level breadth and transfer across domains</li>
+        <li>Why today's large language models are still considered narrow despite feeling general in conversation</li>
+        <li>A brief mention of "artificial superintelligence" (ASI) — a further hypothetical stage beyond AGI, without dwelling on speculation</li>
+      </ul>
+      <p>
+        The trap to avoid is confusing "very good at a broad-feeling task" with "general." A
+        modern chatbot can write code, draft an email, and discuss history in the same
+        conversation, which feels general — but it's still operating within the boundaries of
+        patterns it learned from training data and text-based interaction. It can't autonomously
+        go learn to physically repair a car engine, run a business, or set its own goals the way
+        a human easily adapts across wildly different domains. That gap between "broad within a
+        lane" and "adaptable across any lane" is exactly what separates narrow from general.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var SYSTEMS = [
+      { id: "bot", label: "Rule-based scripted customer-service bot (FAQ menu)", ref: 5,
+        rationale: "Follows a fixed decision tree of scripted replies — extremely narrow, no adaptability." },
+      { id: "chess", label: "Superhuman chess engine (e.g. Stockfish-style)", ref: 12,
+        rationale: "Unbeatable at chess, useless at anything else — a textbook example of narrow AI." },
+      { id: "reco", label: "Netflix-style recommendation algorithm", ref: 15,
+        rationale: "Extremely good at one job (ranking content for you) and cannot generalize beyond it." },
+      { id: "car", label: "Self-driving car perception & driving stack", ref: 30,
+        rationale: "Handles a real, messy, physical environment — broader than chess or recommendations — but still only drives." },
+      { id: "llm", label: "Modern GPT-style chatbot (writing, coding, conversation)", ref: 55,
+        rationale: "Feels broad across many text-based tasks, but it's still narrow: no true autonomous transfer to physical or open-ended real-world goals." },
+      { id: "agi", label: "Hypothetical AGI matching human reasoning in any domain", ref: 98,
+        rationale: "By definition this is the general end of the spectrum — nothing that exists today qualifies." }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Position each system on the narrow ↔ general spectrum",
+      instructions: "Drag each slider to where you think that system sits between 0 (purely " +
+        "narrow) and 100 (fully general, AGI-level). Then click “Check my placements” to compare " +
+        "against a reference position and see the rationale.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var values = {};
+        var rows = {};
+
+        SYSTEMS.forEach(function (sys) {
+          values[sys.id] = 50;
+
+          var wrap = document.createElement("div");
+          wrap.style.marginBottom = "18px";
+          wrap.style.paddingBottom = "12px";
+          wrap.style.borderBottom = "1px solid var(--color-border)";
+
+          var row = document.createElement("div");
+          row.className = "slider-row";
+
+          var label = document.createElement("label");
+          label.textContent = sys.label;
+          label.style.minWidth = "0";
+          label.style.flex = "1 1 260px";
+          var sliderId = "slider-" + sys.id;
+          label.setAttribute("for", sliderId);
+
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = "0";
+          slider.max = "100";
+          slider.value = "50";
+          slider.id = sliderId;
+
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = "50";
+
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+
+          var track = document.createElement("div");
+          track.style.position = "relative";
+          track.style.height = "22px";
+          track.style.background = "linear-gradient(to right, #e3eafc, #2952e3)";
+          track.style.borderRadius = "6px";
+          track.style.marginTop = "6px";
+
+          var narrowLabel = document.createElement("span");
+          narrowLabel.textContent = "narrow";
+          narrowLabel.style.position = "absolute";
+          narrowLabel.style.left = "4px";
+          narrowLabel.style.top = "2px";
+          narrowLabel.style.fontSize = "0.7rem";
+          narrowLabel.style.color = "#fff";
+          track.appendChild(narrowLabel);
+
+          var generalLabel = document.createElement("span");
+          generalLabel.textContent = "general";
+          generalLabel.style.position = "absolute";
+          generalLabel.style.right = "4px";
+          generalLabel.style.top = "2px";
+          generalLabel.style.fontSize = "0.7rem";
+          generalLabel.style.color = "#fff";
+          track.appendChild(generalLabel);
+
+          var marker = document.createElement("div");
+          marker.style.position = "absolute";
+          marker.style.top = "-4px";
+          marker.style.width = "14px";
+          marker.style.height = "30px";
+          marker.style.borderRadius = "4px";
+          marker.style.background = "#1a2033";
+          marker.style.left = "calc(50% - 7px)";
+          marker.style.transition = "left 0.05s linear";
+          track.appendChild(marker);
+
+          wrap.appendChild(track);
+
+          var feedback = document.createElement("p");
+          feedback.style.margin = "8px 0 0 0";
+          feedback.style.fontSize = "0.85rem";
+          feedback.style.display = "none";
+          wrap.appendChild(feedback);
+
+          slider.addEventListener("input", function () {
+            var v = parseInt(slider.value, 10);
+            values[sys.id] = v;
+            readout.textContent = String(v);
+            marker.style.left = "calc(" + v + "% - 7px)";
+          });
+
+          root.appendChild(wrap);
+          rows[sys.id] = { track: track, feedback: feedback };
+        });
+
+        var btnRow = document.createElement("div");
+        btnRow.style.marginTop = "8px";
+        var checkBtn = document.createElement("button");
+        checkBtn.type = "button";
+        checkBtn.className = "btn btn-primary";
+        checkBtn.textContent = "Check my placements";
+        btnRow.appendChild(checkBtn);
+        root.appendChild(btnRow);
+
+        var summary = document.createElement("p");
+        summary.setAttribute("role", "status");
+        summary.style.marginTop = "12px";
+        summary.style.fontWeight = "600";
+        root.appendChild(summary);
+
+        checkBtn.addEventListener("click", function () {
+          var closeCount = 0;
+          SYSTEMS.forEach(function (sys) {
+            var v = values[sys.id];
+            var diff = Math.abs(v - sys.ref);
+            var r = rows[sys.id];
+
+            var refMark = r.track.querySelector(".ref-mark");
+            if (!refMark) {
+              refMark = document.createElement("div");
+              refMark.className = "ref-mark";
+              refMark.style.position = "absolute";
+              refMark.style.top = "-12px";
+              refMark.style.width = "0";
+              refMark.style.height = "0";
+              refMark.style.borderLeft = "6px solid transparent";
+              refMark.style.borderRight = "6px solid transparent";
+              refMark.style.borderTop = "8px solid #d3390c";
+              r.track.appendChild(refMark);
+            }
+            refMark.style.left = "calc(" + sys.ref + "% - 6px)";
+
+            r.feedback.style.display = "block";
+            if (diff <= 15) {
+              closeCount++;
+              r.feedback.style.color = "var(--color-success)";
+              r.feedback.textContent = "✓ Close! Reference: " + sys.ref + ". " + sys.rationale;
+            } else if (diff <= 30) {
+              r.feedback.style.color = "#a06a00";
+              r.feedback.textContent = "Somewhat off. Reference: " + sys.ref + ". " + sys.rationale;
+            } else {
+              r.feedback.style.color = "var(--color-error)";
+              r.feedback.textContent = "Way off. Reference: " + sys.ref + ". " + sys.rationale;
+            }
+          });
+
+          summary.textContent = closeCount + " / " + SYSTEMS.length + " placements were close to the reference position.";
+        });
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which of these best describes Artificial General Intelligence (AGI)?",
+          options: ["A chatbot that can discuss many different topics", "A system with human-level reasoning and adaptability across essentially any task", "Any AI system trained on a very large dataset", "A system that beats humans at one specific benchmark"],
+          answer: 1,
+          explanation: "AGI specifically means human-level breadth and transfer across domains, not just breadth of topics within one interface."
+        },
+        {
+          q: "Why are today's most advanced LLM chatbots still considered “narrow AI” despite feeling very general in conversation?",
+          options: ["They can only process plain text and nothing else", "They lack true autonomous transfer of skill and reasoning to arbitrary novel real-world domains at human level", "They are too slow to be useful", "They were not trained on enough data"],
+          answer: 1,
+          explanation: "Feeling broad within a text-based lane isn't the same as AGI's defining trait: adaptable, human-level reasoning across essentially any task."
+        },
+        {
+          q: "True or false: a chess engine that can beat any human grandmaster counts as general intelligence because it is “smarter than a human” at chess.",
+          options: ["True", "False"],
+          answer: 1,
+          explanation: "False — being superhuman at one narrow task is the definition of narrow AI, not general intelligence."
+        },
+        {
+          q: "What does the term “artificial superintelligence” (ASI) generally refer to?",
+          options: ["Any AI system that's faster than a human at arithmetic", "A hypothetical stage beyond AGI that would broadly exceed human intelligence", "The current generation of large language models", "A narrow AI system with very high accuracy"],
+          answer: 1,
+          explanation: "ASI is a further hypothetical stage past AGI — broadly surpassing, not just matching, human-level intelligence."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

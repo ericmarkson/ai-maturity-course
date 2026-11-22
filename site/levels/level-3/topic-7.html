@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loss Functions — AI Maturity Course</title>
+<meta name="description" content="How mean squared error, mean absolute error, and cross-entropy each turn a prediction's mistake into a single number gradient descent can minimize.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-7";
+</script>
+<style>
+  .lf-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); display: inline-block; }
+  .lf-readout-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
+  .lf-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight: 700; }
+  .lf-btn-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .lf-legend { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-2); font-size: var(--font-size-sm); }
+  .lf-legend span.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>Loss Functions</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a predicted value and a true value, you should be
+      able to compute a simple squared-error loss by hand, and explain why classification tasks need
+      a different kind of loss function than regression tasks.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A <strong>loss function</strong> is a single number that measures how wrong a model's
+          prediction is, which gradient descent then tries to minimize. Different tasks call for
+          different losses — the "right" way to score a mistake on a house-price prediction is not
+          the same as the right way to score a mistake on a spam/not-spam decision.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Regression losses vs. classification losses</strong> — regression tasks
+          (predicting a number) commonly use something like mean squared error, while classification
+          tasks (predicting a category) commonly use cross-entropy — conceptually different ways of
+          scoring a mistake.</li>
+        <li><strong>Why the choice of loss shapes what "good" means</strong> — a loss that squares the
+          error punishes big misses much harder than small ones, while a loss that takes the absolute
+          value treats every unit of error the same; picking a loss is picking what kind of mistake
+          you care most about avoiding.</li>
+        <li><strong>Loss on one example vs. average loss over a dataset</strong> — you can compute
+          loss for a single prediction, but training actually minimizes the average loss across every
+          example in the training set.</li>
+        <li><strong>Connecting loss to the "downhill" surface</strong> — the loss function is exactly
+          what defines the height of the loss landscape from the gradient descent lesson; gradient
+          descent is just walking downhill on the surface this function draws.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<!-- Script load order matters: course-data -> progress -> quiz/exercise -> site -->
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var W = 480, H = 240, MARGIN = 30;
+    var TRUE_VALUE = 6; // fixed true value for the regression demo, domain 0-10
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Drag the prediction, watch each loss respond differently",
+      instructions:
+        "Regression mode: the true value is fixed at 6. Drag the predicted-value slider and watch " +
+        "the MSE and MAE curves and live numbers update — notice how squaring punishes big misses " +
+        "far harder. Then switch to classification mode to see cross-entropy loss for a predicted " +
+        "probability, and flip the true label to see the mirrored penalty.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var modeRow = document.createElement("div");
+        modeRow.className = "lf-btn-row";
+        var modeBtn = document.createElement("button");
+        modeBtn.type = "button";
+        modeBtn.className = "btn btn-secondary";
+        modeBtn.textContent = "Switch to classification (cross-entropy) mode";
+        modeRow.appendChild(modeBtn);
+        wrap.appendChild(modeRow);
+
+        function makeSlider(id, label, min, max, value, step) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var lab = document.createElement("label");
+          lab.setAttribute("for", id);
+          lab.textContent = label;
+          var input = document.createElement("input");
+          input.type = "range"; input.id = id; input.min = String(min); input.max = String(max);
+          input.step = String(step); input.value = String(value);
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = value;
+          row.appendChild(lab); row.appendChild(input); row.appendChild(readout);
+          return { row: row, input: input, readout: readout };
+        }
+
+        // --- Regression controls ---
+        var predCtl = makeSlider("pred-slider", "Predicted value", 0, 10, 2, 0.1);
+        wrap.appendChild(predCtl.row);
+
+        // --- Classification controls ---
+        var probCtl = makeSlider("prob-slider", "Predicted probability of positive class", 0.01, 0.99, 0.5, 0.01);
+        probCtl.row.style.display = "none";
+        wrap.appendChild(probCtl.row);
+
+        var labelRow = document.createElement("div");
+        labelRow.className = "lf-btn-row";
+        labelRow.style.display = "none";
+        var labelBtn = document.createElement("button");
+        labelBtn.type = "button";
+        labelBtn.className = "btn btn-secondary";
+        labelBtn.textContent = "True label: positive (flip to negative)";
+        labelRow.appendChild(labelBtn);
+        wrap.appendChild(labelRow);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "lf-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = W; canvas.height = H;
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var legend = document.createElement("div");
+        legend.className = "lf-legend";
+        wrap.appendChild(legend);
+
+        var readoutRow = document.createElement("div");
+        readoutRow.className = "lf-readout-row";
+        wrap.appendChild(readoutRow);
+
+        root.appendChild(wrap);
+        var cctx = canvas.getContext("2d");
+
+        var classification = false;
+        var trueLabelPositive = true;
+
+        function mseOf(pred) { var e = pred - TRUE_VALUE; return e * e; }
+        function maeOf(pred) { return Math.abs(pred - TRUE_VALUE); }
+        function ceOf(p, yPositive) {
+          var pc = Math.min(0.999, Math.max(0.001, p));
+          return yPositive ? -Math.log(pc) : -Math.log(1 - pc);
+        }
+
+        function toPixelReg(px, val, maxVal) {
+          var cx = MARGIN + (px / 10) * (W - 2 * MARGIN);
+          var norm = Math.max(0, Math.min(1, val / maxVal));
+          var cy = (H - MARGIN) - norm * (H - 2 * MARGIN);
+          return { x: cx, y: cy };
+        }
+
+        function toPixelClass(p, val, maxVal) {
+          var cx = MARGIN + ((p - 0.01) / (0.99 - 0.01)) * (W - 2 * MARGIN);
+          var norm = Math.max(0, Math.min(1, val / maxVal));
+          var cy = (H - MARGIN) - norm * (H - 2 * MARGIN);
+          return { x: cx, y: cy };
+        }
+
+        function drawRegression() {
+          var maxMse = 0;
+          for (var px = 0; px <= 10; px += 0.1) maxMse = Math.max(maxMse, mseOf(px));
+
+          cctx.clearRect(0, 0, W, H);
+          cctx.fillStyle = "#fafbfd";
+          cctx.fillRect(0, 0, W, H);
+
+          // true value marker
+          var tv = toPixelReg(TRUE_VALUE, 0, maxMse);
+          cctx.strokeStyle = "#b7c0d8";
+          cctx.setLineDash([4, 4]);
+          cctx.beginPath();
+          cctx.moveTo(tv.x, MARGIN);
+          cctx.lineTo(tv.x, H - MARGIN);
+          cctx.stroke();
+          cctx.setLineDash([]);
+          cctx.fillStyle = "#6b7390";
+          cctx.font = "11px sans-serif";
+          cctx.textAlign = "center";
+          cctx.fillText("true value = " + TRUE_VALUE, tv.x, MARGIN - 8);
+
+          // MSE curve (blue)
+          cctx.strokeStyle = "#2952e3";
+          cctx.lineWidth = 2.5;
+          cctx.beginPath();
+          var first = true;
+          for (var x1 = 0; x1 <= 10; x1 += 0.1) {
+            var pt = toPixelReg(x1, mseOf(x1), maxMse);
+            if (first) { cctx.moveTo(pt.x, pt.y); first = false; } else cctx.lineTo(pt.x, pt.y);
+          }
+          cctx.stroke();
+
+          // MAE curve (orange)
+          cctx.strokeStyle = "#e08a1e";
+          cctx.lineWidth = 2.5;
+          cctx.beginPath();
+          first = true;
+          for (var x2 = 0; x2 <= 10; x2 += 0.1) {
+            var pt2 = toPixelReg(x2, maeOf(x2), maxMse);
+            if (first) { cctx.moveTo(pt2.x, pt2.y); first = false; } else cctx.lineTo(pt2.x, pt2.y);
+          }
+          cctx.stroke();
+
+          var pred = parseFloat(predCtl.input.value);
+          var mse = mseOf(pred), mae = maeOf(pred);
+
+          var mseDot = toPixelReg(pred, mse, maxMse);
+          cctx.beginPath();
+          cctx.arc(mseDot.x, mseDot.y, 7, 0, Math.PI * 2);
+          cctx.fillStyle = "#2952e3";
+          cctx.fill();
+
+          var maeDot = toPixelReg(pred, mae, maxMse);
+          cctx.beginPath();
+          cctx.arc(maeDot.x, maeDot.y, 7, 0, Math.PI * 2);
+          cctx.fillStyle = "#e08a1e";
+          cctx.fill();
+
+          legend.innerHTML =
+            '<span><span class="swatch" style="background:#2952e3;"></span>MSE = (pred − true)²</span>' +
+            '<span><span class="swatch" style="background:#e08a1e;"></span>MAE = |pred − true|</span>';
+
+          var error = pred - TRUE_VALUE;
+          readoutRow.innerHTML =
+            '<span class="lf-readout">error = ' + error.toFixed(2) + '</span>' +
+            '<span class="lf-readout">MSE = ' + mse.toFixed(2) + '</span>' +
+            '<span class="lf-readout">MAE = ' + mae.toFixed(2) + '</span>';
+        }
+
+        function drawClassification() {
+          var maxCe = 0;
+          for (var p1 = 0.01; p1 <= 0.99; p1 += 0.01) {
+            maxCe = Math.max(maxCe, ceOf(p1, trueLabelPositive));
+          }
+
+          cctx.clearRect(0, 0, W, H);
+          cctx.fillStyle = "#fafbfd";
+          cctx.fillRect(0, 0, W, H);
+
+          // "correct" marker: the probability value that would give zero loss
+          var correctP = trueLabelPositive ? 0.99 : 0.01;
+          var cm = toPixelClass(correctP, 0, maxCe);
+          cctx.strokeStyle = "#b7c0d8";
+          cctx.setLineDash([4, 4]);
+          cctx.beginPath();
+          cctx.moveTo(cm.x, MARGIN);
+          cctx.lineTo(cm.x, H - MARGIN);
+          cctx.stroke();
+          cctx.setLineDash([]);
+          cctx.fillStyle = "#6b7390";
+          cctx.font = "11px sans-serif";
+          cctx.textAlign = "center";
+          cctx.fillText("confident & correct", cm.x, MARGIN - 8);
+
+          // cross-entropy curve (purple)
+          cctx.strokeStyle = "#7a3fc9";
+          cctx.lineWidth = 2.5;
+          cctx.beginPath();
+          var first = true;
+          for (var p2 = 0.01; p2 <= 0.99; p2 += 0.01) {
+            var pt = toPixelClass(p2, ceOf(p2, trueLabelPositive), maxCe);
+            if (first) { cctx.moveTo(pt.x, pt.y); first = false; } else cctx.lineTo(pt.x, pt.y);
+          }
+          cctx.stroke();
+
+          var p = parseFloat(probCtl.input.value);
+          var ce = ceOf(p, trueLabelPositive);
+          var dot = toPixelClass(p, ce, maxCe);
+          cctx.beginPath();
+          cctx.arc(dot.x, dot.y, 7, 0, Math.PI * 2);
+          cctx.fillStyle = "#7a3fc9";
+          cctx.fill();
+
+          legend.innerHTML =
+            '<span><span class="swatch" style="background:#7a3fc9;"></span>Cross-entropy = ' +
+            (trueLabelPositive ? "−log(p)" : "−log(1−p)") + '</span>';
+
+          readoutRow.innerHTML =
+            '<span class="lf-readout">p = ' + p.toFixed(2) + '</span>' +
+            '<span class="lf-readout">true label = ' + (trueLabelPositive ? "positive (1)" : "negative (0)") + '</span>' +
+            '<span class="lf-readout">cross-entropy = ' + ce.toFixed(3) + '</span>';
+        }
+
+        function draw() {
+          if (classification) drawClassification();
+          else drawRegression();
+        }
+
+        predCtl.input.addEventListener("input", function () {
+          predCtl.readout.textContent = parseFloat(predCtl.input.value).toFixed(1);
+          draw();
+        });
+
+        probCtl.input.addEventListener("input", function () {
+          probCtl.readout.textContent = parseFloat(probCtl.input.value).toFixed(2);
+          draw();
+        });
+
+        labelBtn.addEventListener("click", function () {
+          trueLabelPositive = !trueLabelPositive;
+          labelBtn.textContent = trueLabelPositive
+            ? "True label: positive (flip to negative)"
+            : "True label: negative (flip to positive)";
+          draw();
+        });
+
+        modeBtn.addEventListener("click", function () {
+          classification = !classification;
+          predCtl.row.style.display = classification ? "none" : "flex";
+          probCtl.row.style.display = classification ? "flex" : "none";
+          labelRow.style.display = classification ? "flex" : "none";
+          modeBtn.textContent = classification
+            ? "Switch to regression (MSE / MAE) mode"
+            : "Switch to classification (cross-entropy) mode";
+          draw();
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "The true value is 10 and a model predicts 7. What is the squared-error loss?",
+          options: ["3", "9", "-9", "49"],
+          answer: 1,
+          explanation: "Error = predicted − true = 7 − 10 = −3. Squared error = (−3)² = 9."
+        },
+        {
+          q: "In the exercise, when the prediction is far from the true value, how does MSE's curve compare to MAE's curve?",
+          options: [
+            "MSE grows much faster than MAE because the error is squared",
+            "MSE and MAE are always identical",
+            "MAE grows faster than MSE for large errors",
+            "Neither one changes as the prediction moves"
+          ],
+          answer: 0,
+          explanation: "Squaring the error means a miss twice as large contributes four times the loss, so MSE's curve rises much more steeply than MAE's straight-line growth as the prediction gets far from the true value."
+        },
+        {
+          q: "Why do classification tasks typically use a loss like cross-entropy instead of mean squared error?",
+          options: [
+            "Cross-entropy is easier to compute by hand",
+            "Classification outputs are probabilities of categories, and cross-entropy is built to score how well predicted probabilities match a true category label",
+            "There is no real difference — any loss works equally well for any task",
+            "Cross-entropy can only be used when there is exactly one training example"
+          ],
+          answer: 1,
+          explanation: "Cross-entropy specifically penalizes confident-but-wrong probability predictions, which fits the yes/no or multi-category structure of classification better than a loss designed for continuous numeric outputs."
+        },
+        {
+          q: "In the classification demo, what happens to the cross-entropy loss as the predicted probability for the true class approaches 0 (i.e., the model is confidently wrong)?",
+          options: [
+            "The loss shrinks toward zero",
+            "The loss grows very large",
+            "The loss becomes negative",
+            "The loss stays exactly the same no matter what"
+          ],
+          answer: 1,
+          explanation: "Cross-entropy uses −log(p), and −log(p) shoots up toward a very large value as p approaches 0 — the loss punishes confident wrong predictions much more harshly than uncertain ones."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

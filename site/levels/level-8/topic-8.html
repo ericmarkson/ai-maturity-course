@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rigorous Eval Design: LLM-as-Judge and Statistical Significance — AI Maturity Course</title>
+<meta name="description" content="Why sample size and statistical rigor matter when using an LLM to judge eval results.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-8";
+</script>
+<style>
+  .ev-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ev-toolbar { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+  .ev-trials { display: flex; flex-wrap: wrap; gap: 3px; max-width: 640px; }
+  .ev-trial { width: 10px; height: 10px; border-radius: 2px; }
+  .ev-trial.win { background: var(--color-success); }
+  .ev-trial.loss { background: var(--color-error); }
+  .ev-stats { display: flex; gap: var(--space-5); flex-wrap: wrap; }
+  .ev-stat { background: var(--color-bg-inset); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); min-width: 160px; }
+  .ev-stat .num { font-family: var(--font-mono); font-size: var(--font-size-lg); font-weight: 700; display: block; }
+  .ev-canvas-wrap canvas { width: 100%; max-width: 620px; display: block; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; }
+  .ev-verdict { font-weight: 700; padding: var(--space-3); border-radius: var(--radius-sm); }
+  .ev-verdict.sig { background: var(--color-success-bg); color: var(--color-success); }
+  .ev-verdict.notsig { background: var(--color-warning-bg); color: #8a5a00; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Rigorous Eval Design: LLM-as-Judge and Statistical Significance</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Identify at least one bias risk in an LLM-as-judge setup and
+      explain why a 2-percentage-point difference on a 20-example eval set may not be statistically
+      meaningful.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Rigorous eval design is the practice of building AI system evaluations that produce trustworthy,
+          reproducible results — including using another LLM as an automated judge and applying
+          statistical rigor to the resulting scores, so a difference in reported scores actually reflects
+          a real difference in quality rather than sampling noise.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>LLM-as-judge</strong> — using a model to score or compare outputs, and its known biases (position bias, verbosity bias, self-preference bias)</li>
+        <li><strong>Calibrating judges</strong> — validating judge scores against human ratings, and rubric design</li>
+        <li><strong>Statistical significance basics</strong> — sample size, confidence intervals, avoiding false conclusions from small eval sets</li>
+        <li><strong>Regression test suites</strong> — tracking eval scores over time (tools like promptfoo, DeepEval as illustrative examples)</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var TRUE_WIN_RATE = 0.58; // hidden "ground truth" — Model B truly beats Model A 58% of the time
+
+    function erf(x) {
+      var sign = x >= 0 ? 1 : -1;
+      x = Math.abs(x);
+      var a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+      var t = 1 / (1 + p * x);
+      var y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return sign * y;
+    }
+    function normalCdf(x) { return 0.5 * (1 + erf(x / Math.sqrt(2))); }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Eval Significance Simulator",
+      instructions:
+        "This simulates judging Model B vs. Model A on a fixed (hidden) true win rate using an " +
+        "LLM-as-judge. Set the sample size, then click \"Run eval\" repeatedly at a small N to see the " +
+        "reported win rate jump around — then raise N and see the confidence interval narrow and the " +
+        "verdict stabilize.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "ev-layout";
+
+        var nRow = document.createElement("div");
+        nRow.className = "slider-row";
+        var nLabel = document.createElement("label");
+        nLabel.textContent = "Sample size (N)";
+        nLabel.setAttribute("for", "ev-n-slider");
+        var nSlider = document.createElement("input");
+        nSlider.type = "range";
+        nSlider.min = "5";
+        nSlider.max = "500";
+        nSlider.value = "20";
+        nSlider.id = "ev-n-slider";
+        var nReadout = document.createElement("span");
+        nReadout.className = "readout";
+        nReadout.textContent = "20";
+        nRow.appendChild(nLabel);
+        nRow.appendChild(nSlider);
+        nRow.appendChild(nReadout);
+        wrap.appendChild(nRow);
+
+        var toolbar = document.createElement("div");
+        toolbar.className = "ev-toolbar";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run eval (draw new sample)";
+        toolbar.appendChild(runBtn);
+        wrap.appendChild(toolbar);
+
+        var trialsHeading = document.createElement("h4");
+        trialsHeading.textContent = "Individual judge verdicts (green = Model B won, red = Model A won)";
+        wrap.appendChild(trialsHeading);
+        var trials = document.createElement("div");
+        trials.className = "ev-trials";
+        wrap.appendChild(trials);
+
+        var stats = document.createElement("div");
+        stats.className = "ev-stats";
+        var winStat = document.createElement("div");
+        winStat.className = "ev-stat";
+        winStat.innerHTML = "Observed win rate<span class=\"num\" id=\"ev-winrate\">-</span>";
+        var ciStat = document.createElement("div");
+        ciStat.className = "ev-stat";
+        ciStat.innerHTML = "95% confidence interval<span class=\"num\" id=\"ev-ci\">-</span>";
+        var pStat = document.createElement("div");
+        pStat.className = "ev-stat";
+        pStat.innerHTML = "p-value (vs. 50% baseline)<span class=\"num\" id=\"ev-pval\">-</span>";
+        stats.appendChild(winStat);
+        stats.appendChild(ciStat);
+        stats.appendChild(pStat);
+        wrap.appendChild(stats);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "ev-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 620;
+        canvas.height = 140;
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var verdict = document.createElement("p");
+        verdict.className = "ev-verdict";
+        verdict.setAttribute("role", "status");
+        wrap.appendChild(verdict);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function getN() { return parseInt(nSlider.value, 10); }
+
+        function drawAxis(pointPct, loPct, hiPct) {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          var margin = 40;
+          var axisY = h / 2 + 10;
+          var axisW = w - margin * 2;
+
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          ctx2d.moveTo(margin, axisY);
+          ctx2d.lineTo(w - margin, axisY);
+          ctx2d.stroke();
+
+          [0, 25, 50, 75, 100].forEach(function (tick) {
+            var x = margin + (tick / 100) * axisW;
+            ctx2d.strokeStyle = "#d7dcea";
+            ctx2d.beginPath();
+            ctx2d.moveTo(x, axisY - 6);
+            ctx2d.lineTo(x, axisY + 6);
+            ctx2d.stroke();
+            ctx2d.fillStyle = "#6b7390";
+            ctx2d.font = "10px sans-serif";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText(tick + "%", x, axisY + 20);
+          });
+
+          // 50% baseline reference line
+          var baseX = margin + 0.5 * axisW;
+          ctx2d.strokeStyle = "#8a5a00";
+          ctx2d.setLineDash([4, 3]);
+          ctx2d.lineWidth = 1.5;
+          ctx2d.beginPath();
+          ctx2d.moveTo(baseX, axisY - 35);
+          ctx2d.lineTo(baseX, axisY + 35);
+          ctx2d.stroke();
+          ctx2d.setLineDash([]);
+          ctx2d.fillStyle = "#8a5a00";
+          ctx2d.fillText("50% (no difference)", baseX, axisY - 40);
+
+          // CI error bar
+          var loX = margin + (loPct / 100) * axisW;
+          var hiX = margin + (hiPct / 100) * axisW;
+          var ptX = margin + (pointPct / 100) * axisW;
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 3;
+          ctx2d.beginPath();
+          ctx2d.moveTo(loX, axisY - 22);
+          ctx2d.lineTo(hiX, axisY - 22);
+          ctx2d.stroke();
+          [loX, hiX].forEach(function (x) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(x, axisY - 28);
+            ctx2d.lineTo(x, axisY - 16);
+            ctx2d.stroke();
+          });
+          ctx2d.fillStyle = "#2952e3";
+          ctx2d.beginPath();
+          ctx2d.arc(ptX, axisY - 22, 6, 0, Math.PI * 2);
+          ctx2d.fill();
+        }
+
+        function runEval() {
+          var n = getN();
+          var wins = 0;
+          trials.innerHTML = "";
+          var maxRender = Math.min(n, 500);
+          for (var i = 0; i < maxRender; i++) {
+            var isWin = Math.random() < TRUE_WIN_RATE;
+            if (isWin) wins++;
+            var sq = document.createElement("div");
+            sq.className = "ev-trial " + (isWin ? "win" : "loss");
+            trials.appendChild(sq);
+          }
+
+          var p = wins / n;
+          var se = Math.sqrt((p * (1 - p)) / n);
+          var loCi = Math.max(0, p - 1.96 * se) * 100;
+          var hiCi = Math.min(1, p + 1.96 * se) * 100;
+
+          var se0 = Math.sqrt(0.25 / n); // SE under null hypothesis p=0.5
+          var z = (p - 0.5) / se0;
+          var pValue = 2 * (1 - normalCdf(Math.abs(z)));
+
+          document.getElementById("ev-winrate").textContent = (p * 100).toFixed(1) + "%";
+          document.getElementById("ev-ci").textContent = "[" + loCi.toFixed(1) + "%, " + hiCi.toFixed(1) + "%]";
+          document.getElementById("ev-pval").textContent = pValue < 0.001 ? "< 0.001" : pValue.toFixed(3);
+
+          drawAxis(p * 100, loCi, hiCi);
+
+          var isSignificant = pValue < 0.05 && (loCi > 50 || hiCi < 50);
+          verdict.className = "ev-verdict " + (isSignificant ? "sig" : "notsig");
+          verdict.textContent = isSignificant
+            ? "Statistically significant: the 95% CI excludes 50% and p < 0.05, so this looks like a real difference, not just noise."
+            : "NOT statistically significant: the 95% CI still overlaps 50% (or p >= 0.05) — with only " + n + " examples, this result could easily be sampling noise rather than a real quality difference.";
+        }
+
+        nSlider.addEventListener("input", function () {
+          nReadout.textContent = nSlider.value;
+          runEval();
+        });
+        runBtn.addEventListener("click", runEval);
+
+        runEval();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which of these is a known bias risk of using an LLM as a judge?",
+          options: [
+            "Judges never have any biases if the prompt is well written",
+            "Position bias — the judge may favor whichever response is shown first (or second) regardless of quality",
+            "LLM judges are always more accurate than any human rater",
+            "LLM judges cannot be used to compare two model outputs"
+          ],
+          answer: 1,
+          explanation: "Position bias, verbosity bias (favoring longer answers), and self-preference bias (favoring outputs that resemble the judge's own style) are all documented LLM-as-judge failure modes."
+        },
+        {
+          q: "Why might a 2-percentage-point difference on a 20-example eval set NOT be statistically meaningful?",
+          options: [
+            "Because percentages are never meaningful in evals",
+            "Because with only 20 examples, the confidence interval around the observed rate is wide enough that a 2-point gap can easily fall within normal sampling noise",
+            "Because 20 examples is always too many to compute a percentage",
+            "Because eval scores must always be exactly 0% or 100%"
+          ],
+          answer: 1,
+          explanation: "Small sample sizes produce wide confidence intervals; a small observed gap can be fully explained by chance rather than reflecting a genuine capability difference."
+        },
+        {
+          q: "In the exercise, what happens to the confidence interval as you increase the sample size N (with the same hidden true win rate)?",
+          options: [
+            "It gets wider and less certain",
+            "It narrows, since standard error decreases as sample size grows, giving a more precise estimate",
+            "It has no relationship to N",
+            "It always jumps to exactly the true win rate at any N"
+          ],
+          answer: 1,
+          explanation: "Standard error scales with 1/sqrt(N), so larger samples produce tighter confidence intervals around the observed win rate."
+        },
+        {
+          q: "What is the purpose of a regression test suite for evals (e.g. using tools like promptfoo or DeepEval)?",
+          options: [
+            "To permanently freeze a model so it can never be updated",
+            "To track eval scores over time so a drop in quality after a change is caught rather than going unnoticed",
+            "To replace the need for any statistical analysis",
+            "To generate marketing copy for the AI product"
+          ],
+          answer: 1,
+          explanation: "Regression test suites re-run a fixed eval set over time (e.g. after prompt or model changes) so quality regressions are caught early rather than silently shipped."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

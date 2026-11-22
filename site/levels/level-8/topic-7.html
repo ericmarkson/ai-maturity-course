@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pretraining Considerations — AI Maturity Course</title>
+<meta name="description" content="The data and objective decisions made before training a foundation model from scratch.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-7";
+</script>
+<style>
+  .pt-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .pt-mix-note { color: var(--color-text-muted); font-size: var(--font-size-sm); margin: 0; }
+  .pt-caps { display: flex; flex-direction: column; gap: var(--space-3); }
+  .pt-cap-row { display: flex; align-items: center; gap: var(--space-3); }
+  .pt-cap-label { min-width: 130px; font-weight: 600; }
+  .pt-cap-track { flex: 1; height: 20px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .pt-cap-fill { height: 100%; background: var(--color-primary); transition: width 0.3s ease; }
+  .pt-cap-num { min-width: 40px; text-align: right; font-family: var(--font-mono); }
+  .pt-sum-warning { color: var(--color-error); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Pretraining Considerations</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> List at least three data-quality decisions that must be made
+      before pretraining begins, and explain why the data mixture (e.g. percentage of code vs. web text
+      vs. books) affects downstream model behavior.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Pretraining considerations are the major design decisions made before training a foundation
+          model from scratch, covering what data to use, how to prepare it, and what objective to train
+          against. These choices are made once, at huge cost, so getting them wrong is expensive to
+          correct later.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Data curation and mixture</strong> — sourcing, deduplication, filtering, and balancing domains/languages</li>
+        <li><strong>Data contamination and quality control</strong> — avoiding test-set leakage, toxic or low-quality content</li>
+        <li><strong>Pretraining objectives</strong> — e.g. next-token prediction, and tokenizer design choices</li>
+        <li><strong>Compute/infrastructure planning</strong> — checkpointing, data pipeline throughput tied to pretraining decisions</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Data Mixture Planner",
+      instructions:
+        "Drag any slider to change that data source's share of the pretraining mix — the other three " +
+        "sliders automatically rebalance so the total always stays at 100%. Watch the predicted " +
+        "downstream capability bars update live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var SOURCES = [
+          { key: "web", label: "Web text" },
+          { key: "code", label: "Code" },
+          { key: "books", label: "Books" },
+          { key: "conv", label: "Conversational data" }
+        ];
+
+        var state = { web: 40, code: 20, books: 20, conv: 20 };
+
+        var wrap = document.createElement("div");
+        wrap.className = "pt-layout";
+
+        var note = document.createElement("p");
+        note.className = "pt-mix-note";
+        note.textContent = "The four sliders always sum to 100% of the pretraining data mixture.";
+        wrap.appendChild(note);
+
+        var sliders = {};
+        var readouts = {};
+
+        SOURCES.forEach(function (src) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.textContent = src.label;
+          label.setAttribute("for", "pt-slider-" + src.key);
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = "0";
+          slider.max = "100";
+          slider.value = String(state[src.key]);
+          slider.id = "pt-slider-" + src.key;
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = state[src.key] + "%";
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          wrap.appendChild(row);
+          sliders[src.key] = slider;
+          readouts[src.key] = readout;
+        });
+
+        var sumWarning = document.createElement("p");
+        sumWarning.className = "pt-sum-warning";
+        sumWarning.style.display = "none";
+        wrap.appendChild(sumWarning);
+
+        var capsHeading = document.createElement("h4");
+        capsHeading.textContent = "Predicted downstream capability (toy weighting formula)";
+        wrap.appendChild(capsHeading);
+
+        var caps = document.createElement("div");
+        caps.className = "pt-caps";
+        var CAP_DEFS = [
+          { key: "coding", label: "Coding" },
+          { key: "reasoning", label: "Reasoning" },
+          { key: "chat", label: "Chat quality" }
+        ];
+        var capFills = {};
+        var capNums = {};
+        CAP_DEFS.forEach(function (cap) {
+          var row = document.createElement("div");
+          row.className = "pt-cap-row";
+          var label = document.createElement("span");
+          label.className = "pt-cap-label";
+          label.textContent = cap.label;
+          var track = document.createElement("div");
+          track.className = "pt-cap-track";
+          var fill = document.createElement("div");
+          fill.className = "pt-cap-fill";
+          track.appendChild(fill);
+          var num = document.createElement("span");
+          num.className = "pt-cap-num";
+          row.appendChild(label);
+          row.appendChild(track);
+          row.appendChild(num);
+          caps.appendChild(row);
+          capFills[cap.key] = fill;
+          capNums[cap.key] = num;
+        });
+        wrap.appendChild(caps);
+
+        root.appendChild(wrap);
+
+        function clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+        function redistribute(changedKey, rawNewVal) {
+          var keys = SOURCES.map(function (s) { return s.key; });
+          var newVal = clamp(rawNewVal);
+          var otherKeys = keys.filter(function (k) { return k !== changedKey; });
+          var othersCurrentSum = otherKeys.reduce(function (s, k) { return s + state[k]; }, 0);
+          var remaining = 100 - newVal;
+
+          var floatVals = {};
+          if (othersCurrentSum <= 0) {
+            otherKeys.forEach(function (k) { floatVals[k] = remaining / otherKeys.length; });
+          } else {
+            otherKeys.forEach(function (k) { floatVals[k] = (state[k] / othersCurrentSum) * remaining; });
+          }
+
+          var runningSum = newVal;
+          for (var i = 0; i < otherKeys.length - 1; i++) {
+            var k = otherKeys[i];
+            var rounded = Math.max(0, Math.round(floatVals[k]));
+            state[k] = rounded;
+            runningSum += rounded;
+          }
+          var lastKey = otherKeys[otherKeys.length - 1];
+          state[lastKey] = Math.max(0, 100 - runningSum);
+          state[changedKey] = newVal;
+        }
+
+        function updateSlidersUI() {
+          SOURCES.forEach(function (src) {
+            sliders[src.key].value = String(state[src.key]);
+            readouts[src.key].textContent = state[src.key] + "%";
+          });
+          var total = SOURCES.reduce(function (s, src) { return s + state[src.key]; }, 0);
+          if (total !== 100) {
+            sumWarning.style.display = "block";
+            sumWarning.textContent = "Mix currently sums to " + total + "% (rounding).";
+          } else {
+            sumWarning.style.display = "none";
+          }
+        }
+
+        function updateCapabilities() {
+          var web = state.web, code = state.code, books = state.books, conv = state.conv;
+
+          var coding = clamp(8 + code * 0.85 + web * 0.05 - conv * 0.05);
+          var reasoning = clamp(12 + books * 0.55 + code * 0.30 - conv * 0.05);
+          var chat = clamp(15 + conv * 0.75 + web * 0.15 - code * 0.15);
+
+          var scores = { coding: Math.round(coding), reasoning: Math.round(reasoning), chat: Math.round(chat) };
+          Object.keys(scores).forEach(function (key) {
+            capFills[key].style.width = scores[key] + "%";
+            capNums[key].textContent = scores[key];
+            capFills[key].style.background = scores[key] >= 65 ? "var(--color-success)" : (scores[key] >= 35 ? "var(--color-primary)" : "var(--color-error)");
+          });
+        }
+
+        function refreshAll() {
+          updateSlidersUI();
+          updateCapabilities();
+        }
+
+        SOURCES.forEach(function (src) {
+          sliders[src.key].addEventListener("input", function () {
+            redistribute(src.key, parseInt(sliders[src.key].value, 10));
+            refreshAll();
+          });
+        });
+
+        refreshAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which of these is a data-quality decision that must be made BEFORE pretraining begins?",
+          options: [
+            "Which user interface theme the eventual chat product will use",
+            "How to deduplicate and filter the training corpus to remove toxic or low-quality content",
+            "What color scheme the API documentation will use",
+            "How many support tickets the company will receive after launch"
+          ],
+          answer: 1,
+          explanation: "Deduplication and quality filtering are core pretraining data-curation decisions — they directly shape what the model learns from."
+        },
+        {
+          q: "Why does increasing the percentage of code in the pretraining mixture tend to affect downstream reasoning ability?",
+          options: [
+            "Code has no relationship to reasoning capability",
+            "Code data often has explicit, structured logical patterns, and models trained on more of it tend to show improved structured/step-by-step reasoning",
+            "Code always hurts every downstream capability",
+            "Reasoning ability is entirely determined by model size, not data mixture"
+          ],
+          answer: 1,
+          explanation: "Empirically, higher proportions of code in pretraining data have been associated with improved reasoning-style performance, likely due to code's structured, logical nature."
+        },
+        {
+          q: "What is 'data contamination' a risk of, in the context of pretraining?",
+          options: [
+            "The model accidentally including benchmark/test-set examples in its training data, inflating apparent performance without real generalization",
+            "The training data being stored in the wrong file format",
+            "The model's weights becoming corrupted during checkpointing",
+            "Using too much conversational data"
+          ],
+          answer: 0,
+          explanation: "Contamination means test or eval examples leaked into the training set, so reported benchmark scores may reflect memorization rather than genuine capability."
+        },
+        {
+          q: "In the exercise, why do the four sliders always sum to 100%?",
+          options: [
+            "It's a display bug",
+            "Because they represent shares of one fixed pretraining data budget — increasing one source's share necessarily decreases the others' shares",
+            "Because only one slider can be greater than zero at a time",
+            "Because the sliders are not actually linked to each other"
+          ],
+          answer: 1,
+          explanation: "The mixture percentages describe how a single, fixed pool of training data is divided among sources, so they must always add up to the whole (100%)."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

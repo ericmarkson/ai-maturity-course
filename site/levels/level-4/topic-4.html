@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intro to NLP: Tokenization, Embeddings, word2vec — AI Maturity Course</title>
+<meta name="description" content="How text becomes tokens, how tokens become dense embedding vectors, and what word2vec's neighbor-prediction idea captures about meaning.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "4-4";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 4 — Intermediate</p>
+  <h1>Intro to NLP: Tokenization, Embeddings, word2vec</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why "king − man + woman ≈ queen" is a meaningful
+      demonstration of what an embedding space captures, and describe the difference between a
+      one-hot word representation and a dense embedding.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Before a neural network can do anything with text, the text has to become numbers.
+          <strong>Tokenization</strong> breaks raw text into small pieces (words or word-fragments).
+          <strong>Embeddings</strong> turn each piece into a dense vector of numbers, positioned in
+          space so that words with similar meaning end up near each other. <strong>word2vec</strong>
+          is the classic algorithm that learns those vectors just by having the model try to predict
+          a word from the words around it (or vice versa) across a huge amount of raw text — no
+          human ever labels "these two words are similar."
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Tokenization: splitting text into words or subwords a model can consume</li>
+        <li>Why raw text needs to become numbers, and why one-hot encoding every word is impractical
+          (huge, sparse vectors that treat every pair of words as equally different)</li>
+        <li>Embeddings: dense, low-dimensional vectors where semantic similarity becomes geometric
+          closeness</li>
+        <li>word2vec's core idea — predict a word from its neighboring context words, or predict the
+          context from a word — as the classic historical technique. Modern systems use richer,
+          context-aware embeddings built on the transformer ideas covered later in this course.</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Tokenizer + embedding-space explorer",
+      instructions:
+        "Type in the box to see a live (simplified) tokenizer split your sentence into pieces. " +
+        "Then click any word in the embedding-space plot to highlight its nearest neighbors, or " +
+        "press the analogy button to see king − man + woman traced out as vectors and compared to queen.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+
+        // ================= Part 1: live tokenizer =================
+        var tokWrap = document.createElement("div");
+        tokWrap.style.marginBottom = "var(--space-6)";
+
+        var tokHeading = document.createElement("h4");
+        tokHeading.textContent = "1. Live tokenizer";
+        tokWrap.appendChild(tokHeading);
+
+        var tokLabel = document.createElement("label");
+        tokLabel.setAttribute("for", "tok-input");
+        tokLabel.textContent = "Type a sentence:";
+        tokLabel.style.display = "block";
+        tokLabel.style.fontWeight = "600";
+        tokLabel.style.marginBottom = "0.4rem";
+        tokWrap.appendChild(tokLabel);
+
+        var tokInput = document.createElement("input");
+        tokInput.type = "text";
+        tokInput.id = "tok-input";
+        tokInput.value = "The cat sat on the mat, didn't it?";
+        tokInput.style.width = "100%";
+        tokInput.style.padding = "0.5rem";
+        tokInput.style.border = "1px solid var(--color-border-strong)";
+        tokInput.style.borderRadius = "6px";
+        tokInput.style.marginBottom = "0.75rem";
+        tokWrap.appendChild(tokInput);
+
+        var tokOutput = document.createElement("div");
+        tokOutput.style.display = "flex";
+        tokOutput.style.flexWrap = "wrap";
+        tokOutput.style.gap = "6px";
+        tokOutput.style.minHeight = "2.2rem";
+        tokWrap.appendChild(tokOutput);
+
+        var tokCount = document.createElement("p");
+        tokCount.style.margin = "0.5rem 0 0 0";
+        tokCount.style.fontSize = "var(--font-size-sm)";
+        tokCount.style.color = "var(--color-text-muted)";
+        tokWrap.appendChild(tokCount);
+
+        var tokNote = document.createElement("p");
+        tokNote.style.fontSize = "var(--font-size-sm)";
+        tokNote.style.color = "var(--color-text-faint)";
+        tokNote.style.marginTop = "0.25rem";
+        tokNote.innerHTML = "<em>This simple demo splits on words and punctuation. Real-world " +
+          "tokenizers (e.g. BPE) often split words into smaller sub-word pieces too.</em>";
+        tokWrap.appendChild(tokNote);
+
+        var chipColors = ["#e8edfc", "#e3f6ec", "#fff6e0", "#fdeceb"];
+
+        function tokenize(text) {
+          var matches = text.match(/[A-Za-z0-9']+|[^\sA-Za-z0-9']/g);
+          return matches || [];
+        }
+
+        function renderTokens() {
+          var tokens = tokenize(tokInput.value);
+          tokOutput.innerHTML = "";
+          tokens.forEach(function (tok, i) {
+            var chip = document.createElement("span");
+            chip.textContent = tok;
+            chip.style.padding = "3px 10px";
+            chip.style.borderRadius = "999px";
+            chip.style.fontFamily = "var(--font-mono)";
+            chip.style.fontSize = "var(--font-size-sm)";
+            chip.style.background = chipColors[i % chipColors.length];
+            chip.style.border = "1px solid var(--color-border)";
+            tokOutput.appendChild(chip);
+          });
+          tokCount.textContent = tokens.length + " token" + (tokens.length === 1 ? "" : "s") +
+            " (whitespace-separated words would give " +
+            (tokInput.value.trim() === "" ? 0 : tokInput.value.trim().split(/\s+/).length) + ").";
+        }
+
+        tokInput.addEventListener("input", renderTokens);
+        root.appendChild(tokWrap);
+        renderTokens();
+
+        // ================= Part 2: embedding space explorer =================
+        var embWrap = document.createElement("div");
+        var embHeading = document.createElement("h4");
+        embHeading.textContent = "2. Embedding-space explorer";
+        embWrap.appendChild(embHeading);
+
+        var embInstr = document.createElement("p");
+        embInstr.style.fontSize = "var(--font-size-sm)";
+        embInstr.style.color = "var(--color-text-muted)";
+        embInstr.textContent = "Click any word below. Its 3 nearest neighbors in this (fixed, " +
+          "illustrative) 2D embedding space will be highlighted.";
+        embWrap.appendChild(embInstr);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 520;
+        canvas.height = 340;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "520px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        canvas.style.cursor = "pointer";
+        embWrap.appendChild(canvas);
+
+        var embReadout = document.createElement("p");
+        embReadout.setAttribute("role", "status");
+        embReadout.style.marginTop = "0.75rem";
+        embReadout.style.fontWeight = "600";
+        embReadout.textContent = "Click a word to see its nearest neighbors.";
+        embWrap.appendChild(embReadout);
+
+        var toolbar = document.createElement("div");
+        toolbar.style.display = "flex";
+        toolbar.style.gap = "0.6rem";
+        toolbar.style.marginTop = "0.75rem";
+        toolbar.style.flexWrap = "wrap";
+
+        var analogyBtn = document.createElement("button");
+        analogyBtn.type = "button";
+        analogyBtn.className = "btn btn-primary";
+        analogyBtn.textContent = "Show king − man + woman ≈ queen";
+        toolbar.appendChild(analogyBtn);
+
+        var clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "btn btn-secondary";
+        clearBtn.textContent = "Clear selection";
+        toolbar.appendChild(clearBtn);
+
+        embWrap.appendChild(toolbar);
+        root.appendChild(embWrap);
+
+        // Fixed illustrative 2D word coordinates (0-100 space), clustered by meaning.
+        var words = [
+          { w: "king", x: 80, y: 80 },
+          { w: "queen", x: 85, y: 75 },
+          { w: "prince", x: 76, y: 88 },
+          { w: "princess", x: 82, y: 84 },
+          { w: "man", x: 75, y: 40 },
+          { w: "woman", x: 80, y: 35 },
+          { w: "dog", x: 20, y: 60 },
+          { w: "puppy", x: 24, y: 66 },
+          { w: "cat", x: 14, y: 55 },
+          { w: "kitten", x: 18, y: 50 },
+          { w: "wolf", x: 26, y: 58 },
+          { w: "apple", x: 10, y: 12 },
+          { w: "banana", x: 15, y: 18 },
+          { w: "orange", x: 19, y: 10 },
+          { w: "grape", x: 7, y: 8 },
+          { w: "car", x: 60, y: 12 },
+          { w: "truck", x: 66, y: 18 },
+          { w: "bicycle", x: 58, y: 8 },
+          { w: "bus", x: 63, y: 6 }
+        ];
+
+        var selected = null;      // word object
+        var showAnalogy = false;
+
+        var padding = 32;
+        var w = canvas.width, h = canvas.height;
+
+        function toCanvas(pt) {
+          return {
+            x: padding + (pt.x / 100) * (w - padding * 2),
+            y: h - padding - (pt.y / 100) * (h - padding * 2)
+          };
+        }
+
+        function dist(a, b) {
+          return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+        }
+
+        function nearestNeighbors(word, n) {
+          return words
+            .filter(function (o) { return o.w !== word.w; })
+            .map(function (o) { return { o: o, d: dist(word, o) }; })
+            .sort(function (a, b) { return a.d - b.d; })
+            .slice(0, n)
+            .map(function (r) { return r.o; });
+        }
+
+        function drawArrow(ctx2d, from, to, color) {
+          var c1 = toCanvas(from), c2 = toCanvas(to);
+          ctx2d.strokeStyle = color;
+          ctx2d.fillStyle = color;
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          ctx2d.moveTo(c1.x, c1.y);
+          ctx2d.lineTo(c2.x, c2.y);
+          ctx2d.stroke();
+          var angle = Math.atan2(c2.y - c1.y, c2.x - c1.x);
+          var headLen = 9;
+          ctx2d.beginPath();
+          ctx2d.moveTo(c2.x, c2.y);
+          ctx2d.lineTo(c2.x - headLen * Math.cos(angle - Math.PI / 6), c2.y - headLen * Math.sin(angle - Math.PI / 6));
+          ctx2d.lineTo(c2.x - headLen * Math.cos(angle + Math.PI / 6), c2.y - headLen * Math.sin(angle + Math.PI / 6));
+          ctx2d.closePath();
+          ctx2d.fill();
+        }
+
+        var ctx2d = canvas.getContext("2d");
+
+        function draw() {
+          ctx2d.clearRect(0, 0, w, h);
+
+          var neighbors = selected ? nearestNeighbors(selected, 3) : [];
+          var neighborSet = {};
+          neighbors.forEach(function (n) { neighborSet[n.w] = true; });
+
+          // lines from selected to neighbors
+          if (selected) {
+            neighbors.forEach(function (n) {
+              var c1 = toCanvas(selected), c2 = toCanvas(n);
+              ctx2d.strokeStyle = "#b7c0d8";
+              ctx2d.lineWidth = 1.5;
+              ctx2d.setLineDash([4, 3]);
+              ctx2d.beginPath();
+              ctx2d.moveTo(c1.x, c1.y);
+              ctx2d.lineTo(c2.x, c2.y);
+              ctx2d.stroke();
+              ctx2d.setLineDash([]);
+            });
+          }
+
+          // points
+          words.forEach(function (pt) {
+            var c = toCanvas(pt);
+            var isSelected = selected && pt.w === selected.w;
+            var isNeighbor = neighborSet[pt.w];
+            ctx2d.beginPath();
+            ctx2d.arc(c.x, c.y, isSelected ? 8 : (isNeighbor ? 6.5 : 5), 0, Math.PI * 2);
+            ctx2d.fillStyle = isSelected ? "#2952e3" : (isNeighbor ? "#0f9d78" : "#8892b0");
+            ctx2d.fill();
+            ctx2d.fillStyle = isSelected ? "#2952e3" : (isNeighbor ? "#0b7a5e" : "#4c5470");
+            ctx2d.font = (isSelected || isNeighbor) ? "bold 12px sans-serif" : "11px sans-serif";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText(pt.w, c.x, c.y - 10);
+          });
+
+          if (showAnalogy) {
+            var king = words.find(function (o) { return o.w === "king"; });
+            var man = words.find(function (o) { return o.w === "man"; });
+            var woman = words.find(function (o) { return o.w === "woman"; });
+            var queen = words.find(function (o) { return o.w === "queen"; });
+            var vx = king.x - man.x, vy = king.y - man.y;
+            var computed = { x: woman.x + vx, y: woman.y + vy };
+
+            drawArrow(ctx2d, man, king, "#2952e3");
+            drawArrow(ctx2d, woman, computed, "#0f9d78");
+
+            var cc = toCanvas(computed);
+            ctx2d.beginPath();
+            ctx2d.arc(cc.x, cc.y, 6, 0, Math.PI * 2);
+            ctx2d.strokeStyle = "#0f9d78";
+            ctx2d.lineWidth = 2;
+            ctx2d.stroke();
+            ctx2d.fillStyle = "#0b7a5e";
+            ctx2d.font = "bold 11px sans-serif";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText("king−man+woman", cc.x, cc.y + 20);
+
+            var qc = toCanvas(queen);
+            ctx2d.beginPath();
+            ctx2d.arc(qc.x, qc.y, 12, 0, Math.PI * 2);
+            ctx2d.strokeStyle = "#d3390c";
+            ctx2d.lineWidth = 2;
+            ctx2d.stroke();
+
+            var d = dist(computed, queen).toFixed(1);
+            embReadout.textContent = "king − man + woman lands near \"" + queen.w +
+              "\" (distance " + d + " units in this toy space) — the same direction that separates " +
+              "man→king also separates woman→queen.";
+            embReadout.style.color = "#0b7a5e";
+          } else if (selected) {
+            embReadout.textContent = "Nearest neighbors of \"" + selected.w + "\": " +
+              neighbors.map(function (n) { return n.w; }).join(", ") + ".";
+            embReadout.style.color = "var(--color-text)";
+          } else {
+            embReadout.textContent = "Click a word to see its nearest neighbors.";
+            embReadout.style.color = "var(--color-text)";
+          }
+        }
+
+        canvas.addEventListener("click", function (evt) {
+          var rect = canvas.getBoundingClientRect();
+          var scaleX = canvas.width / rect.width;
+          var scaleY = canvas.height / rect.height;
+          var mx = (evt.clientX - rect.left) * scaleX;
+          var my = (evt.clientY - rect.top) * scaleY;
+
+          var closest = null, closestD = Infinity;
+          words.forEach(function (pt) {
+            var c = toCanvas(pt);
+            var d = Math.sqrt((c.x - mx) * (c.x - mx) + (c.y - my) * (c.y - my));
+            if (d < closestD) { closestD = d; closest = pt; }
+          });
+          if (closest && closestD <= 18) {
+            selected = closest;
+            showAnalogy = false;
+            draw();
+          }
+        });
+
+        analogyBtn.addEventListener("click", function () {
+          showAnalogy = true;
+          selected = null;
+          draw();
+        });
+
+        clearBtn.addEventListener("click", function () {
+          selected = null;
+          showAnalogy = false;
+          draw();
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why is representing every word as a one-hot vector (a huge vector of all zeros with a single 1) impractical for large vocabularies?",
+          options: [
+            "It uses too little memory to be useful",
+            "It produces huge, sparse vectors where every pair of words is equally 'different,' with no notion of similarity",
+            "It can only represent numbers, not words",
+            "It requires a GPU to compute"
+          ],
+          answer: 1,
+          explanation: "One-hot vectors are as long as the vocabulary and every word is exactly the same distance from every other word — there's no way to say 'cat' and 'kitten' are more similar than 'cat' and 'car'."
+        },
+        {
+          q: "What does the analogy \"king − man + woman ≈ queen\" demonstrate about a good embedding space?",
+          options: [
+            "That embeddings are always exactly integers",
+            "That the space encodes relationships (like gender) as consistent directions, so vector arithmetic on those directions lands near analogous words",
+            "That word2vec memorizes a lookup table of every possible analogy",
+            "That embeddings can only be computed for royalty-related words"
+          ],
+          answer: 1,
+          explanation: "If the man→king direction and the woman→queen direction are roughly the same vector, that direction is capturing something like 'make royal' — a reusable relationship, not a memorized fact."
+        },
+        {
+          q: "What is tokenization?",
+          options: [
+            "Encrypting text so a model can't read it",
+            "Breaking raw text into smaller pieces (words or sub-words) that a model can process",
+            "Translating text into another language",
+            "Removing all punctuation from a document permanently"
+          ],
+          answer: 1,
+          explanation: "Tokenization is the first step in any text pipeline: splitting a string into the discrete units (tokens) that get converted into numbers next."
+        },
+        {
+          q: "What is the core training idea behind word2vec?",
+          options: [
+            "Predict a word from its surrounding context words (or the context from a word), learned across huge amounts of raw text",
+            "Manually label pairs of synonyms and antonyms",
+            "Translate every sentence into English first",
+            "Count how many times each letter of the alphabet appears"
+          ],
+          answer: 0,
+          explanation: "word2vec learns embeddings purely from the self-supervised task of predicting nearby words, which pushes words that appear in similar contexts to end up with similar vectors."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

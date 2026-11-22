@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine-Tuning Methods: LoRA, QLoRA, Full Fine-Tune — AI Maturity Course</title>
+<meta name="description" content="Comparing full fine-tuning, LoRA, and QLoRA on memory, training time, and trainable-parameter cost.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-4";
+</script>
+<style>
+  .ft-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .ft-controls label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: var(--font-size-sm); }
+  .ft-controls select { padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong); font-size: var(--font-size-base); }
+  .ft-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .ft-readouts { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-4); }
+  .ft-readout { background: var(--color-bg-inset); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); flex: 1 1 160px; }
+  .ft-readout strong { display: block; font-size: var(--font-size-lg); color: var(--color-primary-dark); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Fine-Tuning Methods: LoRA, QLoRA, Full Fine-Tune</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can explain why LoRA/QLoRA drastically reduce the memory
+      needed to fine-tune a large model compared to full fine-tuning, and can describe the rough quality/cost
+      trade-off between the three approaches.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          These are different techniques for adapting a pretrained model's weights to a new task, ranging from
+          updating every parameter (full fine-tune) to updating only a small number of added parameters
+          (LoRA/QLoRA) to save memory and cost.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Full fine-tuning: updating all model weights (most expressive, most expensive)</li>
+        <li>LoRA (Low-Rank Adaptation): freezing original weights and training small added low-rank matrices</li>
+        <li>QLoRA: combining LoRA with quantization (compressed weights) to fine-tune large models on limited hardware</li>
+        <li>Trade-offs: compute/memory cost vs. quality vs. flexibility (as of 2026, variants like DoRA further refine LoRA by decomposing weight updates into magnitude and direction)</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Precomputed illustrative ratios (not live computation) — rough
+    // orders of magnitude used for teaching the shape of the trade-off.
+    var DATA = {
+      small: {
+        label: "Small (~1B params)",
+        full: { mem: 24, time: 10, trainablePct: 100 },
+        lora: { mem: 6, time: 4, trainablePct: 0.5 },
+        qlora: { mem: 3, time: 5, trainablePct: 0.5 }
+      },
+      medium: {
+        label: "Medium (~13B params)",
+        full: { mem: 260, time: 80, trainablePct: 100 },
+        lora: { mem: 32, time: 30, trainablePct: 0.3 },
+        qlora: { mem: 10, time: 35, trainablePct: 0.3 }
+      },
+      large: {
+        label: "Large (~70B params)",
+        full: { mem: 1400, time: 400, trainablePct: 100 },
+        lora: { mem: 160, time: 150, trainablePct: 0.2 },
+        qlora: { mem: 48, time: 170, trainablePct: 0.2 }
+      }
+    };
+
+    var MAX_MEM = 1400, MAX_TIME = 400, MAX_PCT = 100;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Resource-cost comparison: full fine-tune vs. LoRA vs. QLoRA",
+      instructions:
+        "Pick a model size and a fine-tuning method. The bar chart redraws instantly using precomputed " +
+        "illustrative ratios for GPU memory, training time, and trainable-parameter percentage.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var controls = document.createElement("div");
+        controls.className = "ft-controls";
+
+        var sizeLabel = document.createElement("label");
+        sizeLabel.textContent = "Model size";
+        var sizeSelect = document.createElement("select");
+        ["small", "medium", "large"].forEach(function (k) {
+          var opt = document.createElement("option");
+          opt.value = k;
+          opt.textContent = DATA[k].label;
+          sizeSelect.appendChild(opt);
+        });
+        sizeLabel.appendChild(sizeSelect);
+
+        var methodLabel = document.createElement("label");
+        methodLabel.textContent = "Fine-tuning method";
+        var methodSelect = document.createElement("select");
+        [["full", "Full fine-tune"], ["lora", "LoRA"], ["qlora", "QLoRA"]].forEach(function (pair) {
+          var opt = document.createElement("option");
+          opt.value = pair[0];
+          opt.textContent = pair[1];
+          methodSelect.appendChild(opt);
+        });
+        methodSelect.value = "lora";
+        methodLabel.appendChild(methodSelect);
+
+        controls.appendChild(sizeLabel);
+        controls.appendChild(methodLabel);
+        wrap.appendChild(controls);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "ft-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 220;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "640px";
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var readouts = document.createElement("div");
+        readouts.className = "ft-readouts";
+        wrap.appendChild(readouts);
+
+        root.appendChild(wrap);
+
+        var c = canvas.getContext("2d");
+
+        function drawBar(y, label, value, max, unit, color) {
+          var marginLeft = 150;
+          var barMaxWidth = canvas.width - marginLeft - 90;
+          var barH = 26;
+
+          c.fillStyle = "#1a2033";
+          c.font = "13px sans-serif";
+          c.textAlign = "left";
+          c.fillText(label, 10, y + barH / 2 + 4);
+
+          c.fillStyle = "#eef1f8";
+          c.fillRect(marginLeft, y, barMaxWidth, barH);
+
+          var w = Math.max(2, (value / max) * barMaxWidth);
+          c.fillStyle = color;
+          c.fillRect(marginLeft, y, w, barH);
+
+          c.fillStyle = "#1a2033";
+          c.font = "13px sans-serif";
+          c.fillText(value + " " + unit, marginLeft + barMaxWidth + 8, y + barH / 2 + 4);
+        }
+
+        function render() {
+          var size = sizeSelect.value;
+          var method = methodSelect.value;
+          var d = DATA[size][method];
+
+          c.clearRect(0, 0, canvas.width, canvas.height);
+          drawBar(20, "GPU memory", d.mem, MAX_MEM, "GB", "#2952e3");
+          drawBar(90, "Training time", d.time, MAX_TIME, "hrs (relative)", "#0f9d78");
+          drawBar(160, "Trainable params", d.trainablePct, MAX_PCT, "%", "#d3390c");
+
+          readouts.innerHTML =
+            '<div class="ft-readout"><strong>' + d.mem + " GB</strong>Peak GPU memory</div>" +
+            '<div class="ft-readout"><strong>' + d.time + " hrs</strong>Relative training time</div>" +
+            '<div class="ft-readout"><strong>' + d.trainablePct + "%</strong>Of parameters trained</div>";
+        }
+
+        sizeSelect.addEventListener("change", render);
+        methodSelect.addEventListener("change", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why does LoRA use dramatically less GPU memory than full fine-tuning?",
+          options: [
+            "It uses a smaller learning rate",
+            "It freezes the original pretrained weights and only trains small added low-rank matrices, instead of updating every parameter",
+            "It deletes most of the model's layers",
+            "It only works on CPUs"
+          ],
+          answer: 1,
+          explanation: "Full fine-tuning must store gradients and optimizer state for every parameter. LoRA trains a tiny fraction of added parameters while the original weights stay frozen, cutting memory dramatically."
+        },
+        {
+          q: "What does QLoRA add on top of LoRA?",
+          options: [
+            "It removes the need for a GPU entirely",
+            "Quantization — compressing the frozen base model's weights — so even larger models fit on limited hardware while still training LoRA adapters",
+            "A second, larger model trained from scratch",
+            "Automatic hyperparameter tuning"
+          ],
+          answer: 1,
+          explanation: "QLoRA combines LoRA's small trainable adapters with a quantized (compressed) frozen base model, further reducing the memory footprint needed to fine-tune large models."
+        },
+        {
+          q: "According to the widget, as model size increases from small to large, what generally happens to the memory savings gap between full fine-tuning and LoRA/QLoRA?",
+          options: [
+            "The gap disappears completely",
+            "The gap grows much larger — full fine-tuning's memory need scales with total parameters, while LoRA/QLoRA's stays a small fraction",
+            "LoRA becomes more expensive than full fine-tuning",
+            "There is no relationship between model size and memory"
+          ],
+          answer: 1,
+          explanation: "Because full fine-tuning must store optimizer state for all parameters, its memory cost scales roughly with model size, while LoRA/QLoRA's trainable-parameter count stays a small percentage — so the gap widens for larger models."
+        },
+        {
+          q: "What is the general trade-off between full fine-tuning and parameter-efficient methods like LoRA/QLoRA?",
+          options: [
+            "Full fine-tuning is always worse in every way",
+            "Full fine-tuning is the most expressive/flexible but most expensive; LoRA/QLoRA are far cheaper but adapt a smaller slice of the model's capacity",
+            "LoRA/QLoRA always produce a better model than full fine-tuning",
+            "There is no trade-off — all three methods are equivalent"
+          ],
+          answer: 1,
+          explanation: "Full fine-tuning can reshape the whole model but costs the most in memory/compute; LoRA and QLoRA are much cheaper and often good enough, trading some expressiveness for efficiency."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gradient Descent — AI Maturity Course</title>
+<meta name="description" content="How gradient descent nudges a model's parameters downhill on a loss landscape, and what happens when the learning rate is too big or too small.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-6";
+</script>
+<style>
+  .gd-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); display: inline-block; }
+  .gd-readout-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
+  .gd-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight: 700; }
+  .gd-btn-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .gd-status { margin-top: var(--space-3); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>Gradient Descent</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> You should be able to describe, in your own words, what
+      happens at each step of gradient descent, and predict qualitatively what goes wrong if the
+      learning rate is set too high or too low.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Gradient descent</strong> is the algorithm that trains most ML models by repeatedly
+          nudging the model's parameters in the direction that most reduces the model's error. At
+          every step it looks at the slope (the "gradient") of the loss at the current position and
+          takes a small step in the downhill direction — over many steps, this walks the parameters
+          toward a point where the loss is low.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>The loss landscape as a hilly surface</strong> — you can picture every possible
+          setting of a model's parameters as a point on a landscape, where the height at that point
+          is how wrong the model is. Gradient descent is just walking downhill on that landscape.</li>
+        <li><strong>Learning rate: too small vs. too large</strong> — the learning rate controls how
+          big each downhill step is. Too small and training crawls along, wasting time; too large and
+          each step can fly past the valley floor and land higher up the other side (overshoot), or
+          even bounce further and further away (diverge).</li>
+        <li><strong>Local minima vs. global minima</strong> — a bumpy landscape can have several dips.
+          Gradient descent only ever looks at the slope right where it's standing, so it can settle
+          into a shallow nearby dip (a local minimum) instead of the deepest dip on the whole surface
+          (the global minimum).</li>
+        <li><strong>Iterative updates over many steps</strong> — one nudge rarely reaches the bottom.
+          Real training repeats this update thousands of times; one full pass over the training data
+          is often called an "epoch," a term you'll see again later in the course.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<!-- Script load order matters: course-data -> progress -> quiz/exercise -> site -->
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var W = 480, H = 260, MARGIN = 28;
+    var X_MIN = -6, X_MAX = 6;
+    var START_X = 5;
+
+    function loss(x, bumpy) {
+      if (!bumpy) return 0.5 * x * x;
+      return 0.15 * x * x + 2 * Math.sin(1.5 * x) + 3;
+    }
+
+    function grad(x, bumpy) {
+      if (!bumpy) return x;
+      return 0.3 * x + 3 * Math.cos(1.5 * x);
+    }
+
+    // Sample the curve to find min/max loss (for vertical scaling) and the
+    // x position of the global minimum (for the "global min" marker).
+    function sampleRange(bumpy) {
+      var minL = Infinity, maxL = -Infinity, minX = 0;
+      for (var x = X_MIN; x <= X_MAX + 1e-9; x += 0.02) {
+        var l = loss(x, bumpy);
+        if (l < minL) { minL = l; minX = x; }
+        if (l > maxL) maxL = l;
+      }
+      return { minL: minL, maxL: maxL, minX: minX };
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Roll the ball downhill with gradient descent",
+      instructions:
+        "The dot sits on a loss curve. Set a learning rate, then click “Step” to take one " +
+        "gradient-descent update, or “Run” to take several steps in a row. Watch the loss " +
+        "readout and the ball's position — try a tiny learning rate, a good one, and a huge one " +
+        "that overshoots. Then switch to the bumpy surface to see the ball get stuck in a local minimum.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var toggleRow = document.createElement("div");
+        toggleRow.className = "gd-btn-row";
+        var toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = "btn btn-secondary";
+        toggleBtn.textContent = "Switch to bumpy multi-dip surface";
+        toggleRow.appendChild(toggleBtn);
+        wrap.appendChild(toggleRow);
+
+        function makeSlider(id, label, min, max, value, step) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var lab = document.createElement("label");
+          lab.setAttribute("for", id);
+          lab.textContent = label;
+          var input = document.createElement("input");
+          input.type = "range"; input.id = id; input.min = String(min); input.max = String(max);
+          input.step = String(step); input.value = String(value);
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = value;
+          row.appendChild(lab); row.appendChild(input); row.appendChild(readout);
+          return { row: row, input: input, readout: readout };
+        }
+
+        var lrCtl = makeSlider("lr-slider", "Learning rate", 0.01, 1.2, 0.1, 0.01);
+        wrap.appendChild(lrCtl.row);
+
+        var stepsCtl = makeSlider("steps-slider", "Steps per “Run”", 1, 40, 10, 1);
+        wrap.appendChild(stepsCtl.row);
+
+        var btnRow = document.createElement("div");
+        btnRow.className = "gd-btn-row";
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button";
+        stepBtn.className = "btn btn-primary";
+        stepBtn.textContent = "Step";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run";
+        var resetBallBtn = document.createElement("button");
+        resetBallBtn.type = "button";
+        resetBallBtn.className = "btn btn-secondary";
+        resetBallBtn.textContent = "Reset ball position";
+        btnRow.appendChild(stepBtn);
+        btnRow.appendChild(runBtn);
+        btnRow.appendChild(resetBallBtn);
+        wrap.appendChild(btnRow);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "gd-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = W; canvas.height = H;
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var readoutRow = document.createElement("div");
+        readoutRow.className = "gd-readout-row";
+        var xReadout = document.createElement("span");
+        xReadout.className = "gd-readout";
+        var lossReadout = document.createElement("span");
+        lossReadout.className = "gd-readout";
+        var gradReadout = document.createElement("span");
+        gradReadout.className = "gd-readout";
+        var stepReadout = document.createElement("span");
+        stepReadout.className = "gd-readout";
+        readoutRow.appendChild(xReadout);
+        readoutRow.appendChild(gradReadout);
+        readoutRow.appendChild(lossReadout);
+        readoutRow.appendChild(stepReadout);
+        wrap.appendChild(readoutRow);
+
+        var statusEl = document.createElement("p");
+        statusEl.className = "gd-status";
+        statusEl.setAttribute("role", "status");
+        wrap.appendChild(statusEl);
+
+        root.appendChild(wrap);
+        var cctx = canvas.getContext("2d");
+
+        var bumpy = false;
+        var stats = sampleRange(bumpy);
+        var x = START_X;
+        var stepCount = 0;
+        var trail = [];
+        var running = false;
+        var diverged = false;
+
+        function toPixel(px, pl) {
+          var cx = MARGIN + ((px - X_MIN) / (X_MAX - X_MIN)) * (W - 2 * MARGIN);
+          var norm = (pl - stats.minL) / (stats.maxL - stats.minL || 1);
+          norm = Math.max(0, Math.min(1, norm));
+          var cy = (H - MARGIN) - norm * (H - 2 * MARGIN);
+          return { x: cx, y: cy };
+        }
+
+        function draw() {
+          cctx.clearRect(0, 0, W, H);
+          cctx.fillStyle = "#fafbfd";
+          cctx.fillRect(0, 0, W, H);
+
+          // the loss curve itself
+          cctx.strokeStyle = "#2952e3";
+          cctx.lineWidth = 2.5;
+          cctx.beginPath();
+          var first = true;
+          for (var px = X_MIN; px <= X_MAX + 1e-9; px += 0.05) {
+            var pt = toPixel(px, loss(px, bumpy));
+            if (first) { cctx.moveTo(pt.x, pt.y); first = false; }
+            else cctx.lineTo(pt.x, pt.y);
+          }
+          cctx.stroke();
+
+          // global minimum marker
+          var gm = toPixel(stats.minX, stats.minL);
+          cctx.strokeStyle = "#b7c0d8";
+          cctx.setLineDash([4, 4]);
+          cctx.beginPath();
+          cctx.moveTo(gm.x, MARGIN);
+          cctx.lineTo(gm.x, H - MARGIN);
+          cctx.stroke();
+          cctx.setLineDash([]);
+          cctx.fillStyle = "#6b7390";
+          cctx.font = "11px sans-serif";
+          cctx.textAlign = "center";
+          cctx.fillText("global min", gm.x, MARGIN - 8);
+
+          // trail of past ball positions (fading)
+          trail.forEach(function (t, i) {
+            var pt = toPixel(t, loss(t, bumpy));
+            cctx.beginPath();
+            cctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+            cctx.fillStyle = "rgba(224, 138, 30," + (0.15 + 0.5 * (i / trail.length)) + ")";
+            cctx.fill();
+          });
+
+          // the ball
+          var clampedX = Math.max(X_MIN, Math.min(X_MAX, x));
+          var ballPt = toPixel(clampedX, loss(clampedX, bumpy));
+          cctx.beginPath();
+          cctx.arc(ballPt.x, ballPt.y, 9, 0, Math.PI * 2);
+          cctx.fillStyle = diverged ? "#b3261e" : "#0f9d78";
+          cctx.fill();
+          cctx.strokeStyle = "#fff";
+          cctx.lineWidth = 2;
+          cctx.stroke();
+
+          xReadout.textContent = "x = " + x.toFixed(3);
+          gradReadout.textContent = "gradient = " + grad(x, bumpy).toFixed(3);
+          lossReadout.textContent = "loss = " + loss(x, bumpy).toFixed(3);
+          stepReadout.textContent = "steps taken: " + stepCount;
+
+          if (diverged) {
+            statusEl.textContent = "Diverged! The learning rate is too large — each step overshoots further from the minimum.";
+            statusEl.style.color = "#b3261e";
+          } else if (Math.abs(grad(x, bumpy)) < 0.02) {
+            statusEl.textContent = "Settled — the gradient is nearly zero here, so further steps barely move the ball.";
+            statusEl.style.color = "#0f7a4a";
+          } else {
+            statusEl.textContent = "Rolling toward lower loss...";
+            statusEl.style.color = "var(--color-text-muted)";
+          }
+        }
+
+        function doStep() {
+          if (diverged) return;
+          var lr = parseFloat(lrCtl.input.value);
+          trail.push(x);
+          if (trail.length > 20) trail.shift();
+          var g = grad(x, bumpy);
+          x = x - lr * g;
+          stepCount++;
+          if (Math.abs(x) > (X_MAX - X_MIN)) {
+            diverged = true;
+          }
+          draw();
+        }
+
+        function setControlsDisabled(disabled) {
+          stepBtn.disabled = disabled;
+          runBtn.disabled = disabled;
+          resetBallBtn.disabled = disabled;
+          toggleBtn.disabled = disabled;
+        }
+
+        stepBtn.addEventListener("click", function () {
+          doStep();
+        });
+
+        runBtn.addEventListener("click", function () {
+          if (running) return;
+          running = true;
+          setControlsDisabled(true);
+          var remaining = parseInt(stepsCtl.input.value, 10);
+          function tick() {
+            if (remaining <= 0 || diverged) {
+              running = false;
+              setControlsDisabled(false);
+              return;
+            }
+            doStep();
+            remaining--;
+            setTimeout(tick, 140);
+          }
+          tick();
+        });
+
+        resetBallBtn.addEventListener("click", function () {
+          x = START_X;
+          stepCount = 0;
+          trail = [];
+          diverged = false;
+          draw();
+        });
+
+        toggleBtn.addEventListener("click", function () {
+          bumpy = !bumpy;
+          toggleBtn.textContent = bumpy
+            ? "Switch back to smooth bowl surface"
+            : "Switch to bumpy multi-dip surface";
+          stats = sampleRange(bumpy);
+          x = START_X;
+          stepCount = 0;
+          trail = [];
+          diverged = false;
+          draw();
+        });
+
+        lrCtl.input.addEventListener("input", function () {
+          lrCtl.readout.textContent = parseFloat(lrCtl.input.value).toFixed(2);
+        });
+        stepsCtl.input.addEventListener("input", function () {
+          stepsCtl.readout.textContent = stepsCtl.input.value;
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What does the learning rate control in gradient descent?",
+          options: [
+            "How many training examples the model sees",
+            "How big a step the parameters take in the downhill direction at each update",
+            "Which loss function the model uses",
+            "How many layers the neural network has"
+          ],
+          answer: 1,
+          explanation: "The learning rate scales the gradient before it's subtracted from the current position, so it directly controls how far each step moves."
+        },
+        {
+          q: "In the exercise, what did you observe when the learning rate was set very high?",
+          options: [
+            "The ball moved smoothly and slowly toward the minimum",
+            "The ball overshot the valley floor and could bounce further and further away (diverge)",
+            "The ball stayed perfectly still",
+            "The loss curve itself changed shape"
+          ],
+          answer: 1,
+          explanation: "A learning rate that's too large takes steps so big they can leap past the bottom of the valley and land higher on the other side — sometimes worse than before, which can spiral into divergence."
+        },
+        {
+          q: "What is the practical downside of setting the learning rate too small?",
+          options: [
+            "The model becomes more accurate instantly",
+            "Training takes many more steps to reach a low loss, wasting time and compute",
+            "The gradient becomes undefined",
+            "The loss landscape gets bumpier"
+          ],
+          answer: 1,
+          explanation: "A tiny learning rate takes tiny steps, so it crawls toward the minimum — technically safe, but slow and expensive."
+        },
+        {
+          q: "On the bumpy multi-dip surface, why can gradient descent settle into a local minimum instead of the global minimum?",
+          options: [
+            "Because gradient descent only reacts to the slope right where it currently stands, and a shallow nearby dip can have zero slope too",
+            "Because the bumpy surface has no gradient at all",
+            "Because the learning rate is always zero on bumpy surfaces",
+            "Because local minima only exist in classification problems, not regression"
+          ],
+          answer: 0,
+          explanation: "Gradient descent is a purely local, greedy process — it has no view of the whole landscape, so once it reaches any point with a near-zero gradient it stops moving, even if a deeper valley exists elsewhere."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

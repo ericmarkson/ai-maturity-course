@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k-NN and k-Means Clustering — AI Maturity Course</title>
+<meta name="description" content="How k-NN classifies by nearest-neighbor vote and k-means groups unlabeled points by repeatedly recomputing cluster centers.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-3";
+</script>
+<style>
+  .km-tabs { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
+  .km-tab-btn { padding: var(--space-2) var(--space-4); border: 1px solid var(--color-border-strong); background: var(--color-bg-inset); border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
+  .km-tab-btn.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .km-panel { display: none; }
+  .km-panel.is-active { display: block; }
+  .km-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); display: inline-block; }
+  .km-mode-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .km-mode-btn { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border-strong); background: var(--color-bg-inset); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--font-size-sm); font-weight: 600; }
+  .km-mode-btn.is-active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+  .km-readout-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
+  .km-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight: 700; }
+  .km-actions { display: flex; gap: var(--space-3); margin-top: var(--space-3); flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>k-NN and k-Means Clustering</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a 2D scatterplot and a new point, you should be able
+      to manually identify its nearest neighbors and predict a k-NN classification, and separately
+      describe what one "round" of k-means does to a set of cluster centers.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>k-NN</strong> (k-nearest neighbors) classifies a new point by looking at its
+          <em>k</em> closest labeled neighbors and taking a majority vote among their classes.
+          <strong>k-means</strong> groups <em>unlabeled</em> points into k clusters by repeatedly
+          assigning each point to its nearest cluster center, then recomputing each center as the
+          average of the points assigned to it, until the centers stop moving.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Distance metrics (Euclidean distance, intuitively)</strong> — "closeness" between
+          two points as straight-line distance.</li>
+        <li><strong>Choosing k and the bias/variance tradeoff it creates</strong> — small k is jumpy
+          and sensitive to noise; large k smooths things out but can blur real boundaries.</li>
+        <li><strong>k-means initialization, assignment, and update loop</strong> — the repeating cycle
+          of "assign to nearest center, then move the center."</li>
+        <li><strong>Supervised (k-NN) vs. unsupervised (k-means)</strong> — k-NN needs labeled classes
+          to vote with; k-means discovers structure with no labels at all.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var W = 360, H = 260;
+    var COLOR0 = "#2952e3", COLOR1 = "#e08a1e";
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "k-NN voting and k-means clustering, live",
+      instructions:
+        "Tab 1: drop colored points for two classes, then drop an uncolored query point — the widget " +
+        "draws lines to its k nearest neighbors and votes a color as you drag the k-slider. " +
+        "Tab 2: click Step to watch k-means assign points and move its centroids, one round at a time.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        // ---- tabs ----
+        var tabs = document.createElement("div");
+        tabs.className = "km-tabs";
+        var knnTabBtn = document.createElement("button");
+        knnTabBtn.type = "button";
+        knnTabBtn.className = "km-tab-btn is-active";
+        knnTabBtn.textContent = "k-NN classification";
+        var kmeansTabBtn = document.createElement("button");
+        kmeansTabBtn.type = "button";
+        kmeansTabBtn.className = "km-tab-btn";
+        kmeansTabBtn.textContent = "k-means clustering";
+        tabs.appendChild(knnTabBtn);
+        tabs.appendChild(kmeansTabBtn);
+        wrap.appendChild(tabs);
+
+        // ================= k-NN PANEL =================
+        var knnPanel = document.createElement("div");
+        knnPanel.className = "km-panel is-active";
+
+        var modeRow = document.createElement("div");
+        modeRow.className = "km-mode-row";
+        var modeA = document.createElement("button");
+        modeA.type = "button"; modeA.className = "km-mode-btn is-active"; modeA.textContent = "Drop Class A point";
+        var modeB = document.createElement("button");
+        modeB.type = "button"; modeB.className = "km-mode-btn"; modeB.textContent = "Drop Class B point";
+        var modeQ = document.createElement("button");
+        modeQ.type = "button"; modeQ.className = "km-mode-btn"; modeQ.textContent = "Drop query point";
+        modeRow.appendChild(modeA); modeRow.appendChild(modeB); modeRow.appendChild(modeQ);
+        knnPanel.appendChild(modeRow);
+
+        var kRow = document.createElement("div");
+        kRow.className = "slider-row";
+        var kLabel = document.createElement("label");
+        kLabel.setAttribute("for", "k-slider");
+        kLabel.textContent = "k (neighbors)";
+        var kSlider = document.createElement("input");
+        kSlider.type = "range"; kSlider.min = "1"; kSlider.max = "9"; kSlider.value = "3"; kSlider.id = "k-slider";
+        var kReadout = document.createElement("span");
+        kReadout.className = "readout"; kReadout.textContent = "3";
+        kRow.appendChild(kLabel); kRow.appendChild(kSlider); kRow.appendChild(kReadout);
+        knnPanel.appendChild(kRow);
+
+        var knnCanvasWrap = document.createElement("div");
+        knnCanvasWrap.className = "km-canvas-wrap";
+        var knnCanvas = document.createElement("canvas");
+        knnCanvas.width = W; knnCanvas.height = H;
+        knnCanvas.style.display = "block";
+        knnCanvas.style.cursor = "crosshair";
+        knnCanvasWrap.appendChild(knnCanvas);
+        knnPanel.appendChild(knnCanvasWrap);
+
+        var knnResult = document.createElement("div");
+        knnResult.className = "km-readout-row";
+        var knnResultText = document.createElement("span");
+        knnResultText.className = "km-readout";
+        knnResultText.textContent = "Click \"Drop Class A/B point\" then click the canvas. Add a query point to see the vote.";
+        knnResult.appendChild(knnResultText);
+        knnPanel.appendChild(knnResult);
+
+        var knnActions = document.createElement("div");
+        knnActions.className = "km-actions";
+        var knnClearBtn = document.createElement("button");
+        knnClearBtn.type = "button"; knnClearBtn.className = "btn btn-secondary"; knnClearBtn.textContent = "Clear points";
+        knnActions.appendChild(knnClearBtn);
+        knnPanel.appendChild(knnActions);
+
+        wrap.appendChild(knnPanel);
+
+        // ================= k-MEANS PANEL =================
+        var kmeansPanel = document.createElement("div");
+        kmeansPanel.className = "km-panel";
+
+        var kmCanvasWrap = document.createElement("div");
+        kmCanvasWrap.className = "km-canvas-wrap";
+        var kmCanvas = document.createElement("canvas");
+        kmCanvas.width = W; kmCanvas.height = H;
+        kmCanvas.style.display = "block";
+        kmCanvasWrap.appendChild(kmCanvas);
+        kmeansPanel.appendChild(kmCanvasWrap);
+
+        var kmReadoutRow = document.createElement("div");
+        kmReadoutRow.className = "km-readout-row";
+        var kmIterReadout = document.createElement("span");
+        kmIterReadout.className = "km-readout";
+        kmReadoutRow.appendChild(kmIterReadout);
+        kmeansPanel.appendChild(kmReadoutRow);
+
+        var kmActions = document.createElement("div");
+        kmActions.className = "km-actions";
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button"; stepBtn.className = "btn btn-primary"; stepBtn.textContent = "Step";
+        var runBtn = document.createElement("button");
+        runBtn.type = "button"; runBtn.className = "btn btn-secondary"; runBtn.textContent = "Run to convergence";
+        var resetKmBtn = document.createElement("button");
+        resetKmBtn.type = "button"; resetKmBtn.className = "btn btn-secondary"; resetKmBtn.textContent = "Reset centroids";
+        kmActions.appendChild(stepBtn); kmActions.appendChild(runBtn); kmActions.appendChild(resetKmBtn);
+        kmeansPanel.appendChild(kmActions);
+
+        wrap.appendChild(kmeansPanel);
+        root.appendChild(wrap);
+
+        // ---- tab switching ----
+        function showTab(which) {
+          if (which === "knn") {
+            knnPanel.classList.add("is-active"); kmeansPanel.classList.remove("is-active");
+            knnTabBtn.classList.add("is-active"); kmeansTabBtn.classList.remove("is-active");
+          } else {
+            kmeansPanel.classList.add("is-active"); knnPanel.classList.remove("is-active");
+            kmeansTabBtn.classList.add("is-active"); knnTabBtn.classList.remove("is-active");
+          }
+        }
+        knnTabBtn.addEventListener("click", function () { showTab("knn"); });
+        kmeansTabBtn.addEventListener("click", function () { showTab("kmeans"); });
+
+        // =========== k-NN LOGIC ===========
+        var knnPoints = [];
+        var queryPoint = null;
+        var mode = "A";
+
+        function setMode(m) {
+          mode = m;
+          modeA.classList.toggle("is-active", m === "A");
+          modeB.classList.toggle("is-active", m === "B");
+          modeQ.classList.toggle("is-active", m === "Q");
+        }
+        modeA.addEventListener("click", function () { setMode("A"); });
+        modeB.addEventListener("click", function () { setMode("B"); });
+        modeQ.addEventListener("click", function () { setMode("Q"); });
+
+        var knnCtx = knnCanvas.getContext("2d");
+
+        function drawKnn() {
+          knnCtx.clearRect(0, 0, W, H);
+          // grid background
+          knnCtx.fillStyle = "#fafbfd";
+          knnCtx.fillRect(0, 0, W, H);
+
+          var k = parseInt(kSlider.value, 10);
+          var neighbors = [];
+          if (queryPoint && knnPoints.length > 0) {
+            var withDist = knnPoints.map(function (p) {
+              var dx = p.x - queryPoint.x, dy = p.y - queryPoint.y;
+              return { p: p, dist: Math.sqrt(dx * dx + dy * dy) };
+            });
+            withDist.sort(function (a, b) { return a.dist - b.dist; });
+            neighbors = withDist.slice(0, Math.min(k, withDist.length));
+
+            // lines to neighbors
+            neighbors.forEach(function (n) {
+              knnCtx.strokeStyle = "#b7c0d8";
+              knnCtx.lineWidth = 1.5;
+              knnCtx.beginPath();
+              knnCtx.moveTo(queryPoint.x, queryPoint.y);
+              knnCtx.lineTo(n.p.x, n.p.y);
+              knnCtx.stroke();
+            });
+          }
+
+          // points
+          knnPoints.forEach(function (p) {
+            knnCtx.beginPath();
+            knnCtx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+            knnCtx.fillStyle = p.c === 0 ? COLOR0 : COLOR1;
+            knnCtx.fill();
+            knnCtx.strokeStyle = "#fff";
+            knnCtx.lineWidth = 1.5;
+            knnCtx.stroke();
+          });
+
+          if (queryPoint) {
+            var vote0 = 0, vote1 = 0;
+            neighbors.forEach(function (n) { if (n.p.c === 0) vote0++; else vote1++; });
+            var predicted = vote0 >= vote1 ? 0 : 1;
+            knnCtx.beginPath();
+            knnCtx.arc(queryPoint.x, queryPoint.y, 8, 0, Math.PI * 2);
+            knnCtx.fillStyle = neighbors.length ? (predicted === 0 ? COLOR0 : COLOR1) : "#888";
+            knnCtx.fill();
+            knnCtx.strokeStyle = "#1a2033";
+            knnCtx.lineWidth = 2;
+            knnCtx.stroke();
+
+            if (neighbors.length) {
+              knnResultText.textContent = "Predicted class: " + (predicted === 0 ? "A" : "B") +
+                "  (votes — A: " + vote0 + ", B: " + vote1 + ", k=" + k + ")";
+            } else {
+              knnResultText.textContent = "Add some Class A / Class B points first.";
+            }
+          } else {
+            knnResultText.textContent = "Click \"Drop Class A/B point\" then click the canvas. Add a query point to see the vote.";
+          }
+        }
+
+        knnCanvas.addEventListener("click", function (evt) {
+          var rect = knnCanvas.getBoundingClientRect();
+          var x = (evt.clientX - rect.left) * (W / rect.width);
+          var y = (evt.clientY - rect.top) * (H / rect.height);
+          if (mode === "A") knnPoints.push({ x: x, y: y, c: 0 });
+          else if (mode === "B") knnPoints.push({ x: x, y: y, c: 1 });
+          else queryPoint = { x: x, y: y };
+          drawKnn();
+        });
+
+        kSlider.addEventListener("input", function () {
+          kReadout.textContent = kSlider.value;
+          drawKnn();
+        });
+
+        knnClearBtn.addEventListener("click", function () {
+          knnPoints = [];
+          queryPoint = null;
+          drawKnn();
+        });
+
+        // seed a handful of starter points so the widget isn't empty
+        knnPoints = [
+          {x:80,y:70,c:0},{x:110,y:100,c:0},{x:70,y:130,c:0},{x:130,y:60,c:0},
+          {x:260,y:170,c:1},{x:290,y:120,c:1},{x:240,y:200,c:1},{x:300,y:190,c:1}
+        ];
+        drawKnn();
+
+        // =========== k-MEANS LOGIC ===========
+        var kmPoints = [
+          {x:50,y:40},{x:70,y:60},{x:55,y:90},{x:90,y:50},{x:40,y:80},{x:75,y:35},
+          {x:200,y:50},{x:220,y:70},{x:190,y:90},{x:240,y:40},{x:210,y:100},{x:180,y:60},
+          {x:90,y:200},{x:120,y:220},{x:70,y:230},{x:140,y:190},{x:100,y:240},{x:60,y:190},
+          {x:300,y:200},{x:280,y:230},{x:320,y:180},{x:270,y:190},{x:310,y:240}
+        ];
+        var K = 3;
+        var centroids = [];
+        var kmIteration = 0;
+        var assignments = [];
+        var kmRunTimer = null;
+
+        function randomCentroids() {
+          var pts = kmPoints.slice();
+          var picks = [];
+          for (var i = 0; i < K; i++) {
+            var idx = Math.floor((pts.length / K) * i + (pts.length / K) / 2) % pts.length;
+            picks.push({ x: pts[idx].x, y: pts[idx].y });
+          }
+          return picks;
+        }
+
+        var CENTROID_COLORS = ["#0f9d78", "#2952e3", "#e08a1e"];
+
+        function drawKmeans() {
+          kmCtx.clearRect(0, 0, W, H);
+          kmCtx.fillStyle = "#fafbfd";
+          kmCtx.fillRect(0, 0, W, H);
+
+          kmPoints.forEach(function (p, i) {
+            var a = assignments[i];
+            kmCtx.beginPath();
+            kmCtx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            kmCtx.fillStyle = a === undefined ? "#9aa3bd" : CENTROID_COLORS[a];
+            kmCtx.fill();
+          });
+
+          centroids.forEach(function (c, i) {
+            kmCtx.beginPath();
+            kmCtx.arc(c.x, c.y, 9, 0, Math.PI * 2);
+            kmCtx.fillStyle = CENTROID_COLORS[i];
+            kmCtx.fill();
+            kmCtx.strokeStyle = "#1a2033";
+            kmCtx.lineWidth = 2;
+            kmCtx.stroke();
+          });
+
+          kmIterReadout.textContent = "Iteration: " + kmIteration;
+        }
+
+        var kmCtx = kmCanvas.getContext("2d");
+
+        function kmeansStep() {
+          // assignment step
+          assignments = kmPoints.map(function (p) {
+            var best = 0, bestDist = Infinity;
+            centroids.forEach(function (c, i) {
+              var dx = p.x - c.x, dy = p.y - c.y;
+              var d = dx * dx + dy * dy;
+              if (d < bestDist) { bestDist = d; best = i; }
+            });
+            return best;
+          });
+          // update step
+          var moved = false;
+          var newCentroids = centroids.map(function (c, i) {
+            var assigned = kmPoints.filter(function (p, idx) { return assignments[idx] === i; });
+            if (assigned.length === 0) return c;
+            var sx = assigned.reduce(function (a, p) { return a + p.x; }, 0) / assigned.length;
+            var sy = assigned.reduce(function (a, p) { return a + p.y; }, 0) / assigned.length;
+            if (Math.abs(sx - c.x) > 0.5 || Math.abs(sy - c.y) > 0.5) moved = true;
+            return { x: sx, y: sy };
+          });
+          centroids = newCentroids;
+          kmIteration++;
+          drawKmeans();
+          return moved;
+        }
+
+        stepBtn.addEventListener("click", function () {
+          if (kmRunTimer) { clearInterval(kmRunTimer); kmRunTimer = null; }
+          kmeansStep();
+        });
+
+        runBtn.addEventListener("click", function () {
+          if (kmRunTimer) { clearInterval(kmRunTimer); kmRunTimer = null; }
+          var stepsLeft = 12;
+          kmRunTimer = setInterval(function () {
+            var moved = kmeansStep();
+            stepsLeft--;
+            if (!moved || stepsLeft <= 0) {
+              clearInterval(kmRunTimer);
+              kmRunTimer = null;
+            }
+          }, 450);
+        });
+
+        resetKmBtn.addEventListener("click", function () {
+          if (kmRunTimer) { clearInterval(kmRunTimer); kmRunTimer = null; }
+          centroids = randomCentroids();
+          assignments = [];
+          kmIteration = 0;
+          drawKmeans();
+        });
+
+        centroids = randomCentroids();
+        drawKmeans();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In k-NN, if k = 3 and among a query point's 3 nearest neighbors there are 2 of Class A and 1 of Class B, what does k-NN predict?",
+          options: ["Class B, because ties go to B", "Class A, because it has the majority vote among the 3 nearest neighbors", "It refuses to predict with an even split", "Whichever class was added to the canvas first"],
+          answer: 1,
+          explanation: "k-NN takes a simple majority vote among the k nearest neighbors; 2 votes for A beats 1 vote for B."
+        },
+        {
+          q: "What does one 'round' of k-means do to the cluster centroids?",
+          options: [
+            "It deletes points that are far from every centroid",
+            "It assigns every point to its nearest centroid, then moves each centroid to the average position of the points assigned to it",
+            "It randomly reshuffles all centroids to new positions with no relationship to the data",
+            "It merges all centroids into a single centroid"
+          ],
+          answer: 1,
+          explanation: "Each k-means iteration alternates an assignment step (nearest centroid wins each point) and an update step (centroid moves to the mean of its assigned points)."
+        },
+        {
+          q: "Which of these is the key difference between k-NN and k-means?",
+          options: [
+            "k-NN is unsupervised and k-means is supervised",
+            "k-NN requires labeled classes to vote with; k-means finds structure in unlabeled data",
+            "They are two names for the exact same algorithm",
+            "k-means can only be used on images"
+          ],
+          answer: 1,
+          explanation: "k-NN is a supervised method — it needs known class labels on its neighbor points. k-means is unsupervised — it groups points with no labels at all."
+        },
+        {
+          q: "If you set k very large in k-NN (close to the total number of points), what tends to happen?",
+          options: [
+            "Predictions become extremely sensitive to a single nearby outlier",
+            "The prediction gets smoothed out and starts to just reflect the overall class balance, potentially blurring real boundaries",
+            "The algorithm stops working entirely",
+            "Distance no longer matters at all, even for small k"
+          ],
+          answer: 1,
+          explanation: "A very large k averages in points from far away, washing out local structure and pulling every prediction toward the global majority class."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

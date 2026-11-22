@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constitutional AI and Alignment Methods — AI Maturity Course</title>
+<meta name="description" content="How a model critiques and revises its own output against a written constitution.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-4";
+</script>
+<style>
+  .cai-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .constitution-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .principle-btn {
+    display: block; width: 100%; text-align: left; border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm); padding: var(--space-3); background: var(--color-bg); cursor: pointer;
+    font: inherit; color: var(--color-text);
+  }
+  .principle-btn:hover { background: var(--color-bg-alt); }
+  .principle-btn.selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .principle-btn.correct-pick { border-color: var(--color-success); background: var(--color-success-bg); }
+  .principle-btn.wrong-pick { border-color: var(--color-error); background: var(--color-error-bg); }
+  .draft-box { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); background: var(--color-bg-inset); }
+  .draft-box.revised { background: var(--color-success-bg); border-color: var(--color-success); }
+  .score-row { display: flex; align-items: center; gap: var(--space-3); }
+  .score-bar-track { flex: 1 1 260px; height: 20px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .score-bar-fill { height: 100%; background: var(--color-error); transition: width 0.5s ease, background-color 0.5s ease; }
+  .round-label { font-weight: 700; color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Constitutional AI and Alignment Methods</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a sample constitution (a short list of principles) and a
+      draft model response, identify which principle the response violates and describe what a revised
+      response should look like.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Constitutional AI is an alignment approach where a model is trained to critique and revise its
+          own outputs against a written set of principles (a "constitution"), reducing reliance on
+          large-scale human-labeled preferences. Instead of a human rating every response, the model
+          learns to check its own draft against explicit rules and produce a better version.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>The constitution</strong> — explicit written principles guiding model behavior</li>
+        <li><strong>Self-critique and revision loops</strong> — the model checks its own draft against the principles</li>
+        <li><strong>Reduced (not eliminated) reliance on human labels</strong> — the constitution stands in for some preference data</li>
+        <li><strong>Complementary to RLHF/RLAIF</strong> — constitutional AI works alongside, not instead of, human/AI feedback training</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var PRINCIPLES = [
+      { id: "p1", text: "Do not provide instructions that materially help carry out physical harm." },
+      { id: "p2", text: "Do not encourage illegal activity, even if the user claims a legitimate reason." },
+      { id: "p3", text: "Be honest — do not state uncertain claims as if they were verified fact." },
+      { id: "p4", text: "Respect user autonomy — prefer explaining tradeoffs over refusing outright, when the request itself is legal and non-harmful." }
+    ];
+
+    var ROUNDS = [
+      {
+        draft: "\"Sure — the fastest way to pick that brand of lock is to insert a tension wrench and rake the pins like this: ...\"",
+        violates: "p1",
+        scoreBefore: 88,
+        revised: "\"I can't give step-by-step lock-picking instructions, since that could materially help someone bypass a lock they don't own. If you're locked out of your own property, a locksmith or the manufacturer's support line can verify ownership and help safely.\"",
+        scoreAfter: 12
+      },
+      {
+        draft: "\"Based on early lab results I'm aware of, this supplement definitely cures seasonal allergies in humans.\"",
+        violates: "p3",
+        scoreBefore: 74,
+        revised: "\"Some early, small studies suggest a possible effect on allergy symptoms, but this hasn't been confirmed in large human trials, so I can't say it 'definitely cures' anything. Worth discussing with a doctor before relying on it.\"",
+        scoreAfter: 15
+      },
+      {
+        draft: "\"I won't help with that at all — writing a persuasive essay arguing for a policy position isn't something I can do.\"",
+        violates: "p4",
+        scoreBefore: 55,
+        revised: "\"Happy to help — here's a persuasive essay draft arguing for that policy position, along with a short note on the strongest counterarguments so the piece anticipates pushback.\"",
+        scoreAfter: 8
+      },
+      {
+        draft: "\"Here's exactly how you could falsify these expense reports without your accounting software flagging the entries.\"",
+        violates: "p2",
+        scoreBefore: 92,
+        revised: "\"I can't help falsify expense reports — that's fraud. If you're trying to fix a legitimate reporting error, I can help you draft a correction and a note explaining the discrepancy instead.\"",
+        scoreAfter: 10
+      }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Critique-and-Revise Simulator",
+      instructions:
+        "Read the draft response, click the constitution principle you think it violates, then click " +
+        "\"Reveal revision\" to step through the critique -> revision round and watch the harmfulness " +
+        "score drop. Click \"Next round\" to try another draft.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "cai-layout";
+
+        var roundLabel = document.createElement("p");
+        roundLabel.className = "round-label";
+        wrap.appendChild(roundLabel);
+
+        var constHeading = document.createElement("h4");
+        constHeading.textContent = "The constitution";
+        wrap.appendChild(constHeading);
+        var constList = document.createElement("ul");
+        constList.className = "constitution-list";
+        var principleButtons = {};
+        PRINCIPLES.forEach(function (p) {
+          var li = document.createElement("li");
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "principle-btn";
+          btn.textContent = p.text;
+          btn.dataset.id = p.id;
+          li.appendChild(btn);
+          constList.appendChild(li);
+          principleButtons[p.id] = btn;
+        });
+        wrap.appendChild(constList);
+
+        var draftHeading = document.createElement("h4");
+        draftHeading.textContent = "Draft response";
+        wrap.appendChild(draftHeading);
+        var draftBox = document.createElement("div");
+        draftBox.className = "draft-box";
+        wrap.appendChild(draftBox);
+
+        var feedback = document.createElement("p");
+        feedback.setAttribute("role", "status");
+        feedback.style.fontWeight = "600";
+        wrap.appendChild(feedback);
+
+        var scoreHeading = document.createElement("h4");
+        scoreHeading.textContent = "Harmfulness score";
+        wrap.appendChild(scoreHeading);
+        var scoreRow = document.createElement("div");
+        scoreRow.className = "score-row";
+        var scoreTrack = document.createElement("div");
+        scoreTrack.className = "score-bar-track";
+        var scoreFill = document.createElement("div");
+        scoreFill.className = "score-bar-fill";
+        scoreTrack.appendChild(scoreFill);
+        var scoreReadout = document.createElement("span");
+        scoreReadout.className = "readout";
+        scoreRow.appendChild(scoreTrack);
+        scoreRow.appendChild(scoreReadout);
+        wrap.appendChild(scoreRow);
+
+        var btnRow = document.createElement("div");
+        btnRow.className = "exercise-toolbar";
+        var revealBtn = document.createElement("button");
+        revealBtn.type = "button";
+        revealBtn.className = "btn btn-primary";
+        revealBtn.textContent = "Reveal revision";
+        revealBtn.disabled = true;
+        var nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn btn-secondary";
+        nextBtn.textContent = "Next round";
+        btnRow.appendChild(revealBtn);
+        btnRow.appendChild(nextBtn);
+        wrap.appendChild(btnRow);
+
+        root.appendChild(wrap);
+
+        var roundIndex = 0;
+        var pickedPrincipleId = null;
+
+        function setScore(value) {
+          scoreFill.style.width = value + "%";
+          scoreReadout.textContent = value + " / 100";
+          scoreFill.style.background = value >= 60 ? "var(--color-error)" : (value >= 30 ? "#d38a12" : "var(--color-success)");
+        }
+
+        function loadRound() {
+          var round = ROUNDS[roundIndex];
+          roundLabel.textContent = "Round " + (roundIndex + 1) + " of " + ROUNDS.length;
+          draftBox.className = "draft-box";
+          draftBox.textContent = round.draft;
+          feedback.textContent = "Which principle does this draft violate?";
+          feedback.style.color = "";
+          pickedPrincipleId = null;
+          revealBtn.disabled = true;
+          setScore(round.scoreBefore);
+
+          Object.keys(principleButtons).forEach(function (id) {
+            principleButtons[id].className = "principle-btn";
+            principleButtons[id].disabled = false;
+          });
+        }
+
+        Object.keys(principleButtons).forEach(function (id) {
+          principleButtons[id].addEventListener("click", function () {
+            if (pickedPrincipleId !== null) return; // already answered this round
+            pickedPrincipleId = id;
+            var round = ROUNDS[roundIndex];
+            var isCorrect = id === round.violates;
+
+            Object.keys(principleButtons).forEach(function (pid) {
+              principleButtons[pid].disabled = true;
+              if (pid === round.violates) {
+                principleButtons[pid].className = "principle-btn correct-pick";
+              } else if (pid === id && !isCorrect) {
+                principleButtons[pid].className = "principle-btn wrong-pick";
+              }
+            });
+
+            feedback.textContent = isCorrect
+              ? "Correct — that's the violated principle. Click \"Reveal revision\" to see the critique-and-revise step."
+              : "Not quite — the highlighted principle (in green) is the one actually violated. Click \"Reveal revision\" to compare.";
+            feedback.style.color = isCorrect ? "var(--color-success)" : "var(--color-error)";
+            revealBtn.disabled = false;
+          });
+        });
+
+        revealBtn.addEventListener("click", function () {
+          var round = ROUNDS[roundIndex];
+          draftBox.className = "draft-box revised";
+          draftBox.textContent = "Revised: " + round.revised;
+          setScore(round.scoreAfter);
+          feedback.textContent = "Self-critique applied against the violated principle -> harmfulness score dropped from " +
+            round.scoreBefore + " to " + round.scoreAfter + ".";
+          feedback.style.color = "var(--color-success)";
+          revealBtn.disabled = true;
+        });
+
+        nextBtn.addEventListener("click", function () {
+          roundIndex = (roundIndex + 1) % ROUNDS.length;
+          loadRound();
+        });
+
+        loadRound();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In constitutional AI, what does the model do with a written \"constitution\"?",
+          options: [
+            "It memorizes the constitution word-for-word and refuses to answer anything not listed in it",
+            "It uses the constitution's principles to critique and revise its own draft outputs",
+            "It sends the constitution to a human reviewer for every single response",
+            "It ignores the constitution once training finishes"
+          ],
+          answer: 1,
+          explanation: "The core mechanism is self-critique and revision: the model checks its own draft against the written principles and produces an improved version."
+        },
+        {
+          q: "How does constitutional AI relate to RLHF/RLAIF?",
+          options: [
+            "It fully replaces the need for any human or AI feedback training",
+            "It is a complementary technique that can reduce, but doesn't eliminate, reliance on large-scale human preference labeling",
+            "It has nothing to do with alignment training",
+            "It can only be used after RLHF is finished and never before"
+          ],
+          answer: 1,
+          explanation: "Constitutional AI reduces how much human-labeled preference data is needed by substituting some of it with principle-based self-critique, but it complements rather than replaces RLHF/RLAIF."
+        },
+        {
+          q: "A draft response states an unverified claim as though it were settled fact. Which kind of principle would most directly flag this?",
+          options: [
+            "A principle about formatting responses in bullet points",
+            "A principle about honesty / not overstating certainty",
+            "A principle about response length",
+            "A principle about using a friendly tone"
+          ],
+          answer: 1,
+          explanation: "Overstating certainty about an unverified claim is a factual-honesty violation, which is exactly the kind of thing an honesty principle in the constitution is meant to catch."
+        },
+        {
+          q: "In the exercise, what causes the harmfulness score to drop?",
+          options: [
+            "Waiting a fixed amount of time",
+            "The critique-and-revise step: identifying the violated principle and replacing the draft with a revised response",
+            "Randomly refreshing the page",
+            "Selecting more than one principle at once"
+          ],
+          answer: 1,
+          explanation: "The score only drops after the revision is revealed — it represents the reduction in harm/risk from applying the self-critique-and-revise loop to the original draft."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

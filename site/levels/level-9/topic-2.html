@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mechanistic Interpretability Research — AI Maturity Course</title>
+<meta name="description" content="Reverse-engineering a trained model's internal computation into human-understandable circuits, and testing hypotheses with activation patching.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "9-2";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 9 — Expert+ / Research-Adjacent</p>
+  <h1>Mechanistic Interpretability Research</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a simple pattern a toy model exhibits, design a causal-intervention
+      experiment (what activation would you patch, and what output change would confirm your hypothesis) that could
+      confirm or falsify a proposed mechanism for it.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Mechanistic interpretability is the practice of reverse-engineering a trained model's internal computation
+          into human-understandable algorithms — "circuits" — rather than only observing its input/output behavior.
+          Instead of asking "what did the model output," it asks "which internal components, wired together in
+          which way, caused that output."
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Sparse autoencoders (SAEs) for decomposing polysemantic activations into monosemantic features, and the
+          superposition hypothesis they're built to address</li>
+        <li>Circuit discovery (induction heads, indirect-object-identification circuits, greater-than circuits) as
+          worked examples of "solved" mini-circuits</li>
+        <li>Causal tracing / activation patching as the core experimental method for testing a circuit hypothesis</li>
+        <li>Open problems in 2026: feature consistency/stability across SAE training runs, and extending
+          interpretability beyond text to code, audio, and vision-language models</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Circuit Detective: patch a head, watch the prediction change",
+      instructions:
+        "Pick a sentence, then click cells in the attention-head grid to \"patch\" (ablate) that head. Each " +
+        "sentence has one or two heads that are actually load-bearing for the correct next-token prediction — " +
+        "find them by watching the predicted-token readout change.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        // Precomputed toy data: 2 sentences, 3 layers x 3 heads = 9 toggleable heads.
+        // Each sentence has a "critical" set of heads whose patching flips the prediction.
+        var SENTENCES = [
+          {
+            text: "The cat sat on the ___",
+            baseline: "mat",
+            baselineProb: 0.83,
+            critical: ["L2H1", "L3H2"], // induction-like heads
+            patched: "the",
+            patchedProb: 0.61,
+            // attention heatmap per head: 6 tokens x 6 tokens, values 0-1 (precomputed)
+            note: "L2H1 and L3H2 form an induction-style circuit copying the pattern from earlier context."
+          },
+          {
+            text: "John gave Mary a book because ___",
+            baseline: "she",
+            baselineProb: 0.77,
+            critical: ["L1H3", "L3H1"],
+            patched: "he",
+            patchedProb: 0.55,
+            note: "L1H3 and L3H1 resemble an indirect-object-identification circuit tracking who the object went to."
+          }
+        ];
+
+        var LAYERS = 3, HEADS = 3;
+        var tokens = ["tok1", "tok2", "tok3", "tok4", "tok5", "tok6"];
+
+        var wrap = document.createElement("div");
+
+        var selRow = document.createElement("div");
+        selRow.className = "slider-row";
+        var selLabel = document.createElement("label");
+        selLabel.setAttribute("for", "sentence-select");
+        selLabel.textContent = "Sentence";
+        var select = document.createElement("select");
+        select.id = "sentence-select";
+        select.style.padding = "4px 8px";
+        SENTENCES.forEach(function (s, i) {
+          var opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = s.text;
+          select.appendChild(opt);
+        });
+        selRow.appendChild(selLabel);
+        selRow.appendChild(select);
+        wrap.appendChild(selRow);
+
+        var gridWrap = document.createElement("div");
+        gridWrap.style.display = "flex";
+        gridWrap.style.gap = "1.5rem";
+        gridWrap.style.flexWrap = "wrap";
+        wrap.appendChild(gridWrap);
+
+        var gridBox = document.createElement("div");
+        var gridTitle = document.createElement("p");
+        gridTitle.style.fontWeight = "600";
+        gridTitle.textContent = "Click a head to patch/unpatch it:";
+        gridBox.appendChild(gridTitle);
+        var grid = document.createElement("div");
+        grid.style.display = "grid";
+        grid.style.gridTemplateColumns = "repeat(" + HEADS + ", 64px)";
+        grid.style.gap = "6px";
+        gridBox.appendChild(grid);
+        gridWrap.appendChild(gridBox);
+
+        var heatBox = document.createElement("div");
+        var heatTitle = document.createElement("p");
+        heatTitle.style.fontWeight = "600";
+        heatTitle.textContent = "Attention heatmap (selected head):";
+        heatBox.appendChild(heatTitle);
+        var heatCanvas = document.createElement("canvas");
+        heatCanvas.width = 200;
+        heatCanvas.height = 200;
+        heatCanvas.style.border = "1px solid var(--color-border)";
+        heatCanvas.style.borderRadius = "6px";
+        heatBox.appendChild(heatCanvas);
+        gridWrap.appendChild(heatBox);
+
+        var predictionBox = document.createElement("div");
+        predictionBox.style.marginTop = "1rem";
+        predictionBox.style.padding = "0.75rem";
+        predictionBox.style.border = "1px solid var(--color-border)";
+        predictionBox.style.borderRadius = "8px";
+        predictionBox.style.background = "var(--color-bg-inset)";
+        wrap.appendChild(predictionBox);
+
+        var noteEl = document.createElement("p");
+        noteEl.setAttribute("role", "status");
+        noteEl.style.marginTop = "0.75rem";
+        noteEl.style.fontWeight = "600";
+        wrap.appendChild(noteEl);
+
+        root.appendChild(wrap);
+
+        var patched = {}; // headId -> bool
+        var selectedHead = "L1H1";
+        var sentenceIdx = 0;
+
+        function headId(l, h) { return "L" + l + "H" + h; }
+
+        function deterministicRand(seed) {
+          var x = Math.sin(seed) * 10000;
+          return x - Math.floor(x);
+        }
+
+        function heatmapFor(headId, sentenceIdx) {
+          var seed = sentenceIdx * 97 + headId.charCodeAt(1) * 13 + headId.charCodeAt(3) * 7;
+          var vals = [];
+          for (var i = 0; i < tokens.length; i++) {
+            var row = [];
+            for (var j = 0; j < tokens.length; j++) {
+              var isCritical = SENTENCES[sentenceIdx].critical.indexOf(headId) !== -1;
+              var base = deterministicRand(seed + i * 6 + j);
+              // critical heads get a strong diagonal/induction pattern; others look noisier/weaker
+              if (isCritical && j === (i + 2) % tokens.length) base = 0.7 + 0.3 * base;
+              row.push(base);
+            }
+            vals.push(row);
+          }
+          return vals;
+        }
+
+        function buildGrid() {
+          grid.innerHTML = "";
+          for (var l = 1; l <= LAYERS; l++) {
+            for (var h = 1; h <= HEADS; h++) {
+              (function (l, h) {
+                var id = headId(l, h);
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.textContent = id;
+                btn.setAttribute("data-head", id);
+                btn.style.padding = "8px 4px";
+                btn.style.fontSize = "0.75rem";
+                btn.style.borderRadius = "6px";
+                btn.style.cursor = "pointer";
+                btn.style.border = "1px solid var(--color-border-strong)";
+                styleHeadButton(btn, id);
+                btn.addEventListener("click", function () {
+                  patched[id] = !patched[id];
+                  selectedHead = id;
+                  styleHeadButton(btn, id);
+                  Array.prototype.forEach.call(grid.children, function (c) {
+                    styleHeadButton(c, c.getAttribute("data-head"));
+                  });
+                  drawHeatmap();
+                  updatePrediction();
+                });
+                grid.appendChild(btn);
+              })(l, h);
+            }
+          }
+        }
+
+        function styleHeadButton(btn, id) {
+          var isPatched = !!patched[id];
+          var isSelected = id === selectedHead;
+          btn.style.background = isPatched ? "#b3261e" : "var(--color-bg)";
+          btn.style.color = isPatched ? "#fff" : "var(--color-text)";
+          btn.style.outline = isSelected ? "2px solid #2952e3" : "none";
+        }
+
+        function drawHeatmap() {
+          var g = heatCanvas.getContext("2d");
+          var vals = heatmapFor(selectedHead, sentenceIdx);
+          var cell = heatCanvas.width / tokens.length;
+          for (var i = 0; i < tokens.length; i++) {
+            for (var j = 0; j < tokens.length; j++) {
+              var v = vals[i][j];
+              var intensity = Math.round(255 - v * 200);
+              g.fillStyle = "rgb(" + intensity + "," + intensity + "," + 255 + ")";
+              g.fillRect(j * cell, i * cell, cell, cell);
+            }
+          }
+          g.strokeStyle = "#b7c0d8";
+          for (var k = 0; k <= tokens.length; k++) {
+            g.beginPath();
+            g.moveTo(k * cell, 0); g.lineTo(k * cell, heatCanvas.height); g.stroke();
+            g.beginPath();
+            g.moveTo(0, k * cell); g.lineTo(heatCanvas.width, k * cell); g.stroke();
+          }
+        }
+
+        function updatePrediction() {
+          var s = SENTENCES[sentenceIdx];
+          var patchedCriticalCount = s.critical.filter(function (id) { return patched[id]; }).length;
+          var isFlipped = patchedCriticalCount >= 1;
+          var totalPatched = Object.keys(patched).filter(function (k) { return patched[k]; }).length;
+
+          var predictedWord = isFlipped ? s.patched : s.baseline;
+          var prob = isFlipped
+            ? Math.max(0.30, s.patchedProb - 0.05 * (totalPatched - patchedCriticalCount))
+            : Math.max(0.30, s.baselineProb - 0.03 * totalPatched);
+
+          predictionBox.innerHTML =
+            "<strong>Sentence:</strong> " + s.text + "<br>" +
+            "<strong>Predicted next token:</strong> \"" + predictedWord + "\" (p=" + prob.toFixed(2) + ")<br>" +
+            "<strong>Heads currently patched:</strong> " + (totalPatched ? Object.keys(patched).filter(function (k) { return patched[k]; }).join(", ") : "none");
+
+          if (isFlipped) {
+            noteEl.style.color = "#0f7a4a";
+            noteEl.textContent = "Prediction flipped! You patched a load-bearing circuit head. " + s.note;
+          } else if (totalPatched > 0) {
+            noteEl.style.color = "#9a6b00";
+            noteEl.textContent = "Prediction unchanged — the head(s) you patched aren't load-bearing for this sentence. Keep searching.";
+          } else {
+            noteEl.style.color = "var(--color-text-muted)";
+            noteEl.textContent = "No heads patched yet — this is the unmodified baseline prediction.";
+          }
+        }
+
+        select.addEventListener("change", function () {
+          sentenceIdx = parseInt(select.value, 10);
+          patched = {};
+          selectedHead = "L1H1";
+          buildGrid();
+          drawHeatmap();
+          updatePrediction();
+        });
+
+        buildGrid();
+        drawHeatmap();
+        updatePrediction();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is activation patching used for?",
+          options: [
+            "Speeding up inference by pruning weights",
+            "Testing a causal hypothesis about a circuit by replacing one activation and observing whether the output changes as predicted",
+            "Compressing a model for deployment",
+            "Automatically labeling training data"
+          ],
+          answer: 1,
+          explanation: "Activation patching swaps in a different activation value and checks whether the output changes the way your hypothesis predicts — establishing causation, not just correlation."
+        },
+        {
+          q: "In the exercise, what does it mean when patching a head does NOT change the predicted token?",
+          options: [
+            "The model is broken",
+            "That head likely isn't part of the circuit responsible for this specific prediction",
+            "The heatmap is wrong",
+            "The sentence has no correct answer"
+          ],
+          answer: 1,
+          explanation: "If ablating a component leaves the output unchanged, that component probably isn't causally load-bearing for this behavior — a null result that narrows the search."
+        },
+        {
+          q: "What problem do sparse autoencoders (SAEs) try to address in interpretability research?",
+          options: [
+            "Slow training speed",
+            "Superposition — individual neurons representing multiple unrelated concepts (polysemanticity) — by decomposing activations into more monosemantic features",
+            "Overfitting on small datasets",
+            "GPU memory limits during inference"
+          ],
+          answer: 1,
+          explanation: "SAEs try to unpack a layer's activations into a larger set of sparse, more individually-interpretable features, addressing the superposition hypothesis."
+        },
+        {
+          q: "What is an open problem in mechanistic interpretability as of 2026, per the curriculum?",
+          options: [
+            "There are no remaining open problems",
+            "Feature consistency/stability across different SAE training runs, and extending interpretability beyond text",
+            "Attention mechanisms have been fully deprecated",
+            "Models no longer have internal representations worth studying"
+          ],
+          answer: 1,
+          explanation: "SAE feature stability across runs, and extending circuit-level analysis to code, audio, and vision-language models, remain active open problems."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

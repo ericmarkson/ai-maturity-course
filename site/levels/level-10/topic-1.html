@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Model Pretraining and Research — AI Maturity Course</title>
+<meta name="description" content="The end-to-end discipline of designing, training, and validating next-generation foundation models under a fixed compute budget.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-1";
+</script>
+<style>
+  .pp-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .pp-sliders { display: flex; flex-direction: column; gap: var(--space-3); }
+  .pp-slider-row { display: grid; grid-template-columns: 160px 1fr 70px; align-items: center; gap: var(--space-3); }
+  .pp-slider-row label { font-weight: 600; font-size: var(--font-size-sm); }
+  .pp-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .pp-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .pp-loss-readout { font-weight: 700; font-size: var(--font-size-md); margin-top: var(--space-2); }
+  .pp-checklist { list-style: none; margin: var(--space-3) 0 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .pp-checklist li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--color-bg-inset); color: var(--color-text-faint); font-size: var(--font-size-sm); border-left: 4px solid var(--color-border-strong); transition: all 0.15s ease; }
+  .pp-checklist li.hit { background: var(--color-success-bg); color: var(--color-success); border-left-color: var(--color-success); font-weight: 600; }
+  .pp-justify-textarea { width: 100%; min-height: 90px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-family: inherit; font-size: var(--font-size-base); resize: vertical; }
+  .pp-wordcount { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Frontier Model Pretraining and Research</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a fixed compute budget and a target capability profile, produce a defensible high-level pretraining plan (data mix, architecture choice, scaling strategy) and justify each choice against a tradeoff.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Frontier model pretraining is the end-to-end research and engineering discipline of designing, training,
+          and validating the next generation of foundation models from scratch. It spans everything upstream of
+          "the model works": what data it sees, what architecture it uses, how much compute goes to model size
+          versus data versus training duration, and how pretraining hands off into post-training.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Pretraining data strategy</strong> — composition, deduplication, and the frontier-lab trend of
+          using synthetic data to supplement scarce real high-quality data.</li>
+        <li><strong>Architecture and objective decisions</strong> made before a run starts (attention variant, MoE
+          routing, context length target), and how they're validated at small scale before committing to a
+          frontier-scale run.</li>
+        <li><strong>Scaling-law-informed compute allocation</strong> — choosing model size vs. dataset size vs.
+          training duration under a fixed compute budget.</li>
+        <li><strong>Post-training pipeline design</strong> — how pretraining, RLHF/RLAIF, and safety fine-tuning
+          stages fit together into one coherent model lifecycle.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Pretraining plan: allocate a fixed compute budget",
+      instructions:
+        "You have a fixed compute budget split three ways: model size, dataset size, and training steps. " +
+        "Drag any slider and the other two rebalance automatically to keep the budget at 100%. Watch the " +
+        "estimated loss curve and score update live, then justify your allocation in 3 sentences below.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "pp-wrap";
+
+        var dims = [
+          { key: "model", label: "Model size share", value: 40 },
+          { key: "data", label: "Dataset size share", value: 40 },
+          { key: "steps", label: "Training steps share", value: 20 }
+        ];
+
+        var sliderContainer = document.createElement("div");
+        sliderContainer.className = "pp-sliders";
+        var sliderEls = {};
+
+        dims.forEach(function (d) {
+          var row = document.createElement("div");
+          row.className = "pp-slider-row";
+          var label = document.createElement("label");
+          label.textContent = d.label;
+          label.setAttribute("for", "pp-slider-" + d.key);
+          var input = document.createElement("input");
+          input.type = "range";
+          input.min = "5";
+          input.max = "90";
+          input.value = String(d.value);
+          input.id = "pp-slider-" + d.key;
+          var readout = document.createElement("span");
+          readout.className = "pp-readout";
+          readout.textContent = d.value + "%";
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(readout);
+          sliderContainer.appendChild(row);
+          sliderEls[d.key] = { input: input, readout: readout };
+        });
+        wrap.appendChild(sliderContainer);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "pp-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 560;
+        canvas.height = 180;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "560px";
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        var lossReadout = document.createElement("p");
+        lossReadout.className = "pp-loss-readout";
+        canvasWrap.appendChild(lossReadout);
+        wrap.appendChild(canvasWrap);
+
+        var checklistHeading = document.createElement("p");
+        checklistHeading.style.fontWeight = "600";
+        checklistHeading.style.marginTop = "var(--space-3)";
+        checklistHeading.textContent = "Justify your allocation (3 sentences):";
+        wrap.appendChild(checklistHeading);
+
+        var textarea = document.createElement("textarea");
+        textarea.className = "pp-justify-textarea";
+        textarea.placeholder = "e.g. I weighted data slightly higher than model size because our target capability profile depends on breadth of coverage more than raw parameter count...";
+        wrap.appendChild(textarea);
+
+        var wordcount = document.createElement("p");
+        wordcount.className = "pp-wordcount";
+        wordcount.textContent = "0 words / 0 characters";
+        wrap.appendChild(wordcount);
+
+        var checklist = document.createElement("ul");
+        checklist.className = "pp-checklist";
+        var checks = [
+          { key: "compute", label: "Mentions the fixed compute budget / tradeoff under constraint", re: /compute|budget|constrain/i },
+          { key: "data", label: "Mentions dataset size or data quality", re: /data(set)?|token|corpus/i },
+          { key: "model", label: "Mentions model size or parameter count", re: /model size|paramet|scale/i },
+          { key: "steps", label: "Mentions training duration or steps", re: /step|duration|epoch|iterat/i }
+        ];
+        checks.forEach(function (c) {
+          var li = document.createElement("li");
+          li.textContent = c.label;
+          li.dataset.key = c.key;
+          checklist.appendChild(li);
+        });
+        wrap.appendChild(checklist);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        function normalizeFrom(changedKey) {
+          var total = dims.reduce(function (s, d) { return s + d.value; }, 0);
+          if (total === 100) return;
+          var others = dims.filter(function (d) { return d.key !== changedKey; });
+          var othersTotal = others.reduce(function (s, d) { return s + d.value; }, 0);
+          var remaining = 100 - dims.filter(function (d) { return d.key === changedKey; })[0].value;
+          if (othersTotal <= 0) {
+            others.forEach(function (d) { d.value = remaining / others.length; });
+          } else {
+            others.forEach(function (d) { d.value = Math.max(1, (d.value / othersTotal) * remaining); });
+          }
+        }
+
+        function estimateLoss() {
+          var m = dims[0].value, dd = dims[1].value, s = dims[2].value;
+          var base = 4.2;
+          var gain = 0.018 * m + 0.02 * dd + 0.008 * s;
+          var imbalancePenalty = Math.abs(m - dd) * 0.006;
+          var loss = base - gain + imbalancePenalty;
+          return Math.max(1.4, loss);
+        }
+
+        function draw() {
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          var finalLoss = estimateLoss();
+          var startLoss = finalLoss + 2.6;
+
+          var marginL = 40, marginR = 20, marginT = 20, marginB = 30;
+          var plotW = w - marginL - marginR;
+          var plotH = h - marginT - marginB;
+
+          // axes
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginL, marginT);
+          ctx2d.lineTo(marginL, h - marginB);
+          ctx2d.lineTo(w - marginR, h - marginB);
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#6b7390";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.fillText("training progress →", marginL + plotW / 2 - 55, h - 8);
+          ctx2d.save();
+          ctx2d.translate(12, marginT + plotH / 2 + 20);
+          ctx2d.rotate(-Math.PI / 2);
+          ctx2d.fillText("loss", 0, 0);
+          ctx2d.restore();
+
+          var maxLoss = 5.0, minLoss = 1.2;
+          function yFor(loss) {
+            return marginT + (1 - (loss - minLoss) / (maxLoss - minLoss)) * plotH;
+          }
+
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 2.5;
+          ctx2d.beginPath();
+          var n = 60;
+          for (var i = 0; i <= n; i++) {
+            var t = i / n;
+            var loss = finalLoss + (startLoss - finalLoss) * Math.exp(-3.2 * t);
+            var x = marginL + t * plotW;
+            var y = yFor(loss);
+            if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
+          }
+          ctx2d.stroke();
+
+          var endY = yFor(finalLoss);
+          ctx2d.fillStyle = "#0f9d78";
+          ctx2d.beginPath();
+          ctx2d.arc(marginL + plotW, endY, 5, 0, Math.PI * 2);
+          ctx2d.fill();
+
+          lossReadout.textContent = "Estimated final loss: " + finalLoss.toFixed(2) +
+            "  (model " + Math.round(dims[0].value) + "% / data " + Math.round(dims[1].value) +
+            "% / steps " + Math.round(dims[2].value) + "%)";
+        }
+
+        function refreshSliderUI() {
+          dims.forEach(function (d) {
+            var rounded = Math.round(d.value);
+            sliderEls[d.key].input.value = String(rounded);
+            sliderEls[d.key].readout.textContent = rounded + "%";
+          });
+        }
+
+        dims.forEach(function (d) {
+          sliderEls[d.key].input.addEventListener("input", function () {
+            d.value = parseInt(sliderEls[d.key].input.value, 10);
+            normalizeFrom(d.key);
+            refreshSliderUI();
+            draw();
+          });
+        });
+
+        function updateChecklist() {
+          var text = textarea.value;
+          var words = text.trim().length ? text.trim().split(/\s+/).length : 0;
+          wordcount.textContent = words + " words / " + text.length + " characters";
+          checks.forEach(function (c) {
+            var li = checklist.querySelector('li[data-key="' + c.key + '"]');
+            if (c.re.test(text)) {
+              li.classList.add("hit");
+            } else {
+              li.classList.remove("hit");
+            }
+          });
+        }
+
+        textarea.addEventListener("input", updateChecklist);
+
+        refreshSliderUI();
+        draw();
+        updateChecklist();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Under a fixed compute budget, what is the central tradeoff in scaling-law-informed pretraining decisions?",
+          options: [
+            "Choosing between CPU and GPU hardware vendors",
+            "Balancing model size, dataset size, and training duration against each other",
+            "Choosing the programming language for the training loop",
+            "Deciding whether to use cloud or on-premise storage"
+          ],
+          answer: 1,
+          explanation: "Scaling laws describe how loss depends jointly on model size, data size, and compute — under a fixed budget, increasing one typically means decreasing another."
+        },
+        {
+          q: "Why do frontier labs increasingly supplement pretraining data with synthetic data?",
+          options: [
+            "Synthetic data is always higher quality than real data",
+            "Real high-quality data is becoming scarce relative to the data volumes frontier runs require",
+            "Regulations require it",
+            "It is cheaper to store than real data"
+          ],
+          answer: 1,
+          explanation: "As models scale, the supply of easily available high-quality real text is being outpaced by data appetite, motivating synthetic data generation to fill the gap."
+        },
+        {
+          q: "What is the purpose of validating architecture/objective decisions 'at small scale' before a frontier-scale run?",
+          options: [
+            "Small-scale runs are required by law",
+            "It lets researchers catch problems and estimate trends cheaply before committing enormous, hard-to-reverse compute to a full run",
+            "Small models are always deployed to production",
+            "It has no real purpose beyond tradition"
+          ],
+          answer: 1,
+          explanation: "Frontier-scale runs are extremely expensive and slow to iterate on, so labs de-risk architecture and hyperparameter choices with smaller, cheaper experiments first."
+        },
+        {
+          q: "In the post-training pipeline, what typically follows pretraining and RLHF/RLAIF in a coherent model lifecycle?",
+          options: [
+            "Nothing — pretraining is the final stage",
+            "Safety fine-tuning, integrated as part of the same overall lifecycle rather than a separate afterthought",
+            "The model is retrained from scratch",
+            "The dataset is deleted"
+          ],
+          answer: 1,
+          explanation: "A coherent lifecycle treats pretraining, preference-based post-training, and safety fine-tuning as connected stages of one pipeline, not independent one-off steps."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

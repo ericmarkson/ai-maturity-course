@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designing Eval and Safety Benchmarks for the Field — AI Maturity Course</title>
+<meta name="description" content="Creating the standardized tests the whole field uses to measure capability or safety — shaping what 'good' means for everyone downstream.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-4";
+</script>
+<style>
+  .bw-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
+  .bw-controls { display: flex; flex-direction: column; gap: var(--space-4); background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); }
+  .bw-field { display: flex; flex-direction: column; gap: var(--space-2); }
+  .bw-field label { font-weight: 600; font-size: var(--font-size-sm); }
+  .bw-slider-row { display: grid; grid-template-columns: 1fr 70px; align-items: center; gap: var(--space-3); }
+  .bw-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: 2px 8px; border-radius: var(--radius-sm); text-align: right; }
+  .bw-select { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-base); background: #fff; }
+  .bw-score-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); background: #fff; }
+  .bw-score-num { font-size: var(--font-size-xl); font-weight: 700; }
+  .bw-score-bar-track { width: 100%; height: 14px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; margin-top: var(--space-2); }
+  .bw-score-bar-fill { height: 100%; border-radius: 999px; transition: width 0.15s ease, background-color 0.15s ease; }
+  .bw-flags { list-style: none; margin: var(--space-4) 0 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .bw-flags li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: var(--font-size-sm); border-left: 4px solid var(--color-border-strong); background: var(--color-bg-inset); color: var(--color-text-faint); transition: all 0.15s ease; }
+  .bw-flags li.flagged { background: var(--color-error-bg); color: var(--color-error); border-left-color: var(--color-error); font-weight: 600; }
+  .bw-flags li.ok { background: var(--color-success-bg); color: var(--color-success); border-left-color: var(--color-success); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Designing Eval and Safety Benchmarks for the Field</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Design a benchmark specification (what it measures, how items are constructed, how gaming is detected/prevented) for a stated capability or safety property, and identify the specific way it could saturate or be gamed.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Designing eval and safety benchmarks for the field means creating the standardized tests that the rest of
+          the field will use to measure capability or safety. A benchmark you publish doesn't just grade your own
+          model — it shapes what "good" means for every lab, paper, and leaderboard that adopts it, which makes
+          getting the design right a field-level responsibility, not just a technical exercise.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>What makes a benchmark good</strong> — construct validity (does it measure what it claims to),
+          resistance to gaming/contamination, and statistical power.</li>
+        <li><strong>Capability benchmarks vs. safety/red-team benchmarks</strong>, and why the latter needs
+          adversarial, continuously-refreshed design.</li>
+        <li><strong>LLM-as-judge and process-based evaluation</strong> as scalable-oversight-adjacent benchmark
+          techniques, and their known biases.</li>
+        <li><strong>Benchmark lifecycle</strong> — saturation, deprecation, and the "benchmark becomes a target"
+          problem (Goodhart's law applied to eval design).</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Benchmark-design workbench",
+      instructions:
+        "Assemble a benchmark from four design choices below. Watch the robustness scorecard and weakness flags " +
+        "update live as you change each one — there is no single 'correct' combination, but some combinations are " +
+        "clearly more gameable, contaminated, or saturation-prone than others.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "bw-wrap";
+
+        var controls = document.createElement("div");
+        controls.className = "bw-controls";
+
+        // --- Task diversity slider ---
+        var diversityField = document.createElement("div");
+        diversityField.className = "bw-field";
+        var diversityLabel = document.createElement("label");
+        diversityLabel.setAttribute("for", "bw-diversity");
+        diversityLabel.textContent = "Task diversity (breadth of task types covered)";
+        var diversityRow = document.createElement("div");
+        diversityRow.className = "bw-slider-row";
+        var diversitySlider = document.createElement("input");
+        diversitySlider.type = "range";
+        diversitySlider.min = "0";
+        diversitySlider.max = "100";
+        diversitySlider.value = "40";
+        diversitySlider.id = "bw-diversity";
+        var diversityReadout = document.createElement("span");
+        diversityReadout.className = "bw-readout";
+        diversityRow.appendChild(diversitySlider);
+        diversityRow.appendChild(diversityReadout);
+        diversityField.appendChild(diversityLabel);
+        diversityField.appendChild(diversityRow);
+        controls.appendChild(diversityField);
+
+        // --- Difficulty spread slider ---
+        var difficultyField = document.createElement("div");
+        difficultyField.className = "bw-field";
+        var difficultyLabel = document.createElement("label");
+        difficultyLabel.setAttribute("for", "bw-difficulty");
+        difficultyLabel.textContent = "Difficulty spread (narrow band ↔ broad spread)";
+        var difficultyRow = document.createElement("div");
+        difficultyRow.className = "bw-slider-row";
+        var difficultySlider = document.createElement("input");
+        difficultySlider.type = "range";
+        difficultySlider.min = "0";
+        difficultySlider.max = "100";
+        difficultySlider.value = "40";
+        difficultySlider.id = "bw-difficulty";
+        var difficultyReadout = document.createElement("span");
+        difficultyReadout.className = "bw-readout";
+        difficultyRow.appendChild(difficultySlider);
+        difficultyRow.appendChild(difficultyReadout);
+        difficultyField.appendChild(difficultyLabel);
+        difficultyField.appendChild(difficultyRow);
+        controls.appendChild(difficultyField);
+
+        // --- Contamination controls select ---
+        var contamField = document.createElement("div");
+        contamField.className = "bw-field";
+        var contamLabel = document.createElement("label");
+        contamLabel.setAttribute("for", "bw-contam");
+        contamLabel.textContent = "Contamination controls";
+        var contamSelect = document.createElement("select");
+        contamSelect.className = "bw-select";
+        contamSelect.id = "bw-contam";
+        [
+          ["none", "None — fixed public test set"],
+          ["dedup", "Static deduplication against known training corpora"],
+          ["refresh", "Continuously refreshed, held-out items"]
+        ].forEach(function (opt) {
+          var o = document.createElement("option");
+          o.value = opt[0];
+          o.textContent = opt[1];
+          contamSelect.appendChild(o);
+        });
+        contamField.appendChild(contamLabel);
+        contamField.appendChild(contamSelect);
+        controls.appendChild(contamField);
+
+        // --- Scoring method select ---
+        var scoringField = document.createElement("div");
+        scoringField.className = "bw-field";
+        var scoringLabel = document.createElement("label");
+        scoringLabel.setAttribute("for", "bw-scoring");
+        scoringLabel.textContent = "Scoring method";
+        var scoringSelect = document.createElement("select");
+        scoringSelect.className = "bw-select";
+        scoringSelect.id = "bw-scoring";
+        [
+          ["exact", "Exact-match / string matching"],
+          ["rubric", "Rubric-based LLM-as-judge"],
+          ["human", "Human expert grading"]
+        ].forEach(function (opt) {
+          var o = document.createElement("option");
+          o.value = opt[0];
+          o.textContent = opt[1];
+          scoringSelect.appendChild(o);
+        });
+        scoringField.appendChild(scoringLabel);
+        scoringField.appendChild(scoringSelect);
+        controls.appendChild(scoringField);
+
+        wrap.appendChild(controls);
+
+        // --- Score panel ---
+        var scorePanel = document.createElement("div");
+        scorePanel.className = "bw-score-panel";
+        var scoreLabel = document.createElement("p");
+        scoreLabel.style.margin = "0";
+        scoreLabel.style.fontWeight = "600";
+        scoreLabel.textContent = "Benchmark robustness score";
+        var scoreNum = document.createElement("p");
+        scoreNum.className = "bw-score-num";
+        var scoreBarTrack = document.createElement("div");
+        scoreBarTrack.className = "bw-score-bar-track";
+        var scoreBarFill = document.createElement("div");
+        scoreBarFill.className = "bw-score-bar-fill";
+        scoreBarTrack.appendChild(scoreBarFill);
+        scorePanel.appendChild(scoreLabel);
+        scorePanel.appendChild(scoreNum);
+        scorePanel.appendChild(scoreBarTrack);
+        wrap.appendChild(scorePanel);
+
+        // --- Flags checklist ---
+        var flagsHeading = document.createElement("p");
+        flagsHeading.style.fontWeight = "600";
+        flagsHeading.style.marginTop = "var(--space-3)";
+        flagsHeading.textContent = "Weakness flags:";
+        wrap.appendChild(flagsHeading);
+
+        // Each flag carries a `check(cfg)` predicate so the flags actually shown can be
+        // recomputed from the live configuration, instead of a static list that only
+        // changes color. A flag only appears in the list while its predicate is true;
+        // once the learner's choices resolve it, it drops off the "active" list and
+        // moves into the "resolved" list (or the whole section shows a clean pass).
+        var flags = [
+          { key: "gameable", short: "anti-gaming safeguard in scoring",
+            label: "Gameable via surface-level pattern matching instead of the intended capability",
+            check: function (cfg) { return cfg.scoring === "exact"; } },
+          { key: "contam", short: "contamination controls",
+            label: "High contamination risk — items likely already sitting in training corpora",
+            check: function (cfg) { return cfg.contam === "none"; } },
+          { key: "saturate", short: "difficulty spread",
+            label: "Saturation risk — narrow difficulty band will be maxed out quickly",
+            check: function (cfg) { return cfg.difficulty < 35; } },
+          { key: "coverage", short: "task diversity",
+            label: "Narrow construct coverage — low task diversity limits what conclusions generalize",
+            check: function (cfg) { return cfg.diversity < 35; } },
+          { key: "judgebias", short: "judge-bias mitigation (non-rubric scoring)",
+            label: "Judge-bias risk — LLM-as-judge scoring may reward style/verbosity over correctness",
+            check: function (cfg) { return cfg.scoring === "rubric"; } }
+        ];
+        var flagsList = document.createElement("ul");
+        flagsList.className = "bw-flags";
+        wrap.appendChild(flagsList);
+
+        root.appendChild(wrap);
+
+        function update() {
+          var diversity = parseInt(diversitySlider.value, 10);
+          var difficulty = parseInt(difficultySlider.value, 10);
+          var contam = contamSelect.value;
+          var scoring = scoringSelect.value;
+
+          diversityReadout.textContent = diversity + "%";
+          difficultyReadout.textContent = difficulty + "%";
+
+          var contamPoints = contam === "none" ? 0 : (contam === "dedup" ? 15 : 30);
+          var scoringPoints = scoring === "exact" ? 5 : (scoring === "rubric" ? 20 : 30);
+          var breadthPoints = ((diversity + difficulty) / 2) * 0.4;
+          var score = Math.round(breadthPoints + contamPoints + scoringPoints);
+          score = Math.max(0, Math.min(100, score));
+
+          scoreNum.textContent = score + " / 100";
+          scoreBarFill.style.width = score + "%";
+          var color = score < 40 ? "var(--color-error)" : (score < 70 ? "#c98a12" : "var(--color-success)");
+          scoreBarFill.style.background = color;
+          scoreNum.style.color = color;
+
+          // Rebuild the actual SET of flags shown from the current configuration —
+          // this is what makes the list respond to the learner's choices instead of
+          // just recoloring a fixed set of 5 items every time. Only flags whose
+          // predicate is currently true are listed as active weaknesses; anything the
+          // learner has resolved (e.g. picking human grading resolves the LLM-as-judge
+          // bias flag) drops off the list entirely instead of lingering, recolored.
+          var cfg = { diversity: diversity, difficulty: difficulty, contam: contam, scoring: scoring };
+          var active = flags.filter(function (f) { return f.check(cfg); });
+          var resolved = flags.filter(function (f) { return !f.check(cfg); });
+
+          flagsList.innerHTML = "";
+
+          if (active.length === 0) {
+            var okLi = document.createElement("li");
+            okLi.className = "ok";
+            okLi.textContent = "No active weakness flags for this configuration — nice work.";
+            flagsList.appendChild(okLi);
+          } else {
+            active.forEach(function (f) {
+              var li = document.createElement("li");
+              li.className = "flagged";
+              li.textContent = f.label;
+              li.dataset.key = f.key;
+              flagsList.appendChild(li);
+            });
+          }
+
+          if (resolved.length > 0) {
+            var resolvedNote = document.createElement("li");
+            resolvedNote.className = "ok";
+            resolvedNote.style.fontWeight = "400";
+            resolvedNote.style.borderLeftStyle = "dashed";
+            resolvedNote.textContent = "Resolved by your current choices: " +
+              resolved.map(function (f) { return f.short; }).join(", ") + ".";
+            flagsList.appendChild(resolvedNote);
+          }
+        }
+
+        diversitySlider.addEventListener("input", update);
+        difficultySlider.addEventListener("input", update);
+        contamSelect.addEventListener("change", update);
+        scoringSelect.addEventListener("change", update);
+
+        update();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What does 'construct validity' mean when evaluating whether a benchmark is good?",
+          options: [
+            "Whether the benchmark runs quickly",
+            "Whether the benchmark actually measures the capability or property it claims to measure",
+            "Whether the benchmark has a large number of items",
+            "Whether the benchmark was published at a top venue"
+          ],
+          answer: 1,
+          explanation: "Construct validity is about whether the test truly captures the target property, not just whether it's popular, fast, or large."
+        },
+        {
+          q: "Why do safety/red-team benchmarks typically need adversarial, continuously-refreshed design more than most capability benchmarks?",
+          options: [
+            "They don't — both need identical static designs",
+            "Because a fixed, published safety benchmark quickly gets 'trained around' or memorized once its exact items are known",
+            "Because safety benchmarks are always shorter",
+            "Because safety benchmarks require no scoring rubric"
+          ],
+          answer: 1,
+          explanation: "Once safety test items are public and static, models (or their developers) can specifically patch or train around those exact items without truly fixing the underlying issue, so ongoing refresh matters more."
+        },
+        {
+          q: "What is the 'benchmark becomes a target' problem, as an application of Goodhart's law?",
+          options: [
+            "Benchmarks are always too difficult for any model to pass",
+            "Once a benchmark score becomes the optimization target, it stops being a reliable measure of the underlying quality it was meant to track",
+            "Benchmarks cannot be automated",
+            "Benchmarks always require human graders"
+          ],
+          answer: 1,
+          explanation: "Goodhart's law: when a measure becomes a target, it ceases to be a good measure — heavy optimization pressure on a benchmark's score can decouple that score from genuine underlying progress."
+        },
+        {
+          q: "In the benchmark-design exercise, which combination of choices is scored as the most robustness-risky?",
+          options: [
+            "High task diversity, broad difficulty spread, continuously refreshed items, human expert grading",
+            "Low task diversity, narrow difficulty band, no contamination controls, exact-match scoring",
+            "Moderate diversity, broad difficulty spread, static deduplication, rubric-based LLM-as-judge",
+            "High task diversity, narrow difficulty band, continuously refreshed items, human expert grading"
+          ],
+          answer: 1,
+          explanation: "Low diversity plus a narrow difficulty band plus no contamination controls plus exact-match scoring stacks nearly every weakness at once: gameable, contamination-prone, saturation-prone, and narrow in coverage."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

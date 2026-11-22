@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Everyday AI Applications — AI Maturity Course</title>
+<meta name="description" content="AI already runs quietly inside many daily tools — a clickable day-in-the-life timeline exercise reveals where.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-4";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>Everyday AI Applications</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can identify at least 5 AI-powered features they
+      personally use in a typical day and name the category each falls into.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          AI already runs quietly inside many of the tools people use every day, often without any
+          "AI" label in sight. It shows up as recommendation feeds deciding what you see next,
+          voice assistants turning speech into action, conversational chatbots you type or talk
+          to directly, and a whole category of "behind-the-scenes" AI — fraud detection, spam
+          filtering, autocomplete, navigation ETAs — working invisibly in the background of
+          ordinary apps.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Recommendation systems (streaming, shopping, social feeds)</li>
+        <li>Voice assistants and speech recognition</li>
+        <li>Conversational chatbots / assistants</li>
+        <li>Behind-the-scenes AI (fraud detection, spam filtering, autocomplete, navigation ETAs)</li>
+      </ul>
+      <p>
+        The categories matter because they describe different relationships with the user.
+        Recommendation systems and behind-the-scenes AI act on your behalf without being asked in
+        the moment. Voice assistants and chatbots, by contrast, respond to an explicit request —
+        you talk or type, and the system reacts directly. Recognizing which bucket a given feature
+        falls into is a fast way to spot AI you might otherwise never notice.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var SCENES = [
+      { id: "wake", time: "7:00am", label: "Wake up, check phone", systems: [
+          { name: "Face/fingerprint unlock", cat: "Behind-the-scenes AI", note: "A neural network verifies your identity from your face or fingerprint pattern in a fraction of a second." },
+          { name: "Notification ranking", cat: "Recommendation system", note: "An algorithm decides which notifications you see first based on what you tend to engage with." }
+        ] },
+      { id: "commute", time: "7:45am", label: "Commute to work", systems: [
+          { name: "Maps ETA prediction", cat: "Behind-the-scenes AI", note: "Predicts your arrival time from live and historical traffic patterns." },
+          { name: "Traffic-aware rerouting", cat: "Behind-the-scenes AI", note: "Continuously re-optimizes your route as conditions change." }
+        ] },
+      { id: "email", time: "9:00am", label: "Check email", systems: [
+          { name: "Spam filter", cat: "Behind-the-scenes AI", note: "Classifies incoming mail as spam or not before you ever see it." },
+          { name: "Smart-reply suggestions", cat: "Conversational chatbot / assistant", note: "Suggests short reply text based on the message you received." }
+        ] },
+      { id: "work", time: "11:00am", label: "Write a document at work", systems: [
+          { name: "Autocomplete / autocorrect", cat: "Behind-the-scenes AI", note: "Predicts your next word or fixes typos as you type." },
+          { name: "Grammar / phrasing suggestions", cat: "Behind-the-scenes AI", note: "Flags awkward phrasing using patterns learned from huge amounts of text." }
+        ] },
+      { id: "shop", time: "1:00pm", label: "Shop online at lunch", systems: [
+          { name: "“You might also like” recommendations", cat: "Recommendation system", note: "Suggests products based on your browsing and purchase history." },
+          { name: "Card fraud detection", cat: "Behind-the-scenes AI", note: "Flags unusual purchase patterns in real time to catch fraud." }
+        ] },
+      { id: "assistant", time: "6:00pm", label: "Ask a voice assistant to set a timer", systems: [
+          { name: "Speech recognition", cat: "Voice assistant", note: "Converts your spoken words into text the system can act on." },
+          { name: "Intent understanding", cat: "Voice assistant", note: "Figures out you want a timer set (and for how long) from natural phrasing." }
+        ] },
+      { id: "stream", time: "8:30pm", label: "Stream a show in the evening", systems: [
+          { name: "“Because you watched...” row", cat: "Recommendation system", note: "Ranks and surfaces shows predicted to match your taste." },
+          { name: "Auto-generated thumbnails", cat: "Behind-the-scenes AI", note: "Picks or generates the thumbnail image predicted to get you to click." }
+        ] }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "A day in the life, powered by AI",
+      instructions: "Click each moment in the timeline to reveal the AI systems quietly working " +
+        "behind it. Check off any you recognize from your own day and watch the counter update.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var recognizedCount = 0;
+        var totalSystems = SCENES.reduce(function (sum, s) { return sum + s.systems.length; }, 0);
+
+        var timeline = document.createElement("div");
+        timeline.style.display = "flex";
+        timeline.style.flexWrap = "wrap";
+        timeline.style.gap = "8px";
+        timeline.style.marginBottom = "16px";
+        root.appendChild(timeline);
+
+        var detail = document.createElement("div");
+        detail.style.border = "1px solid var(--color-border)";
+        detail.style.borderRadius = "10px";
+        detail.style.padding = "14px";
+        detail.style.background = "#fff";
+        detail.style.minHeight = "80px";
+        root.appendChild(detail);
+
+        var counter = document.createElement("p");
+        counter.setAttribute("role", "status");
+        counter.style.marginTop = "12px";
+        counter.style.fontWeight = "600";
+        root.appendChild(counter);
+
+        var sceneButtons = {};
+
+        function refreshCounter() {
+          counter.textContent = "You've recognized " + recognizedCount + " of " + totalSystems + " AI-powered moments in your day.";
+        }
+
+        function selectScene(scene, btn) {
+          Object.keys(sceneButtons).forEach(function (id) {
+            sceneButtons[id].style.background = "#fff";
+            sceneButtons[id].style.borderColor = "var(--color-border-strong)";
+          });
+          btn.style.background = "var(--color-primary-light)";
+          btn.style.borderColor = "var(--color-primary)";
+
+          detail.innerHTML = "";
+          var h = document.createElement("h3");
+          h.textContent = scene.time + " — " + scene.label;
+          h.style.marginBottom = "8px";
+          detail.appendChild(h);
+
+          scene.systems.forEach(function (sys, idx) {
+            var row = document.createElement("div");
+            row.style.display = "flex";
+            row.style.alignItems = "flex-start";
+            row.style.gap = "8px";
+            row.style.marginBottom = "10px";
+
+            var cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.id = scene.id + "-sys-" + idx;
+            cb.style.marginTop = "4px";
+
+            var label = document.createElement("label");
+            label.setAttribute("for", cb.id);
+            label.style.cursor = "pointer";
+
+            var strong = document.createElement("strong");
+            strong.textContent = sys.name + " ";
+            var badge = document.createElement("span");
+            badge.className = "badge badge-accent";
+            badge.textContent = sys.cat;
+            badge.style.marginLeft = "4px";
+            var p = document.createElement("div");
+            p.style.fontSize = "0.85rem";
+            p.style.color = "var(--color-text-muted)";
+            p.style.marginTop = "2px";
+            p.textContent = sys.note;
+
+            label.appendChild(strong);
+            label.appendChild(badge);
+            label.appendChild(p);
+
+            cb.addEventListener("change", function () {
+              recognizedCount += cb.checked ? 1 : -1;
+              refreshCounter();
+            });
+
+            row.appendChild(cb);
+            row.appendChild(label);
+            detail.appendChild(row);
+          });
+        }
+
+        SCENES.forEach(function (scene) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = scene.time + "\n" + scene.label;
+          btn.style.whiteSpace = "pre-line";
+          btn.style.textAlign = "left";
+          btn.style.flex = "1 1 130px";
+          btn.style.border = "1px solid var(--color-border-strong)";
+          btn.style.borderRadius = "8px";
+          btn.style.background = "#fff";
+          btn.style.padding = "8px 10px";
+          btn.style.cursor = "pointer";
+          btn.style.fontSize = "0.8rem";
+
+          btn.addEventListener("click", function () { selectScene(scene, btn); });
+
+          sceneButtons[scene.id] = btn;
+          timeline.appendChild(btn);
+        });
+
+        selectScene(SCENES[0], sceneButtons[SCENES[0].id]);
+        refreshCounter();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A streaming app's “Because you watched...” row is an example of:",
+          options: ["A voice assistant", "A recommendation system", "A behind-the-scenes fraud detector", "A conversational chatbot"],
+          answer: 1,
+          explanation: "It's ranking and surfacing content it predicts you'll like — the definition of a recommendation system."
+        },
+        {
+          q: "Which of these is generally classified as “behind-the-scenes” AI rather than something you actively interact with?",
+          options: ["Typing a question directly into a chatbot", "Talking to a voice assistant", "Card fraud detection running silently on your purchases", "None of the above"],
+          answer: 2,
+          explanation: "Fraud detection runs quietly in the background without you ever directly prompting it — that's the “behind-the-scenes” category."
+        },
+        {
+          q: "What converts your spoken words into text a voice assistant can act on?",
+          options: ["A recommendation algorithm", "Speech recognition", "A spam filter", "A card fraud detector"],
+          answer: 1,
+          explanation: "Speech recognition is the specific AI capability that turns audio of speech into text."
+        },
+        {
+          q: "Why might someone use several AI systems in a day without realizing it?",
+          options: ["AI features are always clearly labeled “AI” in apps", "Many AI features run quietly in the background of everyday apps rather than being labeled as AI", "AI only exists in dedicated chatbot apps", "AI features never run without the user's active input"],
+          answer: 1,
+          explanation: "A lot of everyday AI (spam filters, ETA predictions, fraud detection, autocomplete) works invisibly, with no explicit “AI” label."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

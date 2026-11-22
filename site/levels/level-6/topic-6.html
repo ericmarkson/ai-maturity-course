@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interpretability Tools: SHAP and LIME — AI Maturity Course</title>
+<meta name="description" content="Learn how SHAP and LIME explain individual model predictions, then explore a live loan-approval feature-attribution widget.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "6-6";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 6 — Advanced</p>
+  <h1>Interpretability Tools: SHAP and LIME</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can read a SHAP-style feature-contribution
+      chart for a single prediction and correctly state which features pushed the prediction up
+      vs. down and by roughly how much.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Interpretability tools like <strong>SHAP</strong> and <strong>LIME</strong> explain why
+          a model made a specific prediction by estimating how much each input feature
+          contributed, turning a "black box" decision into a human-readable breakdown. Instead of
+          just seeing a final score or label, you see which inputs pushed that score up, which
+          pushed it down, and roughly by how much.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The black-box problem: why complex models are hard to explain by default</li>
+        <li>LIME: approximating a model locally with a simpler, interpretable model around one prediction</li>
+        <li>SHAP: using game-theoretic "Shapley values" to fairly attribute a prediction to each feature</li>
+        <li>Global interpretability (overall feature importance) vs. local interpretability (why this one prediction)</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy loan-approval scoring model: baseline + weighted, normalized contributions.
+    // This is a deliberately simple hardcoded formula, not a real trained model —
+    // the point is to practice reading feature-attribution charts.
+    var FEATURES = [
+      { key: "income", label: "Annual Income ($)", min: 20000, max: 150000, def: 70000, maxWeight: 30, invert: false, fmt: function (v) { return "$" + Math.round(v).toLocaleString(); } },
+      { key: "credit", label: "Credit Score", min: 300, max: 850, def: 650, maxWeight: 40, invert: false, fmt: function (v) { return Math.round(v).toString(); } },
+      { key: "dti", label: "Debt-to-Income Ratio (%)", min: 0, max: 60, def: 25, maxWeight: 20, invert: true, fmt: function (v) { return Math.round(v) + "%"; } },
+      { key: "years", label: "Years Employed", min: 0, max: 20, def: 5, maxWeight: 10, invert: false, fmt: function (v) { return Math.round(v) + " yrs"; } },
+      { key: "loan", label: "Requested Loan Amount ($)", min: 5000, max: 50000, def: 20000, maxWeight: 15, invert: true, fmt: function (v) { return "$" + Math.round(v).toLocaleString(); } }
+    ];
+    var BASELINE_SCORE = 50;
+    var MAX_HALF_WEIGHT = Math.max.apply(null, FEATURES.map(function (f) { return f.maxWeight / 2; })); // 20
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Loan-approval feature attribution (SHAP-style)",
+      instructions:
+        "Drag each slider to change an applicant's profile. The horizontal bars show each " +
+        "feature's simulated contribution to the approval score — green bars push the score up " +
+        "(toward approval), red bars push it down — updating live as you move the sliders.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var sliders = {};
+        var valueReadouts = {};
+        var barFills = {};
+        var barLabels = {};
+
+        var barAreaWidth = 220; // px, half-width from center to edge
+
+        FEATURES.forEach(function (f) {
+          var row = document.createElement("div");
+          row.style.marginBottom = "1rem";
+
+          var sliderRow = document.createElement("div");
+          sliderRow.className = "slider-row";
+
+          var label = document.createElement("label");
+          label.setAttribute("for", "slider-" + f.key);
+          label.textContent = f.label;
+          sliderRow.appendChild(label);
+
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.id = "slider-" + f.key;
+          slider.min = f.min;
+          slider.max = f.max;
+          slider.value = f.def;
+          slider.step = (f.max - f.min) / 100;
+          sliders[f.key] = slider;
+          sliderRow.appendChild(slider);
+
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = f.fmt(f.def);
+          valueReadouts[f.key] = readout;
+          sliderRow.appendChild(readout);
+
+          row.appendChild(sliderRow);
+
+          // Bar chart row: center line with a bar extending left (negative) or right (positive)
+          var barOuter = document.createElement("div");
+          barOuter.style.position = "relative";
+          barOuter.style.height = "26px";
+          barOuter.style.background = "var(--color-bg-inset)";
+          barOuter.style.borderRadius = "4px";
+          barOuter.style.overflow = "hidden";
+
+          var centerLine = document.createElement("div");
+          centerLine.style.position = "absolute";
+          centerLine.style.left = "50%";
+          centerLine.style.top = "0";
+          centerLine.style.bottom = "0";
+          centerLine.style.width = "2px";
+          centerLine.style.background = "var(--color-border-strong)";
+          barOuter.appendChild(centerLine);
+
+          var fill = document.createElement("div");
+          fill.style.position = "absolute";
+          fill.style.top = "2px";
+          fill.style.bottom = "2px";
+          fill.style.width = "0px";
+          fill.style.borderRadius = "3px";
+          barOuter.appendChild(fill);
+          barFills[f.key] = fill;
+
+          var barLabel = document.createElement("span");
+          barLabel.style.position = "absolute";
+          barLabel.style.top = "3px";
+          barLabel.style.fontSize = "var(--font-size-sm)";
+          barLabel.style.fontWeight = "700";
+          barOuter.appendChild(barLabel);
+          barLabels[f.key] = barLabel;
+
+          row.appendChild(barOuter);
+          wrap.appendChild(row);
+        });
+
+        var divider = document.createElement("hr");
+        divider.style.margin = "1.25rem 0";
+        divider.style.border = "none";
+        divider.style.borderTop = "1px solid var(--color-border)";
+        wrap.appendChild(divider);
+
+        var scoreLine = document.createElement("p");
+        scoreLine.style.fontSize = "var(--font-size-lg)";
+        scoreLine.style.fontWeight = "700";
+        wrap.appendChild(scoreLine);
+
+        var decisionLine = document.createElement("p");
+        decisionLine.setAttribute("role", "status");
+        decisionLine.style.fontWeight = "700";
+        decisionLine.style.fontSize = "var(--font-size-md)";
+        wrap.appendChild(decisionLine);
+
+        root.appendChild(wrap);
+
+        function computeContribution(f, value) {
+          var normalized = (value - f.min) / (f.max - f.min); // 0..1
+          var raw = (normalized - 0.5) * f.maxWeight;
+          return f.invert ? -raw : raw;
+        }
+
+        function render() {
+          var total = BASELINE_SCORE;
+          var contributions = {};
+
+          FEATURES.forEach(function (f) {
+            var v = parseFloat(sliders[f.key].value);
+            valueReadouts[f.key].textContent = f.fmt(v);
+            var contribution = computeContribution(f, v);
+            contributions[f.key] = contribution;
+            total += contribution;
+          });
+
+          FEATURES.forEach(function (f) {
+            var c = contributions[f.key];
+            var pxWidth = Math.min(barAreaWidth, Math.abs(c) / MAX_HALF_WEIGHT * barAreaWidth);
+            var fill = barFills[f.key];
+            var lbl = barLabels[f.key];
+            if (c >= 0) {
+              fill.style.left = "50%";
+              fill.style.right = "";
+              fill.style.width = pxWidth + "px";
+              fill.style.background = "var(--color-accent)";
+              lbl.style.left = "calc(50% + " + (pxWidth + 6) + "px)";
+              lbl.style.color = "var(--color-success)";
+              lbl.textContent = "+" + c.toFixed(1) + " pts";
+            } else {
+              fill.style.right = "50%";
+              fill.style.left = "";
+              fill.style.width = pxWidth + "px";
+              fill.style.background = "var(--color-error)";
+              lbl.style.left = "calc(50% - " + (pxWidth + 60) + "px)";
+              lbl.style.color = "var(--color-error)";
+              lbl.textContent = c.toFixed(1) + " pts";
+            }
+          });
+
+          var clamped = Math.max(0, Math.min(100, total));
+          scoreLine.textContent = "Predicted approval score: " + clamped.toFixed(1) + " / 100 (baseline " + BASELINE_SCORE + " + feature contributions)";
+
+          var approved = clamped >= 50;
+          decisionLine.textContent = approved ? "Decision: APPROVED" : "Decision: DENIED";
+          decisionLine.style.color = approved ? "var(--color-success)" : "var(--color-error)";
+        }
+
+        FEATURES.forEach(function (f) {
+          sliders[f.key].addEventListener("input", render);
+        });
+
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In a SHAP-style feature-contribution chart, a bar extending to the right of the center line typically means:",
+          options: [
+            "That feature pushed the prediction up (e.g., toward approval)",
+            "That feature caused a training error",
+            "That feature was removed from the model entirely",
+            "That feature has exactly zero effect"
+          ],
+          answer: 0,
+          explanation: "Bars to the right of center represent a positive contribution — that feature's value pushed the prediction higher than the baseline."
+        },
+        {
+          q: "What is the key difference between LIME and SHAP as described in this lesson?",
+          options: [
+            "LIME approximates a model locally around one prediction with a simpler interpretable model, while SHAP uses game-theoretic Shapley values to fairly attribute the prediction across features",
+            "LIME only works on image models while SHAP only works on text models",
+            "SHAP requires no computation at all, while LIME requires fully retraining the model",
+            "They are two different names for the exact same algorithm"
+          ],
+          answer: 0,
+          explanation: "LIME builds a simple local surrogate model around one prediction; SHAP instead computes Shapley values, a game-theoretic way to split credit for the prediction fairly across features."
+        },
+        {
+          q: "What is the difference between global and local interpretability?",
+          options: [
+            "Global interpretability explains overall feature importance across many predictions; local interpretability explains why one specific prediction was made",
+            "Global interpretability only applies to models used internationally",
+            "Local interpretability requires an internet connection; global interpretability does not",
+            "There is no meaningful difference between the two"
+          ],
+          answer: 0,
+          explanation: "Global interpretability summarizes patterns across the whole model/dataset; local interpretability (what SHAP and LIME typically produce per-prediction) zooms into one specific decision."
+        },
+        {
+          q: "Which of these statements about tools like SHAP/LIME are true? (Select all that apply.)",
+          options: [
+            "They can turn a black-box model's decision into a human-readable breakdown",
+            "They guarantee that the underlying model is fair and unbiased",
+            "They estimate how much each input feature contributed to a specific prediction",
+            "They can help a reviewer sanity-check whether a model is relying on a feature it shouldn't"
+          ],
+          answer: [0, 2, 3],
+          explanation: "SHAP/LIME explain contributions and support auditing, but explaining a decision is not the same as guaranteeing fairness — a model can be interpretable and still biased."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

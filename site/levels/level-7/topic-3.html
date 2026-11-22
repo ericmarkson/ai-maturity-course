@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Memory: Short-Term and Long-Term — AI Maturity Course</title>
+<meta name="description" content="How AI agents retain information within a conversation (short-term) and across sessions over time (long-term).">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-3";
+</script>
+<style>
+  .mem-layout { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4); }
+  @media (max-width: 720px) { .mem-layout { grid-template-columns: 1fr; } }
+  .mem-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg); }
+  .mem-panel h4 { margin: 0 0 var(--space-2) 0; font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+  .mem-turn { border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); font-size: var(--font-size-sm); }
+  .mem-turn.user { background: var(--color-primary-light); }
+  .mem-turn.agent { background: var(--color-bg-inset); }
+  .mem-turn .mem-tok { float: right; color: var(--color-text-faint); font-family: var(--font-mono); font-size: 0.75rem; }
+  .mem-longterm-item { border-left: 3px solid var(--color-accent); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); background: var(--color-success-bg); font-size: var(--font-size-sm); }
+  .mem-budget-bar { height: 20px; border-radius: 999px; background: var(--color-bg-inset); border: 1px solid var(--color-border); overflow: hidden; margin: var(--space-2) 0 var(--space-3); }
+  .mem-budget-fill { height: 100%; background: var(--color-accent); transition: width 0.25s ease, background 0.25s ease; }
+  .mem-budget-fill.over { background: var(--color-error); }
+  .mem-empty { color: var(--color-text-faint); font-style: italic; font-size: var(--font-size-sm); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Agent Memory: Short-Term and Long-Term</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can distinguish short-term from long-term memory in a
+      given agent design and propose a summarization/retrieval strategy that keeps memory useful without
+      exceeding context limits.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Agent memory is how an AI agent retains information across a single conversation (short-term) or
+          across sessions over time (long-term) so it can act on past context instead of starting fresh each
+          turn. Short-term memory lives in the context window and disappears when the conversation ends;
+          long-term memory is written out to a durable store and can be retrieved back into a prompt later.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The context window as working/short-term memory</li>
+        <li>Long-term memory stores (vector databases, structured logs, rolling summaries)</li>
+        <li>Memory write policies — what gets saved, summarized, or discarded</li>
+        <li>Memory retrieval and re-injection into future prompts</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Scripted conversation. tokens are toy approximations, not real tokenizer output.
+    var TURNS = [
+      { role: "user", text: "I'm planning a trip to Lisbon in October. Any tips?", tokens: 14 },
+      { role: "agent", text: "October is shoulder season — mild, fewer crowds. Want hotel or itinerary help first?", tokens: 18 },
+      { role: "user", text: "Itinerary first. I like food markets and history, 4 days total.", tokens: 15 },
+      { role: "agent", text: "Day 1: Alfama + São Jorge Castle. Day 2: Time Out Market + Belém. Day 3: Sintra day trip. Day 4: LX Factory + free wander.", tokens: 30 },
+      { role: "user", text: "Great — now what's the average October temperature there?", tokens: 12 },
+      { role: "agent", text: "Around 19-23°C (66-73°F) daytime, cooler evenings — pack a light jacket.", tokens: 16 },
+      { role: "user", text: "My budget is €900 for the whole trip excluding flights. Is that realistic?", tokens: 16 },
+      { role: "agent", text: "Yes — with mid-range hotels (~€70/night) and modest dining, €900 for 4 days is workable.", tokens: 18 },
+      { role: "user", text: "One more thing — do I need any visa as an EU citizen?", tokens: 14 },
+      { role: "agent", text: "No visa needed for EU citizens — Portugal is in the Schengen area, just bring an ID card or passport.", tokens: 20 }
+    ];
+
+    function summarize(turns) {
+      // Toy fixed-format summarizer: compress a group of overflowed turns into one line.
+      var topics = turns.map(function (t) { return t.text.split(/[.?!]/)[0]; });
+      return "Summary of " + turns.length + " earlier turn(s): " + topics.join(" / ").slice(0, 140) +
+        (topics.join(" / ").length > 140 ? "…" : "");
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Fill the context window, watch memory overflow into long-term storage",
+      instructions:
+        "Click “Add next turn” to feed a scripted conversation into short-term memory. Drag the token budget " +
+        "slider to change how much context window the agent has. Whenever the running total exceeds the " +
+        "budget, the oldest turns are auto-summarized and promoted into long-term memory to make room.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var sliderRow = document.createElement("div");
+        sliderRow.className = "slider-row";
+        var sLabel = document.createElement("label");
+        sLabel.setAttribute("for", "mem-budget-slider");
+        sLabel.textContent = "Context window budget (tokens)";
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "30";
+        slider.max = "160";
+        slider.value = "80";
+        slider.id = "mem-budget-slider";
+        var readout = document.createElement("span");
+        readout.className = "readout";
+        readout.textContent = "80 tok";
+        sliderRow.appendChild(sLabel);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(readout);
+        wrap.appendChild(sliderRow);
+
+        var budgetBarOuter = document.createElement("div");
+        budgetBarOuter.className = "mem-budget-bar";
+        var budgetBarFill = document.createElement("div");
+        budgetBarFill.className = "mem-budget-fill";
+        budgetBarOuter.appendChild(budgetBarFill);
+        wrap.appendChild(budgetBarOuter);
+
+        var budgetText = document.createElement("p");
+        budgetText.style.margin = "0 0 var(--space-3) 0";
+        budgetText.style.fontSize = "var(--font-size-sm)";
+        wrap.appendChild(budgetText);
+
+        var layout = document.createElement("div");
+        layout.className = "mem-layout";
+
+        var shortPanel = document.createElement("div");
+        shortPanel.className = "mem-panel";
+        shortPanel.innerHTML = "<h4>Short-term memory (context window)</h4>";
+        var shortList = document.createElement("div");
+        shortPanel.appendChild(shortList);
+        layout.appendChild(shortPanel);
+
+        var longPanel = document.createElement("div");
+        longPanel.className = "mem-panel";
+        longPanel.innerHTML = "<h4>Long-term memory (summarized store)</h4>";
+        var longList = document.createElement("div");
+        longPanel.appendChild(longList);
+        layout.appendChild(longPanel);
+
+        wrap.appendChild(layout);
+
+        var controlRow = document.createElement("div");
+        controlRow.style.display = "flex";
+        controlRow.style.gap = "var(--space-3)";
+        controlRow.style.marginBottom = "var(--space-2)";
+
+        var addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "btn btn-primary";
+        addBtn.textContent = "Add next turn";
+        controlRow.appendChild(addBtn);
+        wrap.appendChild(controlRow);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        wrap.appendChild(status);
+
+        root.appendChild(wrap);
+
+        var shortTerm = []; // array of turn objects currently "in context"
+        var longTerm = [];  // array of summary strings
+        var nextTurnIndex = 0;
+        var budget = parseInt(slider.value, 10);
+
+        function totalTokens() {
+          return shortTerm.reduce(function (sum, t) { return sum + t.tokens; }, 0);
+        }
+
+        function renderShortTerm() {
+          shortList.innerHTML = "";
+          if (shortTerm.length === 0) {
+            var empty = document.createElement("p");
+            empty.className = "mem-empty";
+            empty.textContent = "(empty — click “Add next turn”)";
+            shortList.appendChild(empty);
+            return;
+          }
+          shortTerm.forEach(function (t) {
+            var div = document.createElement("div");
+            div.className = "mem-turn " + t.role;
+            var tok = document.createElement("span");
+            tok.className = "mem-tok";
+            tok.textContent = t.tokens + " tok";
+            div.appendChild(tok);
+            var txt = document.createElement("span");
+            txt.textContent = (t.role === "user" ? "User: " : "Agent: ") + t.text;
+            div.appendChild(txt);
+            shortList.appendChild(div);
+          });
+        }
+
+        function renderLongTerm() {
+          longList.innerHTML = "";
+          if (longTerm.length === 0) {
+            var empty = document.createElement("p");
+            empty.className = "mem-empty";
+            empty.textContent = "(nothing promoted yet)";
+            longList.appendChild(empty);
+            return;
+          }
+          longTerm.forEach(function (s) {
+            var div = document.createElement("div");
+            div.className = "mem-longterm-item";
+            div.textContent = s;
+            longList.appendChild(div);
+          });
+        }
+
+        function renderBudgetBar() {
+          var total = totalTokens();
+          var pct = Math.min(100, Math.round((total / budget) * 100));
+          budgetBarFill.style.width = pct + "%";
+          budgetBarFill.className = "mem-budget-fill" + (total > budget ? " over" : "");
+          budgetText.textContent = total + " / " + budget + " tokens used in short-term memory.";
+        }
+
+        function overflowIfNeeded() {
+          var overflowed = [];
+          while (totalTokens() > budget && shortTerm.length > 1) {
+            overflowed.push(shortTerm.shift());
+          }
+          if (overflowed.length > 0) {
+            longTerm.push(summarize(overflowed));
+            status.textContent = "Token budget exceeded — " + overflowed.length +
+              " oldest turn(s) were summarized and promoted to long-term memory.";
+            status.style.color = "var(--color-success)";
+          }
+        }
+
+        function refreshAll() {
+          renderShortTerm();
+          renderLongTerm();
+          renderBudgetBar();
+        }
+
+        addBtn.addEventListener("click", function () {
+          if (nextTurnIndex >= TURNS.length) {
+            status.textContent = "Conversation finished — try lowering the budget slider and see memory overflow sooner.";
+            status.style.color = "var(--color-text-muted)";
+            addBtn.disabled = true;
+            return;
+          }
+          shortTerm.push(TURNS[nextTurnIndex]);
+          nextTurnIndex++;
+          if (nextTurnIndex >= TURNS.length) {
+            addBtn.textContent = "Conversation complete";
+          }
+          overflowIfNeeded();
+          if (!status.textContent || status.textContent.indexOf("exceeded") === -1) {
+            status.textContent = "Turn added to short-term memory.";
+            status.style.color = "var(--color-text-muted)";
+          }
+          refreshAll();
+        });
+
+        slider.addEventListener("input", function () {
+          budget = parseInt(slider.value, 10);
+          readout.textContent = budget + " tok";
+          overflowIfNeeded();
+          refreshAll();
+        });
+
+        refreshAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Which of these best describes short-term agent memory?",
+          options: [
+            "Information written permanently to a vector database",
+            "The context window's contents for the current conversation",
+            "A log file reviewed by engineers weeks later",
+            "A fine-tuned model checkpoint"
+          ],
+          answer: 1,
+          explanation: "Short-term memory is the model's working context — it exists only for the current conversation/context window."
+        },
+        {
+          q: "In the exercise, what happens when adding a new turn pushes the running token total over the budget?",
+          options: [
+            "The newest turn is silently deleted",
+            "The oldest turns are summarized and promoted into long-term memory to free up room",
+            "The whole conversation resets to empty",
+            "Nothing — the budget is only a suggestion with no effect"
+          ],
+          answer: 1,
+          explanation: "The widget pops the oldest turns off short-term memory, compresses them into a summary, and stores that summary in the long-term panel — a common real-world memory write policy."
+        },
+        {
+          q: "Which of the following is a plausible long-term memory store for an agent?",
+          options: [
+            "A vector database of embedded past conversation summaries",
+            "The GPU's L2 cache",
+            "The browser's mouse cursor position",
+            "The model's random seed"
+          ],
+          answer: 0,
+          explanation: "Vector databases, structured logs, and rolling summaries are the standard long-term stores used to persist information across sessions."
+        },
+        {
+          q: "Why can't an agent simply keep every past turn in short-term memory forever?",
+          options: [
+            "Context windows have a finite token limit, and cost/latency both grow with more tokens",
+            "Because agents are legally required to forget things",
+            "Because short-term memory has unlimited capacity so this is never actually a problem",
+            "Because summarization is impossible to implement"
+          ],
+          answer: 0,
+          explanation: "Context windows are bounded, and every extra token costs more compute, latency, and money — so a write/summarize/discard policy is necessary once a conversation grows long."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

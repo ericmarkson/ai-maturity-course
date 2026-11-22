@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Systems: Tool Use, Function Calling, ReAct — AI Maturity Course</title>
+<meta name="description" content="How LLM agents decide to call tools and use the results to keep reasoning, via the ReAct reason-act-observe loop.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-1";
+</script>
+<style>
+  .react-task { background: var(--color-bg-inset); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); font-weight: 600; }
+  .tool-cards { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0; }
+  .tool-card { flex: 1 1 140px; border: 2px solid var(--color-border-strong); background: var(--color-bg); border-radius: var(--radius-md); padding: var(--space-3); cursor: pointer; font-weight: 600; text-align: center; font-size: var(--font-size-sm); }
+  .tool-card:hover { border-color: var(--color-primary); }
+  .tool-card.selected { border-color: var(--color-accent); background: var(--color-success-bg); }
+  .tool-card.wrong { border-color: var(--color-error); background: var(--color-error-bg); }
+  .tool-card:disabled, .tool-card[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+  .react-panes { display: grid; grid-template-columns: 1fr; gap: var(--space-3); margin-top: var(--space-4); }
+  .react-pane { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg); }
+  .react-pane h4 { margin: 0 0 var(--space-2) 0; font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+  .react-pane pre, .react-pane p.pane-text { margin: 0; white-space: pre-wrap; font-family: var(--font-mono); font-size: var(--font-size-sm); }
+  .react-step-readout { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Agentic Systems: Tool Use, Function Calling, ReAct</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can trace a ReAct-style transcript and correctly
+      label each step as "reasoning," "acting," or "observing," and can design a minimal tool schema for
+      a given task.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Agentic systems are LLM-based programs that can decide to call external tools or functions and
+          use the results to keep reasoning, instead of producing an answer in one single pass. Rather than
+          guessing an answer from memory alone, the model can pause, invoke a tool (a calculator, a search
+          engine, an API), read back what it returns, and fold that observation into its next thought.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Function/tool calling — structured schemas (name, description, parameters) the model can invoke</li>
+        <li>The ReAct pattern: reason → act → observe → repeat</li>
+        <li>Tool selection and argument construction from natural-language intent</li>
+        <li>Handling tool errors, unexpected outputs, and retries</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var TASK = 'Task given to the agent: "I\'m traveling to Tokyo. What\'s the weather like right now, and if my hotel costs ¥18,000/night for 4 nights, what\'s the total in dollars at ¥155/$1?"';
+
+    var TOOLS = [
+      { id: "calculator", label: "🧮 Calculator" },
+      { id: "weather", label: "⛅ Weather Lookup" },
+      { id: "search", label: "🔎 Web Search" },
+      { id: "finish", label: "✅ Finish / Answer" }
+    ];
+
+    var STEPS = [
+      {
+        reasoning: "The user wants Tokyo's current weather. I don't already know this and it changes constantly, so I should call the weather tool rather than guess.",
+        correctTool: "weather",
+        call: 'weather_lookup(location: "Tokyo")',
+        observation: "Tokyo: 26°C, light rain, humidity 78%."
+      },
+      {
+        reasoning: "Next I need the hotel total in USD: 4 nights at ¥18,000 = ¥72,000, converted at ¥155/$1. That's pure arithmetic, so the calculator tool is the right call, not search or weather.",
+        correctTool: "calculator",
+        call: 'calculator(expression: "18000*4/155")',
+        observation: "= 464.516... ≈ $464.52"
+      },
+      {
+        reasoning: "I now have both the current weather and the converted hotel cost. No further tool calls are needed — I can compose the final answer directly from what I've already observed.",
+        correctTool: "finish",
+        call: "finish_answer()",
+        observation: 'Final answer: "Tokyo is currently 26°C with light rain. Your 4-night hotel stay at ¥18,000/night comes to about $464.52 at ¥155/$1."'
+      }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Step through a ReAct loop",
+      instructions:
+        "At each step, read the agent's reasoning, then click the tool card you believe it should call next. " +
+        "Click “Run tool” to see the observation, then advance to the next step. Picking the wrong tool " +
+        "will show a hint instead of advancing.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var stepIndex = 0;
+        var toolSelected = false;
+
+        var wrap = document.createElement("div");
+
+        var taskEl = document.createElement("div");
+        taskEl.className = "react-task";
+        taskEl.textContent = TASK;
+        wrap.appendChild(taskEl);
+
+        var stepReadout = document.createElement("div");
+        stepReadout.className = "react-step-readout";
+        wrap.appendChild(stepReadout);
+
+        var reasoningPane = document.createElement("div");
+        reasoningPane.className = "react-pane";
+        reasoningPane.innerHTML = "<h4>1. Reasoning</h4><p class=\"pane-text\" id=\"reasoning-text\"></p>";
+        wrap.appendChild(reasoningPane);
+
+        var cardRow = document.createElement("div");
+        cardRow.className = "tool-cards";
+        var cardButtons = {};
+        TOOLS.forEach(function (tool) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "tool-card";
+          btn.textContent = tool.label;
+          btn.addEventListener("click", function () { onToolClick(tool.id, btn); });
+          cardRow.appendChild(btn);
+          cardButtons[tool.id] = btn;
+        });
+        wrap.appendChild(cardRow);
+
+        var panesWrap = document.createElement("div");
+        panesWrap.className = "react-panes";
+
+        var actionPane = document.createElement("div");
+        actionPane.className = "react-pane";
+        actionPane.innerHTML = "<h4>2. Action</h4><pre id=\"action-text\">(select a tool card above)</pre>";
+        panesWrap.appendChild(actionPane);
+
+        var observationPane = document.createElement("div");
+        observationPane.className = "react-pane";
+        observationPane.innerHTML = "<h4>3. Observation</h4><pre id=\"observation-text\">(none yet)</pre>";
+        panesWrap.appendChild(observationPane);
+
+        wrap.appendChild(panesWrap);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        status.style.marginTop = "var(--space-3)";
+        wrap.appendChild(status);
+
+        var controlRow = document.createElement("div");
+        controlRow.style.display = "flex";
+        controlRow.style.gap = "var(--space-3)";
+
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-secondary";
+        runBtn.textContent = "Run tool";
+        runBtn.style.display = "none";
+        controlRow.appendChild(runBtn);
+
+        var nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn btn-primary";
+        nextBtn.textContent = "Next step →";
+        nextBtn.style.display = "none";
+        controlRow.appendChild(nextBtn);
+
+        wrap.appendChild(controlRow);
+        root.appendChild(wrap);
+
+        var reasoningText = wrap.querySelector("#reasoning-text");
+        var actionText = wrap.querySelector("#action-text");
+        var observationText = wrap.querySelector("#observation-text");
+
+        function renderStep() {
+          toolSelected = false;
+          var step = STEPS[stepIndex];
+          stepReadout.textContent = "Step " + (stepIndex + 1) + " of " + STEPS.length;
+          reasoningText.textContent = step.reasoning;
+          actionText.textContent = "(select a tool card above)";
+          observationText.textContent = "(none yet)";
+          status.textContent = "";
+          status.style.color = "";
+          runBtn.style.display = "none";
+          nextBtn.style.display = "none";
+          Object.keys(cardButtons).forEach(function (id) {
+            var b = cardButtons[id];
+            b.disabled = false;
+            b.className = "tool-card";
+          });
+        }
+
+        function onToolClick(toolId, btn) {
+          if (toolSelected) return;
+          var step = STEPS[stepIndex];
+          if (toolId === step.correctTool) {
+            toolSelected = true;
+            btn.className = "tool-card selected";
+            Object.keys(cardButtons).forEach(function (id) {
+              if (id !== toolId) cardButtons[id].disabled = true;
+            });
+            actionText.textContent = step.call;
+            status.textContent = "Correct tool selected. Click “Run tool” to execute it.";
+            status.style.color = "var(--color-success)";
+            runBtn.style.display = "inline-block";
+          } else {
+            btn.className = "tool-card wrong";
+            status.textContent = "Not quite — re-read the reasoning above. That tool doesn't fit this step. Try another.";
+            status.style.color = "var(--color-error)";
+            setTimeout(function () {
+              if (!toolSelected) btn.className = "tool-card";
+            }, 700);
+          }
+        }
+
+        runBtn.addEventListener("click", function () {
+          var step = STEPS[stepIndex];
+          observationText.textContent = step.observation;
+          runBtn.style.display = "none";
+          if (stepIndex === STEPS.length - 1) {
+            status.textContent = "ReAct loop complete — the agent finished the task using two tool calls before answering.";
+            status.style.color = "var(--color-success)";
+            if (ctx.topicId) {
+              var doneNote = document.createElement("p");
+              doneNote.style.marginTop = "var(--space-3)";
+              doneNote.innerHTML = "<em>Use the “I did it” button above to mark this topic complete.</em>";
+              wrap.appendChild(doneNote);
+            }
+          } else {
+            status.textContent = "Observation recorded. Click “Next step” to continue the loop.";
+            status.style.color = "var(--color-text-muted)";
+            nextBtn.style.display = "inline-block";
+          }
+        });
+
+        nextBtn.addEventListener("click", function () {
+          stepIndex++;
+          renderStep();
+        });
+
+        renderStep();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In the ReAct pattern (reason → act → observe → repeat), what immediately follows an “act” step (a tool call)?",
+          options: ["Reason again from scratch", "Observe — read back the tool's result", "Immediately finish the task", "Retry the same tool automatically"],
+          answer: 1,
+          explanation: "After acting, the agent observes the tool's output before deciding what to reason about next."
+        },
+        {
+          q: "In the exercise, why did the agent choose the calculator tool for the hotel-cost question instead of the weather tool?",
+          options: [
+            "Because the calculator tool is always tried first",
+            "Because converting ¥72,000 to dollars is arithmetic, which matches the calculator's purpose, not the weather tool's",
+            "Because the weather tool was already used and can't be called twice",
+            "Tool choice was random in this example"
+          ],
+          answer: 1,
+          explanation: "Tool selection should match the sub-task's nature — arithmetic calls for a calculator, not a weather API."
+        },
+        {
+          q: "A minimal tool/function-calling schema for an LLM typically needs to specify which of the following?",
+          options: [
+            "Only a human-readable name",
+            "A name, a description of what it does, and its parameters",
+            "The exact server IP address it runs on",
+            "The model's training data cutoff"
+          ],
+          answer: 1,
+          explanation: "The model needs a name to reference the tool, a description to know when to use it, and a parameter schema to know what arguments to construct."
+        },
+        {
+          q: "Which of these are legitimate reasons an agent might need to handle a tool error or retry? (select all that apply)",
+          options: [
+            "The tool call had malformed or missing arguments",
+            "The tool timed out or returned an empty result",
+            "The tool's output doesn't match the expected format",
+            "The agent should always trust tool output blindly with no error handling"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Malformed arguments, timeouts/empty results, and unexpected formats are all real failure modes that well-built agents need to detect and recover from. Blind trust is the opposite of good practice."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

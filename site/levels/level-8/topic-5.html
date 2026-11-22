@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mixture-of-Experts Architectures — AI Maturity Course</title>
+<meta name="description" content="How sparse activation across many specialized experts keeps compute low while total capacity stays high.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "8-5";
+</script>
+<style>
+  .moe-layout { display: flex; flex-direction: column; gap: var(--space-4); }
+  .moe-controls-row { display: flex; gap: var(--space-5); flex-wrap: wrap; align-items: center; }
+  .moe-text-row { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+  .moe-text-row input[type="text"] { flex: 1 1 260px; padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); }
+  .moe-stats { display: flex; gap: var(--space-5); flex-wrap: wrap; }
+  .moe-stat { background: var(--color-bg-inset); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); min-width: 160px; }
+  .moe-stat .num { font-family: var(--font-mono); font-size: var(--font-size-lg); font-weight: 700; display: block; }
+  .moe-canvas-wrap canvas { width: 100%; max-width: 700px; display: block; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; }
+  .load-bars { display: flex; flex-direction: column; gap: var(--space-2); }
+  .load-bar-row { display: flex; align-items: center; gap: var(--space-3); }
+  .load-bar-label { min-width: 80px; font-family: var(--font-mono); font-size: var(--font-size-sm); }
+  .load-bar-track { flex: 1; height: 16px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .load-bar-fill { height: 100%; background: var(--color-primary); transition: width 0.4s ease; }
+  .load-bar-count { min-width: 30px; text-align: right; font-family: var(--font-mono); font-size: var(--font-size-sm); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 8 — Expert</p>
+  <h1>Mixture-of-Experts Architectures</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Explain why an MoE model with N total parameters can be cheaper
+      to run than a dense model with N parameters, and describe what the router/gating network does.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Mixture-of-experts (MoE) is a model architecture with many specialized "expert" sub-networks,
+          where only a small subset is activated for any given input — keeping compute cost low while
+          total model capacity stays high. A router/gating network decides, per token, which experts get
+          to process it.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Experts and the router</strong> — a gating network decides which experts run per token</li>
+        <li><strong>Sparse activation</strong> — activating only a few experts is cheaper than a dense model of the same total size</li>
+        <li><strong>Load balancing</strong> — spreading tokens evenly across experts, and the failure mode of a few experts dominating routing</li>
+        <li><strong>Tradeoffs</strong> — more total parameters/knowledge vs. routing complexity and memory footprint</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var PARAMS_PER_EXPERT = 2.0; // billions, fixed toy figure
+    var SHARED_PARAMS = 1.4;     // billions, fixed toy figure (attention/embeddings)
+
+    function hashScore(token, expertIndex) {
+      var str = token + "#" + expertIndex;
+      var h = 0;
+      for (var i = 0; i < str.length; i++) {
+        h = (h * 31 + str.charCodeAt(i)) | 0;
+      }
+      return Math.abs(h) % 1000;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Token Router Visualizer",
+      instructions:
+        "Set the number of experts and how many experts each token is routed to (top-k), type a " +
+        "sentence, then click \"Route tokens\" to watch each token get sent to its chosen experts. " +
+        "Watch active-vs-total parameters and per-expert load update live.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        wrap.className = "moe-layout";
+
+        var controlsRow = document.createElement("div");
+        controlsRow.className = "moe-controls-row";
+
+        var nRow = document.createElement("div");
+        nRow.className = "slider-row";
+        var nLabel = document.createElement("label");
+        nLabel.textContent = "Number of experts (N)";
+        nLabel.setAttribute("for", "moe-n-slider");
+        var nSlider = document.createElement("input");
+        nSlider.type = "range"; nSlider.min = "3"; nSlider.max = "8"; nSlider.value = "6"; nSlider.id = "moe-n-slider";
+        var nReadout = document.createElement("span");
+        nReadout.className = "readout"; nReadout.textContent = "6";
+        nRow.appendChild(nLabel); nRow.appendChild(nSlider); nRow.appendChild(nReadout);
+
+        var kRow = document.createElement("div");
+        kRow.className = "slider-row";
+        var kLabel = document.createElement("label");
+        kLabel.textContent = "Experts per token (top-k)";
+        kLabel.setAttribute("for", "moe-k-slider");
+        var kSlider = document.createElement("input");
+        kSlider.type = "range"; kSlider.min = "1"; kSlider.max = "4"; kSlider.value = "2"; kSlider.id = "moe-k-slider";
+        var kReadout = document.createElement("span");
+        kReadout.className = "readout"; kReadout.textContent = "2";
+        kRow.appendChild(kLabel); kRow.appendChild(kSlider); kRow.appendChild(kReadout);
+
+        controlsRow.appendChild(nRow);
+        controlsRow.appendChild(kRow);
+        wrap.appendChild(controlsRow);
+
+        var textRow = document.createElement("div");
+        textRow.className = "moe-text-row";
+        var textLabel = document.createElement("label");
+        textLabel.textContent = "Sentence:";
+        textLabel.setAttribute("for", "moe-text-input");
+        var textInput = document.createElement("input");
+        textInput.type = "text";
+        textInput.id = "moe-text-input";
+        textInput.value = "the quick brown fox jumps over the lazy dog";
+        var routeBtn = document.createElement("button");
+        routeBtn.type = "button";
+        routeBtn.className = "btn btn-primary";
+        routeBtn.textContent = "Route tokens";
+        textRow.appendChild(textLabel);
+        textRow.appendChild(textInput);
+        textRow.appendChild(routeBtn);
+        wrap.appendChild(textRow);
+
+        var stats = document.createElement("div");
+        stats.className = "moe-stats";
+        var totalStat = document.createElement("div");
+        totalStat.className = "moe-stat";
+        totalStat.innerHTML = "Total params<span class=\"num\" id=\"moe-total\">-</span>";
+        var activeStat = document.createElement("div");
+        activeStat.className = "moe-stat";
+        activeStat.innerHTML = "Active params / token<span class=\"num\" id=\"moe-active\">-</span>";
+        var pctStat = document.createElement("div");
+        pctStat.className = "moe-stat";
+        pctStat.innerHTML = "% of model active<span class=\"num\" id=\"moe-pct\">-</span>";
+        var balanceStat = document.createElement("div");
+        balanceStat.className = "moe-stat";
+        balanceStat.innerHTML = "Load balance ratio<span class=\"num\" id=\"moe-balance\">-</span>";
+        stats.appendChild(totalStat);
+        stats.appendChild(activeStat);
+        stats.appendChild(pctStat);
+        stats.appendChild(balanceStat);
+        wrap.appendChild(stats);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "moe-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = 700;
+        canvas.height = 260;
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var loadHeading = document.createElement("h4");
+        loadHeading.textContent = "Per-expert token load (this routing run)";
+        wrap.appendChild(loadHeading);
+        var loadBars = document.createElement("div");
+        loadBars.className = "load-bars";
+        wrap.appendChild(loadBars);
+
+        var statusText = document.createElement("p");
+        statusText.setAttribute("role", "status");
+        statusText.style.fontWeight = "600";
+        wrap.appendChild(statusText);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+        var loadCounts = [];
+        var timers = [];
+
+        function getN() { return parseInt(nSlider.value, 10); }
+        function getK() { return Math.min(parseInt(kSlider.value, 10), getN()); }
+
+        function updateParamStats() {
+          var n = getN(), k = getK();
+          var total = n * PARAMS_PER_EXPERT + SHARED_PARAMS;
+          var active = k * PARAMS_PER_EXPERT + SHARED_PARAMS;
+          document.getElementById("moe-total").textContent = total.toFixed(1) + "B";
+          document.getElementById("moe-active").textContent = active.toFixed(1) + "B";
+          document.getElementById("moe-pct").textContent = Math.round((active / total) * 100) + "%";
+        }
+
+        function expertBoxX(i, n, w) {
+          var margin = 40;
+          var usable = w - margin * 2;
+          return margin + (usable * (i + 0.5) / n);
+        }
+
+        function drawEmpty() {
+          var n = getN();
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          var boxY = h - 60, boxW = Math.min(90, (w - 80) / n - 8), boxH = 44;
+          ctx2d.font = "12px sans-serif";
+          ctx2d.textAlign = "center";
+          for (var i = 0; i < n; i++) {
+            var x = expertBoxX(i, n, w);
+            ctx2d.strokeStyle = "#b7c0d8";
+            ctx2d.lineWidth = 2;
+            ctx2d.strokeRect(x - boxW / 2, boxY - boxH / 2, boxW, boxH);
+            ctx2d.fillStyle = "#4c5470";
+            ctx2d.fillText("Expert " + i, x, boxY + 5);
+          }
+        }
+
+        function resetLoad() {
+          var n = getN();
+          loadCounts = [];
+          for (var i = 0; i < n; i++) loadCounts.push(0);
+          renderLoadBars();
+        }
+
+        function renderLoadBars() {
+          loadBars.innerHTML = "";
+          var maxCount = Math.max.apply(null, loadCounts.concat([1]));
+          loadCounts.forEach(function (count, i) {
+            var row = document.createElement("div");
+            row.className = "load-bar-row";
+            var label = document.createElement("span");
+            label.className = "load-bar-label";
+            label.textContent = "Expert " + i;
+            var track = document.createElement("div");
+            track.className = "load-bar-track";
+            var fill = document.createElement("div");
+            fill.className = "load-bar-fill";
+            fill.style.width = (maxCount === 0 ? 0 : (count / maxCount) * 100) + "%";
+            track.appendChild(fill);
+            var countEl = document.createElement("span");
+            countEl.className = "load-bar-count";
+            countEl.textContent = count;
+            row.appendChild(label);
+            row.appendChild(track);
+            row.appendChild(countEl);
+            loadBars.appendChild(row);
+          });
+
+          var total = loadCounts.reduce(function (a, b) { return a + b; }, 0);
+          var avg = total / loadCounts.length;
+          var ratio = avg === 0 ? 1 : (maxCount / avg);
+          var balanceEl = document.getElementById("moe-balance");
+          balanceEl.textContent = ratio.toFixed(2) + "x";
+          balanceEl.style.color = ratio <= 1.3 ? "var(--color-success)" : (ratio <= 2 ? "#a8710a" : "var(--color-error)");
+        }
+
+        function clearTimers() {
+          timers.forEach(function (t) { clearTimeout(t); });
+          timers = [];
+        }
+
+        routeBtn.addEventListener("click", function () {
+          clearTimers();
+          var n = getN(), k = getK();
+          var tokens = textInput.value.trim().split(/\s+/).filter(function (t) { return t.length > 0; });
+          if (tokens.length === 0) {
+            statusText.textContent = "Type a sentence first.";
+            return;
+          }
+          drawEmpty();
+          resetLoad();
+          statusText.textContent = "Routing " + tokens.length + " tokens to top-" + k + " of " + n + " experts...";
+
+          var w = canvas.width, h = canvas.height;
+          var boxY = h - 60;
+          var tokenTopY = 30;
+          var tokenSpacingX = (w - 80) / tokens.length;
+
+          tokens.forEach(function (token, tIdx) {
+            var timer = setTimeout(function () {
+              var scores = [];
+              for (var e = 0; e < n; e++) scores.push({ e: e, s: hashScore(token, e) });
+              scores.sort(function (a, b) { return b.s - a.s; });
+              var chosen = scores.slice(0, k).map(function (o) { return o.e; });
+
+              chosen.forEach(function (e) { loadCounts[e]++; });
+              renderLoadBars();
+
+              var tokenX = 40 + tokenSpacingX * (tIdx + 0.5);
+              ctx2d.fillStyle = "#2952e3";
+              ctx2d.beginPath();
+              ctx2d.arc(tokenX, tokenTopY, 6, 0, Math.PI * 2);
+              ctx2d.fill();
+              ctx2d.fillStyle = "#1a2033";
+              ctx2d.font = "11px sans-serif";
+              ctx2d.textAlign = "center";
+              ctx2d.fillText(token, tokenX, tokenTopY - 10);
+
+              chosen.forEach(function (e) {
+                var expX = expertBoxX(e, n, w);
+                ctx2d.strokeStyle = "rgba(41, 82, 227, 0.45)";
+                ctx2d.lineWidth = 1.5;
+                ctx2d.beginPath();
+                ctx2d.moveTo(tokenX, tokenTopY + 6);
+                ctx2d.lineTo(expX, boxY - 22);
+                ctx2d.stroke();
+              });
+
+              if (tIdx === tokens.length - 1) {
+                statusText.textContent = "Done. " + tokens.length + " tokens routed. Each line shows one token going to one of its top-" + k + " experts.";
+              }
+            }, tIdx * 350);
+            timers.push(timer);
+          });
+        });
+
+        nSlider.addEventListener("input", function () {
+          nReadout.textContent = nSlider.value;
+          var maxK = Math.min(4, getN());
+          kSlider.max = String(maxK);
+          if (parseInt(kSlider.value, 10) > maxK) {
+            kSlider.value = String(maxK);
+            kReadout.textContent = kSlider.value;
+          }
+          updateParamStats();
+          clearTimers();
+          drawEmpty();
+          resetLoad();
+          statusText.textContent = "Layout updated. Click \"Route tokens\" to run a fresh routing pass.";
+        });
+
+        kSlider.addEventListener("input", function () {
+          kReadout.textContent = kSlider.value;
+          updateParamStats();
+        });
+
+        updateParamStats();
+        drawEmpty();
+        resetLoad();
+        statusText.textContent = "Click \"Route tokens\" to see how each word gets assigned to experts.";
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "An MoE model has 64B total parameters, but only activates 2 of 32 experts (plus shared layers) per token. Why is this cheaper to run than a 64B dense model?",
+          options: [
+            "It isn't actually cheaper — total parameter count is all that matters for compute cost",
+            "Because only the active experts' parameters are used in the forward pass for a given token, so compute scales with active params, not total params",
+            "Because MoE models always use fewer total parameters than dense models",
+            "Because MoE models skip the attention layers entirely"
+          ],
+          answer: 1,
+          explanation: "Compute cost for a token depends on which parameters actually do work on it. Sparse activation means most of the 64B sits idle for any given token, so per-token FLOPs look like the smaller active-parameter model, not the full 64B."
+        },
+        {
+          q: "What is the job of the router/gating network in an MoE layer?",
+          options: [
+            "It stores the actual expert weights",
+            "It decides, per token, which expert(s) should process that token",
+            "It trains all experts equally on every token",
+            "It compresses the model after training"
+          ],
+          answer: 1,
+          explanation: "The router is a small network that scores experts for each token and selects the top-k to actually run — that's the 'gating' decision that makes sparse activation possible."
+        },
+        {
+          q: "What does it mean if one expert consistently gets a much higher token load than the others (a high load-balance ratio)?",
+          options: [
+            "This is always desirable and means the model is working correctly",
+            "It's a load-imbalance failure mode — a few experts dominate routing while others are underused, wasting capacity and risking undertrained experts",
+            "It means the model has too few total parameters",
+            "It has no effect on training or efficiency"
+          ],
+          answer: 1,
+          explanation: "Imbalanced routing means some experts rarely get trained (undertrained, wasted capacity) while a few are overloaded — MoE training typically adds an auxiliary loss to encourage more even load."
+        },
+        {
+          q: "In the exercise, what happens to the 'active params / token' stat when you increase top-k while N stays fixed?",
+          options: [
+            "It decreases, since fewer experts run per token",
+            "It increases, since more experts are activated for each token",
+            "It stays exactly the same regardless of k",
+            "It becomes undefined"
+          ],
+          answer: 1,
+          explanation: "Active params scales with k (plus the fixed shared params) — routing to more experts per token means more of the model's parameters actually do work for that token."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

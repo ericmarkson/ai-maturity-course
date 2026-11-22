@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novel Theoretical Contributions: Papers and Architectures — AI Maturity Course</title>
+<meta name="description" content="Producing new, formally or empirically grounded ideas that advance the field's shared body of knowledge.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-3";
+</script>
+<style>
+  .ob-meter-wrap { margin: var(--space-4) 0; }
+  .ob-meter-bar { height: 14px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .ob-meter-fill { height: 100%; background: var(--color-primary); width: 0%; transition: width 0.2s ease; }
+  .ob-meter-label { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
+  .ob-section { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); background: var(--color-bg-alt); }
+  .ob-section.complete { border-color: var(--color-success); background: var(--color-success-bg); }
+  .ob-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .ob-section-title { font-weight: 700; margin: 0; }
+  .ob-badge { font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-faint); }
+  .ob-section.complete .ob-badge { color: var(--color-success); }
+  .ob-guiding { font-size: var(--font-size-sm); font-style: italic; color: var(--color-text-muted); margin: var(--space-1) 0 var(--space-2) 0; }
+  .ob-section textarea { width: 100%; min-height: 70px; padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-sm); resize: vertical; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Novel Theoretical Contributions: Papers and Architectures</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Given a one-paragraph research idea, structure it into a paper-shaped outline (claim, evidence plan, ablations, limitations) that a rigorous reviewer would find complete.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Novel theoretical contributions are new, formally or empirically grounded ideas that advance the field's
+          shared body of knowledge — the currency of academic/research AI. A contribution earns its place not by
+          being interesting but by being a falsifiable claim, positioned against related work, and backed by
+          evidence proportional to the strength of what it asserts.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Anatomy of a strong AI research paper</strong> — problem framing, related-work positioning, a
+          falsifiable claim, and evidence proportional to the claim's strength.</li>
+        <li><strong>Novelty vs. incrementalism</strong> — distinguishing a genuinely new contribution from a
+          re-packaging of an existing method.</li>
+        <li><strong>Peer review norms</strong> — what reviewers at top venues (NeurIPS/ICML/ICLR-class) actually
+          scrutinize: reproducibility, ablations, honest limitations sections.</li>
+        <li><strong>Open science practices</strong> — releasing code/weights/data, and the tension between openness
+          and frontier-safety concerns.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Paper outline builder",
+      instructions:
+        "Type your one-paragraph research idea into each labeled section below, guided by the prompt question. " +
+        "Each section lights up green once it has enough content, and the completeness meter tracks your overall " +
+        "outline as you fill it in.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var meterWrap = document.createElement("div");
+        meterWrap.className = "ob-meter-wrap";
+        var meterBar = document.createElement("div");
+        meterBar.className = "ob-meter-bar";
+        var meterFill = document.createElement("div");
+        meterFill.className = "ob-meter-fill";
+        meterBar.appendChild(meterFill);
+        var meterLabel = document.createElement("p");
+        meterLabel.className = "ob-meter-label";
+        meterWrap.appendChild(meterBar);
+        meterWrap.appendChild(meterLabel);
+        wrap.appendChild(meterWrap);
+
+        var sections = [
+          { key: "claim", title: "Claim", guiding: "What is the single, falsifiable claim this paper makes?" },
+          { key: "gap", title: "Related-work gap", guiding: "What does prior work fail to address that your claim targets?" },
+          { key: "method", title: "Method", guiding: "What is the concrete method or architecture that supports the claim?" },
+          { key: "ablations", title: "Expected ablations", guiding: "Which components would you remove or vary to prove each part matters?" },
+          { key: "limitations", title: "Limitations", guiding: "Where does this claim NOT hold, or what would a skeptical reviewer flag?" }
+        ];
+
+        var sectionEls = {};
+
+        sections.forEach(function (s) {
+          var card = document.createElement("div");
+          card.className = "ob-section";
+
+          var head = document.createElement("div");
+          head.className = "ob-section-head";
+          var title = document.createElement("p");
+          title.className = "ob-section-title";
+          title.textContent = s.title;
+          var badge = document.createElement("span");
+          badge.className = "ob-badge";
+          badge.textContent = "○ incomplete";
+          head.appendChild(title);
+          head.appendChild(badge);
+          card.appendChild(head);
+
+          var guiding = document.createElement("p");
+          guiding.className = "ob-guiding";
+          guiding.textContent = s.guiding;
+          card.appendChild(guiding);
+
+          var textarea = document.createElement("textarea");
+          textarea.placeholder = "Write this section...";
+          card.appendChild(textarea);
+
+          wrap.appendChild(card);
+          sectionEls[s.key] = { card: card, badge: badge, textarea: textarea };
+
+          textarea.addEventListener("input", updateMeter);
+        });
+
+        root.appendChild(wrap);
+
+        function updateMeter() {
+          var complete = 0;
+          sections.forEach(function (s) {
+            var el = sectionEls[s.key];
+            var done = el.textarea.value.trim().length >= 25;
+            if (done) {
+              el.card.classList.add("complete");
+              el.badge.textContent = "✓ complete";
+              complete++;
+            } else {
+              el.card.classList.remove("complete");
+              el.badge.textContent = "○ incomplete";
+            }
+          });
+          var pct = Math.round((complete / sections.length) * 100);
+          meterFill.style.width = pct + "%";
+          meterLabel.textContent = "Outline completeness: " + complete + " / " + sections.length + " sections (" + pct + "%)";
+        }
+
+        updateMeter();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What makes a research claim 'falsifiable' in the context of a strong AI research paper?",
+          options: [
+            "It can never be proven wrong under any circumstances",
+            "There exists a concrete experiment or evidence that could, in principle, show the claim is false",
+            "It is stated as an opinion rather than a fact",
+            "It relies entirely on anecdote"
+          ],
+          answer: 1,
+          explanation: "A falsifiable claim specifies conditions under which it could be shown wrong — this is what lets ablations and experiments actually test it, rather than merely illustrate it."
+        },
+        {
+          q: "What is the key difference between a genuinely novel contribution and incrementalism?",
+          options: [
+            "Incremental work is always worthless and should never be published",
+            "Novelty introduces a new idea, mechanism, or framing, while incrementalism mainly re-packages an existing method with minor tweaks",
+            "Novel work never builds on prior work",
+            "There is no meaningful difference"
+          ],
+          answer: 1,
+          explanation: "Novelty is about a genuine addition to the field's understanding, whereas incrementalism largely restates existing methods with small variations dressed up as new."
+        },
+        {
+          q: "At top-tier venues (NeurIPS/ICML/ICLR-class), what do reviewers typically scrutinize most heavily?",
+          options: [
+            "The number of authors on the paper",
+            "Reproducibility, ablations, and an honest limitations section",
+            "How many citations the paper includes regardless of relevance",
+            "The length of the paper's introduction"
+          ],
+          answer: 1,
+          explanation: "Rigorous reviewers focus on whether results can be reproduced, whether ablations isolate what actually matters, and whether limitations are honestly disclosed rather than hidden."
+        },
+        {
+          q: "What tension exists around open science practices (releasing code/weights/data) at the frontier-AI level?",
+          options: [
+            "There is no tension — full openness is always the correct choice",
+            "Openness accelerates verification and community progress, but can also lower the barrier to misuse of frontier-capable systems",
+            "Open science practices are illegal in most jurisdictions",
+            "Releasing code is unrelated to safety concerns"
+          ],
+          answer: 1,
+          explanation: "Open science speeds up reproducibility and field-wide progress, but for frontier-capable systems it can also make misuse or unsafe replication easier — a genuine tradeoff labs must navigate."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantization and Distillation — AI Maturity Course</title>
+<meta name="description" content="How reducing numeric precision (quantization) and training smaller student models (distillation) trade accuracy for speed, size, and cost.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-7";
+</script>
+<style>
+  .qd-metric-row { margin-bottom: var(--space-4); }
+  .qd-metric-label { display: flex; justify-content: space-between; font-weight: 600; font-size: var(--font-size-sm); margin-bottom: var(--space-1); }
+  .qd-bar-outer { height: 22px; background: var(--color-bg-inset); border-radius: 999px; overflow: hidden; border: 1px solid var(--color-border); }
+  .qd-bar-fill { height: 100%; border-radius: 999px; transition: width 0.25s ease, background 0.25s ease; }
+  .qd-bar-fill.size { background: var(--color-primary); }
+  .qd-bar-fill.speed { background: var(--color-accent); }
+  .qd-bar-fill.accuracy { background: #c98a1a; }
+  .qd-bar-fill.accuracy.low { background: var(--color-error); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Quantization and Distillation</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can explain why reducing precision from FP16 to INT8
+      shrinks model size, and can describe in one sentence what a distillation training loop optimizes for.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Quantization shrinks a model by storing its weights with fewer bits; distillation trains a smaller
+          "student" model to mimic a larger "teacher" model — both trade some accuracy for speed, size, or
+          cost. They're often combined: a distilled student model can then also be quantized for further
+          savings.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Numeric precision basics (FP32/FP16/INT8/INT4) and why lower precision saves memory and compute</li>
+        <li>Post-training quantization vs. quantization-aware training</li>
+        <li>Knowledge distillation — teacher/student training and soft labels</li>
+        <li>The accuracy vs. latency vs. cost tradeoff curve</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy, hardcoded formula/lookup table — not measurements from a real model.
+    var BASE_PARAMS_B = 7;       // 7B-parameter teacher model
+    var BASE_SIZE_GB = 28;       // 7B params * 4 bytes (fp32)
+    var BASE_SPEED = 20;         // toy tokens/sec baseline at fp32, full size
+
+    var BIT_OPTIONS = [
+      { bits: 32, bytesPerParam: 4, accuracyLoss: 0 },
+      { bits: 16, bytesPerParam: 2, accuracyLoss: 1 },
+      { bits: 8, bytesPerParam: 1, accuracyLoss: 4 },
+      { bits: 4, bytesPerParam: 0.5, accuracyLoss: 10 }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Feel the quantization / distillation tradeoff",
+      instructions:
+        "Drag the bit-width slider (FP32 → INT4) and the student-model-size slider to see simulated model " +
+        "size, inference speed, and accuracy update live, driven by a simple hardcoded formula (not a real model).",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var bitsRow = document.createElement("div");
+        bitsRow.className = "slider-row";
+        var bitsLabel = document.createElement("label");
+        bitsLabel.setAttribute("for", "qd-bits-slider");
+        bitsLabel.textContent = "Weight precision (bit width)";
+        var bitsSlider = document.createElement("input");
+        bitsSlider.type = "range";
+        bitsSlider.min = "0";
+        bitsSlider.max = "3";
+        bitsSlider.step = "1";
+        bitsSlider.value = "0";
+        bitsSlider.id = "qd-bits-slider";
+        var bitsReadout = document.createElement("span");
+        bitsReadout.className = "readout";
+        bitsReadout.textContent = "FP32";
+        bitsRow.appendChild(bitsLabel);
+        bitsRow.appendChild(bitsSlider);
+        bitsRow.appendChild(bitsReadout);
+        wrap.appendChild(bitsRow);
+
+        var studentRow = document.createElement("div");
+        studentRow.className = "slider-row";
+        var studentLabel = document.createElement("label");
+        studentLabel.setAttribute("for", "qd-student-slider");
+        studentLabel.textContent = "Student model size (% of teacher's parameters)";
+        var studentSlider = document.createElement("input");
+        studentSlider.type = "range";
+        studentSlider.min = "10";
+        studentSlider.max = "100";
+        studentSlider.step = "5";
+        studentSlider.value = "100";
+        studentSlider.id = "qd-student-slider";
+        var studentReadout = document.createElement("span");
+        studentReadout.className = "readout";
+        studentReadout.textContent = "100%";
+        studentRow.appendChild(studentLabel);
+        studentRow.appendChild(studentSlider);
+        studentRow.appendChild(studentReadout);
+        wrap.appendChild(studentRow);
+
+        function makeMetric(key, label) {
+          var row = document.createElement("div");
+          row.className = "qd-metric-row";
+          var labelRow = document.createElement("div");
+          labelRow.className = "qd-metric-label";
+          var nameSpan = document.createElement("span");
+          nameSpan.textContent = label;
+          var valSpan = document.createElement("span");
+          valSpan.id = "qd-" + key + "-val";
+          labelRow.appendChild(nameSpan);
+          labelRow.appendChild(valSpan);
+          row.appendChild(labelRow);
+          var barOuter = document.createElement("div");
+          barOuter.className = "qd-bar-outer";
+          var barFill = document.createElement("div");
+          barFill.className = "qd-bar-fill " + key;
+          barFill.id = "qd-" + key + "-bar";
+          barOuter.appendChild(barFill);
+          row.appendChild(barOuter);
+          wrap.appendChild(row);
+          return { val: valSpan, bar: barFill };
+        }
+
+        var sizeMetric = makeMetric("size", "Model size");
+        var speedMetric = makeMetric("speed", "Inference speed");
+        var accuracyMetric = makeMetric("accuracy", "Accuracy");
+
+        var note = document.createElement("p");
+        note.style.fontSize = "var(--font-size-sm)";
+        note.style.color = "var(--color-text-muted)";
+        wrap.appendChild(note);
+
+        root.appendChild(wrap);
+
+        function render() {
+          var bitIdx = parseInt(bitsSlider.value, 10);
+          var bitOpt = BIT_OPTIONS[bitIdx];
+          bitsReadout.textContent = "FP32 FP16 INT8 INT4".split(" ")[bitIdx];
+
+          var studentPct = parseInt(studentSlider.value, 10);
+          studentReadout.textContent = studentPct + "%";
+
+          var paramsB = BASE_PARAMS_B * (studentPct / 100);
+          var sizeGB = paramsB * bitOpt.bytesPerParam;
+          var speedFactor = BASE_SIZE_GB / sizeGB;
+          var speed = BASE_SPEED * speedFactor;
+
+          var accuracyLossFromBits = bitOpt.accuracyLoss;
+          var accuracyLossFromDistill = (100 - studentPct) * 0.3;
+          var accuracy = Math.max(35, 100 - accuracyLossFromBits - accuracyLossFromDistill);
+
+          sizeMetric.val.textContent = sizeGB.toFixed(2) + " GB";
+          var sizePct = Math.min(100, (sizeGB / BASE_SIZE_GB) * 100);
+          sizeMetric.bar.style.width = sizePct + "%";
+
+          speedMetric.val.textContent = speed.toFixed(1) + " tok/s (" + speedFactor.toFixed(1) + "x baseline)";
+          var speedPct = Math.min(100, (speed / (BASE_SPEED * 8)) * 100);
+          speedMetric.bar.style.width = speedPct + "%";
+
+          accuracyMetric.val.textContent = accuracy.toFixed(1) + "% (baseline 100%)";
+          accuracyMetric.bar.style.width = accuracy + "%";
+          accuracyMetric.bar.classList.toggle("low", accuracy < 70);
+
+          note.textContent = "Baseline: " + BASE_PARAMS_B + "B-parameter teacher at FP32, " + BASE_SIZE_GB +
+            " GB, " + BASE_SPEED + " tok/s, 100% accuracy. Current setting: " + bitOpt.bits + "-bit weights, " +
+            studentPct + "% of teacher's parameters.";
+        }
+
+        bitsSlider.addEventListener("input", render);
+        studentSlider.addEventListener("input", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why does reducing precision from FP16 to INT8 shrink a model's size?",
+          options: [
+            "INT8 stores each weight using fewer bits than FP16, so the same number of parameters takes less memory",
+            "INT8 deletes half of the model's parameters",
+            "INT8 requires a completely different network architecture",
+            "It doesn't actually shrink size — it only affects speed"
+          ],
+          answer: 0,
+          explanation: "Quantization keeps the same parameter count but represents each one with fewer bits (e.g. 8 instead of 16), directly cutting memory footprint."
+        },
+        {
+          q: "What's the difference between post-training quantization (PTQ) and quantization-aware training (QAT)?",
+          options: [
+            "PTQ quantizes an already-trained model's weights; QAT simulates quantization effects during training so the model adapts to lower precision",
+            "They are exactly the same technique with different names",
+            "PTQ only applies to image models, QAT only to text models",
+            "QAT means training a model with no quantization involved at all"
+          ],
+          answer: 0,
+          explanation: "PTQ is applied after training as a separate step; QAT bakes quantization-awareness into the training loop itself, typically preserving more accuracy at low bit-widths."
+        },
+        {
+          q: "In knowledge distillation, what is the student model trained to do?",
+          options: [
+            "Mimic the teacher model's outputs, often using soft labels/probabilities rather than only hard labels",
+            "Memorize the teacher's exact weight values byte-for-byte",
+            "Train the teacher model in reverse",
+            "Run exclusively on CPU hardware"
+          ],
+          answer: 0,
+          explanation: "Distillation trains a smaller student to reproduce the teacher's output distribution (soft labels carry more information than a single hard label), transferring much of its behavior into a cheaper model."
+        },
+        {
+          q: "Which of these are real tradeoffs illustrated by the quantization/distillation exercise? (select all that apply)",
+          options: [
+            "Lower bit-width generally reduces memory and compute cost",
+            "Lower bit-width and more aggressive distillation typically risk some accuracy loss",
+            "Quantization always improves accuracy with zero downside",
+            "A smaller distilled model is typically cheaper and faster to serve"
+          ],
+          answer: [0, 1, 3],
+          explanation: "Precision reduction and distillation both save resources but generally cost some accuracy — there's no free lunch, so \"zero downside\" is false."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

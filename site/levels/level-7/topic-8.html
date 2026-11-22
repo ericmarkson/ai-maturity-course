@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scaling Laws — AI Maturity Course</title>
+<meta name="description" content="How model performance improves predictably as parameters, data, and compute all increase together, and what that implies about compute-optimal training.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-8";
+</script>
+<style>
+  .sl-readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin: var(--space-3) 0 var(--space-4); }
+  .sl-readout-box { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-2) var(--space-3); text-align: center; }
+  .sl-readout-box strong { display: block; font-size: var(--font-size-md); color: var(--color-primary); }
+  .sl-note { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-inset); padding: var(--space-3); font-size: var(--font-size-sm); margin-top: var(--space-3); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Scaling Laws</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can read a loss-vs-compute scaling chart and explain
+      what it implies about whether to add more parameters or more training data for a fixed compute budget.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Scaling laws are empirical relationships showing how model performance improves in a predictable
+          way as model size, dataset size, and compute all increase together. They let researchers predict a
+          large model's loss before fully training it, and reveal that for any fixed compute budget there's
+          a "compute-optimal" split between how many parameters to use and how much data to train on.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The core scaling variables: parameters, data (tokens), and compute (FLOPs)</li>
+        <li>Compute-optimal training (e.g. the Chinchilla finding that many early models were undertrained
+          relative to their size)</li>
+        <li>Diminishing returns and the log-linear shape of scaling curves</li>
+        <li>How scaling laws inform tradeoff decisions: bigger model vs. more data vs. more training steps</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy scripted formula loosely modeled on the shape of the Chinchilla scaling-law paper's
+    // loss(N, D) fit. Illustrative only — not a claim about any specific real model's measured loss.
+    var E = 1.69, A = 406.4, ALPHA = 0.34, B = 410.7, BETA = 0.28;
+
+    function lossFor(N, D) {
+      return E + A / Math.pow(N, ALPHA) + B / Math.pow(D, BETA);
+    }
+
+    function optimalForCompute(C) {
+      var best = null;
+      for (var e = 6; e <= 13; e += 0.05) {
+        var N = Math.pow(10, e);
+        var D = C / (6 * N);
+        if (D < 1e6) continue;
+        var L = lossFor(N, D);
+        if (!best || L < best.loss) best = { loss: L, N: N, D: D };
+      }
+      return best;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Trade off parameters vs. data at fixed compute",
+      instructions:
+        "Drag the parameters (N) and training-tokens (D) sliders. Compute is derived as roughly 6·N·D FLOPs. " +
+        "Watch your point move on the log-log loss-vs-compute chart against the compute-optimal reference " +
+        "curve — the curve computed by trying every N/D split at each compute level and keeping the best.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var paramRow = document.createElement("div");
+        paramRow.className = "slider-row";
+        var paramLabel = document.createElement("label");
+        paramLabel.setAttribute("for", "sl-param-slider");
+        paramLabel.textContent = "Parameters (N)";
+        var paramSlider = document.createElement("input");
+        paramSlider.type = "range";
+        paramSlider.min = "8";
+        paramSlider.max = "12";
+        paramSlider.step = "0.05";
+        paramSlider.value = "9.85"; // ~7B
+        paramSlider.id = "sl-param-slider";
+        var paramReadout = document.createElement("span");
+        paramReadout.className = "readout";
+        paramRow.appendChild(paramLabel);
+        paramRow.appendChild(paramSlider);
+        paramRow.appendChild(paramReadout);
+        wrap.appendChild(paramRow);
+
+        var dataRow = document.createElement("div");
+        dataRow.className = "slider-row";
+        var dataLabel = document.createElement("label");
+        dataLabel.setAttribute("for", "sl-data-slider");
+        dataLabel.textContent = "Training tokens (D)";
+        var dataSlider = document.createElement("input");
+        dataSlider.type = "range";
+        dataSlider.min = "9";
+        dataSlider.max = "13";
+        dataSlider.step = "0.05";
+        dataSlider.value = "11.3"; // ~200B tokens
+        dataSlider.id = "sl-data-slider";
+        var dataReadout = document.createElement("span");
+        dataReadout.className = "readout";
+        dataRow.appendChild(dataLabel);
+        dataRow.appendChild(dataSlider);
+        dataRow.appendChild(dataReadout);
+        wrap.appendChild(dataRow);
+
+        var readoutsBox = document.createElement("div");
+        readoutsBox.className = "sl-readouts";
+        function makeBox(id, label) {
+          var box = document.createElement("div");
+          box.className = "sl-readout-box";
+          var strong = document.createElement("strong");
+          strong.id = id;
+          var span = document.createElement("span");
+          span.textContent = label;
+          box.appendChild(strong);
+          box.appendChild(span);
+          readoutsBox.appendChild(box);
+          return strong;
+        }
+        var computeVal = makeBox("sl-compute-val", "Compute (FLOPs)");
+        var lossVal = makeBox("sl-loss-val", "Projected loss");
+        var frontierVal = makeBox("sl-frontier-val", "Compute-optimal loss at this compute");
+        wrap.appendChild(readoutsBox);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 520;
+        canvas.height = 300;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "520px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var note = document.createElement("div");
+        note.className = "sl-note";
+        wrap.appendChild(note);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+
+        var X_MIN = 17.5, X_MAX = 26.0;   // log10(compute FLOPs)
+        var Y_MIN = 0.15, Y_MAX = 0.65;   // log10(loss)
+
+        // Precompute the compute-optimal reference curve once.
+        var FRONTIER = [];
+        for (var x = X_MIN; x <= X_MAX; x += 0.25) {
+          var C = Math.pow(10, x);
+          var best = optimalForCompute(C);
+          FRONTIER.push({ x: x, y: Math.log10(best.loss) });
+        }
+
+        function toPx(xVal, yVal, w, h, marginL, marginB, marginT, marginR) {
+          var px = marginL + ((xVal - X_MIN) / (X_MAX - X_MIN)) * (w - marginL - marginR);
+          var py = (h - marginB) - ((yVal - Y_MIN) / (Y_MAX - Y_MIN)) * (h - marginB - marginT);
+          return [px, py];
+        }
+
+        function draw(N, D) {
+          var w = canvas.width, h = canvas.height;
+          var marginL = 46, marginB = 32, marginT = 14, marginR = 14;
+          ctx2d.clearRect(0, 0, w, h);
+
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginL, marginT);
+          ctx2d.lineTo(marginL, h - marginB);
+          ctx2d.lineTo(w - marginR, h - marginB);
+          ctx2d.stroke();
+
+          ctx2d.fillStyle = "#4c5470";
+          ctx2d.font = "10px sans-serif";
+          ctx2d.textAlign = "center";
+          ctx2d.fillText("log10(compute, FLOPs) →", (w + marginL - marginR) / 2, h - 6);
+          ctx2d.save();
+          ctx2d.translate(12, (h - marginB + marginT) / 2);
+          ctx2d.rotate(-Math.PI / 2);
+          ctx2d.fillText("log10(loss) →", 0, 0);
+          ctx2d.restore();
+
+          // reference frontier curve
+          ctx2d.strokeStyle = "#6b7390";
+          ctx2d.setLineDash([5, 4]);
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          FRONTIER.forEach(function (pt, i) {
+            var xy = toPx(pt.x, pt.y, w, h, marginL, marginB, marginT, marginR);
+            if (i === 0) ctx2d.moveTo(xy[0], xy[1]); else ctx2d.lineTo(xy[0], xy[1]);
+          });
+          ctx2d.stroke();
+          ctx2d.setLineDash([]);
+
+          ctx2d.fillStyle = "#6b7390";
+          ctx2d.textAlign = "left";
+          var lastPt = FRONTIER[2];
+          var lastXY = toPx(lastPt.x, lastPt.y, w, h, marginL, marginB, marginT, marginR);
+          ctx2d.fillText("compute-optimal frontier", lastXY[0] + 4, lastXY[1] - 6);
+
+          // user point
+          var C = 6 * N * D;
+          var L = lossFor(N, D);
+          var logC = Math.log10(C);
+          var logL = Math.log10(L);
+          var clampedX = Math.max(X_MIN, Math.min(X_MAX, logC));
+          var clampedY = Math.max(Y_MIN, Math.min(Y_MAX, logL));
+          var uxy = toPx(clampedX, clampedY, w, h, marginL, marginB, marginT, marginR);
+          ctx2d.fillStyle = "#2952e3";
+          ctx2d.beginPath();
+          ctx2d.arc(uxy[0], uxy[1], 6, 0, Math.PI * 2);
+          ctx2d.fill();
+          ctx2d.fillStyle = "#1a2033";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.fillText("your run", uxy[0] + 8, uxy[1] - 8);
+
+          return { C: C, L: L, logC: logC };
+        }
+
+        function fmtSci(n) {
+          return n.toExponential(2);
+        }
+
+        function render() {
+          var paramExp = parseFloat(paramSlider.value);
+          var dataExp = parseFloat(dataSlider.value);
+          var N = Math.pow(10, paramExp);
+          var D = Math.pow(10, dataExp);
+
+          paramReadout.textContent = fmtSci(N) + " params";
+          dataReadout.textContent = fmtSci(D) + " tokens";
+
+          var result = draw(N, D);
+          computeVal.textContent = fmtSci(result.C) + " FLOPs";
+          lossVal.textContent = result.L.toFixed(3);
+
+          var frontier = optimalForCompute(result.C);
+          frontierVal.textContent = frontier.loss.toFixed(3);
+
+          var gap = ((result.L - frontier.loss) / frontier.loss) * 100;
+          if (gap > 3) {
+            note.textContent = "Your projected loss (" + result.L.toFixed(3) + ") is about " + gap.toFixed(1) +
+              "% above the compute-optimal loss for this same compute budget. A more balanced split — around N ≈ " +
+              fmtSci(frontier.N) + " params, D ≈ " + fmtSci(frontier.D) + " tokens — would reach lower loss " +
+              "without spending any more compute. This is the core Chinchilla insight: many early large models " +
+              "were oversized relative to how much data they were trained on.";
+          } else {
+            note.textContent = "This N/D split is close to compute-optimal for the current compute budget — " +
+              "neither adding more parameters nor more data alone would meaningfully lower loss without also " +
+              "increasing compute.";
+          }
+        }
+
+        paramSlider.addEventListener("input", render);
+        dataSlider.addEventListener("input", render);
+        render();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "According to the Chinchilla scaling-law finding, what mistake had many earlier large language models made?",
+          options: [
+            "They were undertrained relative to their size — too many parameters for too little training data",
+            "They were trained on far too much data relative to their size",
+            "They used too few parameters to be useful at all",
+            "There was no mistake — they were already compute-optimal"
+          ],
+          answer: 0,
+          explanation: "Chinchilla showed that for a fixed compute budget, many earlier models were larger than optimal given how little data they saw — a smaller model trained on more tokens often beat them at the same compute cost."
+        },
+        {
+          q: "In the exercise's scaling formula, what happens to loss as you increase parameters (N) while holding data (D) fixed?",
+          options: [
+            "Loss keeps falling by the same amount forever, with no diminishing returns",
+            "Loss decreases, but with diminishing returns as N grows very large",
+            "Loss increases as N grows",
+            "Loss becomes undefined"
+          ],
+          answer: 1,
+          explanation: "The A/N^alpha term shrinks toward zero as N grows, so each additional order of magnitude of parameters buys a smaller and smaller loss improvement — classic diminishing returns."
+        },
+        {
+          q: "Why might you choose a different parameters-vs-data split for the same fixed compute budget?",
+          options: [
+            "Because scaling laws show there's a compute-optimal split between model size and data size that minimizes loss for a given compute budget",
+            "Because parameters and data always contribute identically regardless of the split",
+            "Because the compute budget has no bearing on the ideal split",
+            "Because adding more training data always hurts performance"
+          ],
+          answer: 0,
+          explanation: "For any fixed compute budget there's a split (per the reference frontier in the exercise) that minimizes loss — spending all your compute on either extreme (huge model, tiny dataset, or vice versa) is generally sub-optimal."
+        },
+        {
+          q: "Which of these are the core scaling variables this topic is about? (select all that apply)",
+          options: [
+            "Model parameters (N)",
+            "Training data / tokens (D)",
+            "Compute (FLOPs)",
+            "The color scheme of the training dashboard"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Scaling laws relate loss to parameters, data, and compute jointly — dashboard styling has no bearing on model performance."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

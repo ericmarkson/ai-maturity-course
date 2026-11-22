@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perceptrons and Basic Network Architecture — AI Maturity Course</title>
+<meta name="description" content="How a single artificial neuron computes a weighted sum and fires a decision, and why stacking layers overcomes its limits.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "3-5";
+</script>
+<style>
+  .pc-canvas-wrap { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: var(--space-3); display: inline-block; }
+  .pc-readout-row { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
+  .pc-readout { font-family: var(--font-mono); background: var(--color-bg-inset); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight: 700; }
+  .pc-toggle-row { margin-bottom: var(--space-4); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Advanced Beginner</p>
+  <h1>Perceptrons and Basic Network Architecture</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> You should be able to compute the output of a tiny
+      perceptron by hand given inputs, weights, and a bias, and explain why a single perceptron
+      can't separate a simple non-linear pattern like XOR but a multi-layer network can.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A <strong>perceptron</strong> is the simplest artificial neuron — it takes weighted inputs,
+          sums them up, adds a bias, and fires a decision based on whether that sum crosses a
+          threshold. Stacking many perceptrons in layers, where one layer's outputs feed the next
+          layer's inputs, is the basic architecture of a neural network.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>Inputs, weights, bias, and the weighted sum</strong> — each input is multiplied by
+          a weight, summed together, and shifted by a bias term.</li>
+        <li><strong>The activation/threshold step</strong> — the weighted sum is turned into a final
+          decision (a simplified version of what full activation functions do, covered in Level 4).</li>
+        <li><strong>Single-layer perceptron limits</strong> — a single perceptron can only draw a
+          straight decision line, so it can't solve non-linearly-separable problems like XOR.</li>
+        <li><strong>Why stacking layers overcomes that limit</strong> — a multi-layer perceptron can
+          combine several straight lines to carve out much more complex shapes.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+    var W = 320, H = 320;
+    var COLOR0 = "#2952e3", COLOR1 = "#e08a1e";
+
+    // Points expressed in "model space" roughly -4..4, mapped to canvas coords.
+    var LINEAR_POINTS = [
+      {mx:-3,my:-2,c:0},{mx:-2,my:-3,c:0},{mx:-3,my:1,c:0},{mx:-1,my:-3,c:0},{mx:-2,my:0.5,c:0},{mx:-3.5,my:-0.5,c:0},
+      {mx:2,my:2.5,c:1},{mx:3,my:1,c:1},{mx:1.5,my:3,c:1},{mx:3,my:-1,c:1},{mx:2.5,my:0.5,c:1},{mx:1,my:1.5,c:1}
+    ];
+    // Classic XOR pattern: same-corner points share a class, diagonal corners share the other.
+    var XOR_POINTS = [
+      {mx:-2.5,my:-2.5,c:0},{mx:-3,my:-3,c:0},{mx:-2,my:-3,c:0},
+      {mx:2.5,my:2.5,c:0},{mx:3,my:3,c:0},{mx:2,my:3,c:0},
+      {mx:-2.5,my:2.5,c:1},{mx:-3,my:3,c:1},{mx:-2,my:3,c:1},
+      {mx:2.5,my:-2.5,c:1},{mx:3,my:-3,c:1},{mx:2,my:-3,c:1}
+    ];
+
+    function toCanvas(mx, my) {
+      // model coords roughly -4..4 -> canvas 0..W (y flipped so "up" is positive)
+      var x = (mx + 4) / 8 * W;
+      var y = H - (my + 4) / 8 * H;
+      return { x: x, y: y };
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Drag the perceptron's weights and bias, watch the boundary move",
+      instructions:
+        "The decision boundary is the line where w1*x + w2*y + b = 0. Drag the three sliders and watch " +
+        "it redraw live, along with how many points are correctly classified. Then flip the toggle to " +
+        "an XOR dataset and see that no setting of the sliders gets you a perfect score.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var toggleRow = document.createElement("div");
+        toggleRow.className = "pc-toggle-row";
+        var toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = "btn btn-secondary";
+        toggleBtn.textContent = "Switch to XOR dataset (single-layer failure case)";
+        toggleRow.appendChild(toggleBtn);
+        wrap.appendChild(toggleRow);
+
+        function makeSlider(id, label, min, max, value, step) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var lab = document.createElement("label");
+          lab.setAttribute("for", id);
+          lab.textContent = label;
+          var input = document.createElement("input");
+          input.type = "range"; input.id = id; input.min = String(min); input.max = String(max);
+          input.step = String(step); input.value = String(value);
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = value;
+          row.appendChild(lab); row.appendChild(input); row.appendChild(readout);
+          return { row: row, input: input, readout: readout };
+        }
+
+        var w1Ctl = makeSlider("w1-slider", "Weight w1", -3, 3, 1, 0.1);
+        var w2Ctl = makeSlider("w2-slider", "Weight w2", -3, 3, 1, 0.1);
+        var biasCtl = makeSlider("bias-slider", "Bias b", -5, 5, 0, 0.1);
+        wrap.appendChild(w1Ctl.row);
+        wrap.appendChild(w2Ctl.row);
+        wrap.appendChild(biasCtl.row);
+
+        var canvasWrap = document.createElement("div");
+        canvasWrap.className = "pc-canvas-wrap";
+        var canvas = document.createElement("canvas");
+        canvas.width = W; canvas.height = H;
+        canvas.style.display = "block";
+        canvasWrap.appendChild(canvas);
+        wrap.appendChild(canvasWrap);
+
+        var readoutRow = document.createElement("div");
+        readoutRow.className = "pc-readout-row";
+        var eqReadout = document.createElement("span");
+        eqReadout.className = "pc-readout";
+        var accReadout = document.createElement("span");
+        accReadout.className = "pc-readout";
+        readoutRow.appendChild(eqReadout);
+        readoutRow.appendChild(accReadout);
+        wrap.appendChild(readoutRow);
+
+        root.appendChild(wrap);
+        var cctx = canvas.getContext("2d");
+
+        var usingXor = false;
+
+        function currentPoints() { return usingXor ? XOR_POINTS : LINEAR_POINTS; }
+
+        function classify(w1, w2, b, mx, my) {
+          return (w1 * mx + w2 * my + b) >= 0 ? 1 : 0;
+        }
+
+        function draw() {
+          var w1 = parseFloat(w1Ctl.input.value);
+          var w2 = parseFloat(w2Ctl.input.value);
+          var b = parseFloat(biasCtl.input.value);
+          w1Ctl.readout.textContent = w1.toFixed(1);
+          w2Ctl.readout.textContent = w2.toFixed(1);
+          biasCtl.readout.textContent = b.toFixed(1);
+
+          cctx.clearRect(0, 0, W, H);
+          cctx.fillStyle = "#fafbfd";
+          cctx.fillRect(0, 0, W, H);
+
+          // axes
+          cctx.strokeStyle = "#e3e7f2";
+          cctx.lineWidth = 1;
+          var origin = toCanvas(0, 0);
+          cctx.beginPath();
+          cctx.moveTo(0, origin.y); cctx.lineTo(W, origin.y);
+          cctx.moveTo(origin.x, 0); cctx.lineTo(origin.x, H);
+          cctx.stroke();
+
+          // decision boundary line: w1*x + w2*y + b = 0  -> y = -(w1*x + b)/w2
+          cctx.strokeStyle = "#1a2033";
+          cctx.lineWidth = 2.5;
+          cctx.beginPath();
+          var haveStart = false;
+          for (var mx = -4.2; mx <= 4.2; mx += 0.2) {
+            var my;
+            if (Math.abs(w2) > 0.001) {
+              my = -(w1 * mx + b) / w2;
+            } else {
+              continue; // vertical line, skip in this simple param sweep
+            }
+            if (my < -4.5 || my > 4.5) continue;
+            var pt = toCanvas(mx, my);
+            if (!haveStart) { cctx.moveTo(pt.x, pt.y); haveStart = true; }
+            else cctx.lineTo(pt.x, pt.y);
+          }
+          cctx.stroke();
+
+          // points
+          var correct = 0;
+          currentPoints().forEach(function (p) {
+            var pred = classify(w1, w2, b, p.mx, p.my);
+            if (pred === p.c) correct++;
+            var pt = toCanvas(p.mx, p.my);
+            cctx.beginPath();
+            cctx.arc(pt.x, pt.y, 7, 0, Math.PI * 2);
+            cctx.fillStyle = p.c === 0 ? COLOR0 : COLOR1;
+            cctx.fill();
+            cctx.strokeStyle = pred === p.c ? "#fff" : "#b3261e";
+            cctx.lineWidth = pred === p.c ? 1.5 : 3;
+            cctx.stroke();
+          });
+
+          var total = currentPoints().length;
+          var acc = Math.round((correct / total) * 100);
+          eqReadout.textContent = w1.toFixed(1) + "x + " + w2.toFixed(1) + "y + " + b.toFixed(1) + " = 0";
+          accReadout.textContent = "Correctly classified: " + correct + "/" + total + " (" + acc + "%)";
+          accReadout.style.color = acc === 100 ? "#0f7a4a" : "#b3261e";
+        }
+
+        w1Ctl.input.addEventListener("input", draw);
+        w2Ctl.input.addEventListener("input", draw);
+        biasCtl.input.addEventListener("input", draw);
+
+        toggleBtn.addEventListener("click", function () {
+          usingXor = !usingXor;
+          toggleBtn.textContent = usingXor
+            ? "Switch back to linearly-separable dataset"
+            : "Switch to XOR dataset (single-layer failure case)";
+          draw();
+        });
+
+        draw();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A perceptron has inputs x=2, y=1, weights w1=1.5, w2=-1, and bias b=-1. What is the weighted sum before thresholding?",
+          options: ["1.0", "3.0 - 1 - 1 = 1.0", "1.5*2 + (-1)*1 + (-1) = 3 - 1 - 1 = 1", "It cannot be computed without an activation function"],
+          answer: 2,
+          explanation: "w1*x + w2*y + b = 1.5*2 + (-1)*1 + (-1) = 3 - 1 - 1 = 1. The threshold step then turns that 1 into a final fire/no-fire decision."
+        },
+        {
+          q: "In the exercise, no matter how you set the three sliders, why can't the boundary perfectly separate the XOR dataset?",
+          options: [
+            "Because the canvas is too small to draw the line",
+            "Because XOR's two classes are arranged so that no single straight line can put all of one class on one side and all of the other class on the other side",
+            "Because the sliders are broken in XOR mode",
+            "Because XOR always has more points of one class than the other"
+          ],
+          answer: 1,
+          explanation: "XOR is the classic example of a non-linearly-separable pattern — the two classes occupy diagonally opposite corners, which no single straight line can cleanly divide."
+        },
+        {
+          q: "What does stacking perceptrons into multiple layers (a multi-layer perceptron) gain you that a single perceptron doesn't have?",
+          options: [
+            "Nothing — a stack of perceptrons is mathematically identical to one perceptron",
+            "The ability to combine multiple straight-line boundaries into more complex, non-linear decision shapes",
+            "The ability to store more training data in memory",
+            "Guaranteed 100% accuracy on any dataset"
+          ],
+          answer: 1,
+          explanation: "Each layer can bend or combine the boundaries formed by the previous layer, letting a multi-layer network represent much more complex, curved or disjoint decision regions."
+        },
+        {
+          q: "What role does the bias term (b) play in a perceptron's decision boundary?",
+          options: [
+            "It has no effect on the boundary at all",
+            "It shifts the decision boundary away from passing exactly through the origin",
+            "It only affects how fast the model trains, not the boundary's position",
+            "It converts the model from classification to regression"
+          ],
+          answer: 1,
+          explanation: "Without a bias term, the boundary w1*x + w2*y = 0 is forced through the origin; the bias lets it shift so the line doesn't have to pass through (0,0)."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

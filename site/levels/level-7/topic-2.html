@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Orchestration — AI Maturity Course</title>
+<meta name="description" content="How several specialized AI agents coordinate and hand off work to complete a task none could do well alone.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-2";
+</script>
+<style>
+  .mao-task { background: var(--color-bg-inset); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); font-weight: 600; }
+  .mao-palette { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .mao-chip { border: 2px dashed var(--color-border-strong); background: var(--color-bg); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-weight: 600; font-size: var(--font-size-sm); cursor: grab; user-select: none; }
+  .mao-chip:active { cursor: grabbing; }
+  .mao-pipeline { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .mao-slot { flex: 1 1 130px; min-height: 72px; border: 2px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg); display: flex; align-items: center; justify-content: center; text-align: center; padding: var(--space-2); font-weight: 600; font-size: var(--font-size-sm); position: relative; }
+  .mao-slot.drag-over { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .mao-slot.filled { border-style: solid; border-color: var(--color-accent); background: var(--color-success-bg); cursor: pointer; }
+  .mao-slot .mao-slot-label { position: absolute; top: 4px; left: 6px; font-size: 0.7rem; color: var(--color-text-faint); font-weight: 400; }
+  .mao-arrow { font-size: var(--font-size-lg); color: var(--color-text-faint); }
+  .mao-warning { background: var(--color-warning-bg); border: 1px solid #e8c766; border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3); font-size: var(--font-size-sm); }
+  .mao-trace { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg); min-height: 60px; margin-bottom: var(--space-3); }
+  .mao-trace-step { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-1); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>Multi-Agent Orchestration</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can diagram a multi-agent workflow for a sample task,
+      correctly labeling each agent's role and where hand-offs occur, and can identify at least one failure
+      mode in a flawed design.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Multi-agent orchestration is coordinating several specialized AI agents that each own part of a
+          task, communicating and handing off work to one another to complete something none could do well
+          alone. Instead of one model trying to plan, research, write, and check its own work in a single
+          pass, each responsibility is split across an agent tuned (via prompt, tools, or role) for that job.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Orchestration patterns: supervisor/manager, peer-to-peer handoff, and linear pipeline</li>
+        <li>Role specialization (e.g. planner, researcher, critic agents)</li>
+        <li>Shared state and message passing between agents</li>
+        <li>Failure modes: infinite hand-off loops, conflicting goals, runaway cost</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    var TASK = 'Task: "Write and fact-check a 200-word blog post about home solar panels."';
+
+    var ROLES = [
+      { id: "planner", label: "🗺️ Planner", message: "PLAN: Outline sections (intro, cost savings, environmental impact, getting started); flag that we need two supporting stats." },
+      { id: "researcher", label: "🔎 Researcher", message: "RESEARCH: Found 2023 figures — avg residential payback period ≈ 8 years; typical panel efficiency ≈ 20%. Sources: EnergySage, NREL." },
+      { id: "writer", label: "✍️ Writer", message: "DRAFT: Wrote a 200-word post following the plan, weaving in the payback-period and efficiency figures." },
+      { id: "critic", label: "🧐 Critic", message: "REVIEW: Draft is clear but the intro is generic — recommend a sharper hook and shorter sentences in paragraph 2." },
+      { id: "factchecker", label: "✅ Fact-Checker", message: "FACT-CHECK: Confirmed the payback period (~8 yrs) and efficiency (~20%) match the cited sources. No unsupported claims found." }
+    ];
+    var ROLE_BY_ID = {};
+    ROLES.forEach(function (r) { ROLE_BY_ID[r.id] = r; });
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Wire a multi-agent pipeline and run it",
+      instructions:
+        "Drag agent role chips from the palette into the 4 pipeline slots in the order you think should " +
+        "handle this task (a role can be used more than once). Click a filled slot to clear it. With a " +
+        "keyboard: press Enter/Space on a chip to pick it up, then tab to a slot and press Enter/Space to " +
+        "place it there (or to clear it, if empty-handed). Then click “Run simulation” to step through the " +
+        "hand-offs — and see if your design trips any failure-mode warnings.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        var selectedRoleId = null;
+        var selectedChipEl = null;
+
+        function deselectChip() {
+          if (selectedChipEl) {
+            selectedChipEl.style.boxShadow = "";
+            selectedChipEl.style.borderColor = "var(--color-border-strong)";
+            selectedChipEl.setAttribute("aria-pressed", "false");
+          }
+          selectedChipEl = null;
+          selectedRoleId = null;
+        }
+
+        var taskEl = document.createElement("div");
+        taskEl.className = "mao-task";
+        taskEl.textContent = TASK;
+        wrap.appendChild(taskEl);
+
+        var paletteLabel = document.createElement("p");
+        paletteLabel.style.fontWeight = "600";
+        paletteLabel.style.marginBottom = "var(--space-2)";
+        paletteLabel.textContent = "Agent palette (drag into a slot below):";
+        wrap.appendChild(paletteLabel);
+
+        var palette = document.createElement("div");
+        palette.className = "mao-palette";
+        ROLES.forEach(function (role) {
+          var chip = document.createElement("div");
+          chip.className = "mao-chip";
+          chip.textContent = role.label;
+          chip.draggable = true;
+          chip.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", role.id);
+          });
+
+          // Keyboard/click fallback: tab to a chip, press Enter/Space (or click) to pick it up,
+          // then tab to a slot and press Enter/Space (or click) to place it there. Reusable —
+          // picking up a chip doesn't remove it from the palette, matching the drag behavior.
+          chip.tabIndex = 0;
+          chip.setAttribute("role", "button");
+          chip.setAttribute("aria-pressed", "false");
+          chip.setAttribute("aria-label", role.label + " agent. Click or press Enter to pick up, then " +
+            "activate a pipeline slot to place it there. Can be used more than once.");
+          chip.addEventListener("click", function () {
+            if (selectedRoleId === role.id && selectedChipEl === chip) {
+              deselectChip();
+              return;
+            }
+            deselectChip();
+            selectedRoleId = role.id;
+            selectedChipEl = chip;
+            chip.style.boxShadow = "0 0 0 3px var(--color-primary-light)";
+            chip.style.borderColor = "var(--color-primary)";
+            chip.setAttribute("aria-pressed", "true");
+          });
+          chip.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              chip.click();
+            }
+          });
+
+          palette.appendChild(chip);
+        });
+        wrap.appendChild(palette);
+
+        var pipelineLabel = document.createElement("p");
+        pipelineLabel.style.fontWeight = "600";
+        pipelineLabel.style.marginBottom = "var(--space-2)";
+        pipelineLabel.textContent = "Pipeline (drop order = execution order):";
+        wrap.appendChild(pipelineLabel);
+
+        var pipeline = document.createElement("div");
+        pipeline.className = "mao-pipeline";
+        var slots = [];
+        for (var i = 0; i < 4; i++) {
+          if (i > 0) {
+            var arrow = document.createElement("span");
+            arrow.className = "mao-arrow";
+            arrow.textContent = "→";
+            pipeline.appendChild(arrow);
+          }
+          var slot = document.createElement("div");
+          slot.className = "mao-slot";
+          slot.dataset.index = String(i);
+          slot.dataset.roleId = "";
+          var numTag = document.createElement("span");
+          numTag.className = "mao-slot-label";
+          numTag.textContent = "Step " + (i + 1);
+          slot.appendChild(numTag);
+          var slotText = document.createElement("span");
+          slotText.textContent = "drop agent here";
+          slotText.style.color = "var(--color-text-faint)";
+          slot.appendChild(slotText);
+
+          (function (slotEl, textEl, stepNum) {
+            function updateSlotAria() {
+              var roleId = slotEl.dataset.roleId;
+              if (roleId && ROLE_BY_ID[roleId]) {
+                slotEl.setAttribute("aria-label", "Step " + stepNum + ": " + ROLE_BY_ID[roleId].label +
+                  ". Press Enter to clear it, or pick up an agent chip first and press Enter here to replace it.");
+              } else {
+                slotEl.setAttribute("aria-label", "Step " + stepNum +
+                  ": empty. Pick up an agent chip, then press Enter here to place it.");
+              }
+            }
+
+            function fillSlot(roleId) {
+              var role = ROLE_BY_ID[roleId];
+              if (!role) return;
+              slotEl.dataset.roleId = roleId;
+              slotEl.classList.add("filled");
+              textEl.textContent = role.label;
+              textEl.style.color = "";
+              updateSlotAria();
+              clearWarnings();
+              resetTrace();
+            }
+
+            function clearSlot() {
+              slotEl.dataset.roleId = "";
+              slotEl.classList.remove("filled");
+              textEl.textContent = "drop agent here";
+              textEl.style.color = "var(--color-text-faint)";
+              updateSlotAria();
+              clearWarnings();
+              resetTrace();
+            }
+
+            slotEl.addEventListener("dragover", function (e) {
+              e.preventDefault();
+              slotEl.classList.add("drag-over");
+            });
+            slotEl.addEventListener("dragleave", function () {
+              slotEl.classList.remove("drag-over");
+            });
+            slotEl.addEventListener("drop", function (e) {
+              e.preventDefault();
+              slotEl.classList.remove("drag-over");
+              var roleId = e.dataTransfer.getData("text/plain");
+              fillSlot(roleId);
+            });
+
+            // Keyboard/click fallback: if an agent chip is currently picked up, activating a slot
+            // places it there (filling or replacing). Otherwise, activating a filled slot clears it
+            // — same as the original mouse-click-to-clear behavior.
+            slotEl.tabIndex = 0;
+            slotEl.setAttribute("role", "button");
+            updateSlotAria();
+            slotEl.addEventListener("click", function () {
+              if (selectedRoleId) {
+                var placedId = selectedRoleId;
+                deselectChip();
+                fillSlot(placedId);
+                return;
+              }
+              if (!slotEl.dataset.roleId) return;
+              clearSlot();
+            });
+            slotEl.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+                e.preventDefault();
+                slotEl.click();
+              }
+            });
+          })(slot, slotText, i + 1);
+
+          slots.push(slot);
+          pipeline.appendChild(slot);
+        }
+        wrap.appendChild(pipeline);
+
+        var warningsBox = document.createElement("div");
+        wrap.appendChild(warningsBox);
+
+        function clearWarnings() {
+          warningsBox.innerHTML = "";
+        }
+
+        var controlRow = document.createElement("div");
+        controlRow.style.display = "flex";
+        controlRow.style.gap = "var(--space-3)";
+        controlRow.style.marginBottom = "var(--space-3)";
+
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run simulation";
+        controlRow.appendChild(runBtn);
+
+        var stepBtn = document.createElement("button");
+        stepBtn.type = "button";
+        stepBtn.className = "btn btn-secondary";
+        stepBtn.textContent = "Next hand-off →";
+        stepBtn.style.display = "none";
+        controlRow.appendChild(stepBtn);
+
+        wrap.appendChild(controlRow);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        wrap.appendChild(status);
+
+        var traceBox = document.createElement("div");
+        traceBox.className = "mao-trace";
+        traceBox.textContent = "Trace will appear here once you run the simulation.";
+        traceBox.style.color = "var(--color-text-faint)";
+        wrap.appendChild(traceBox);
+
+        root.appendChild(wrap);
+
+        var simIndex = 0;
+        var simRoleIds = [];
+
+        function resetTrace() {
+          stepBtn.style.display = "none";
+          status.textContent = "";
+          traceBox.innerHTML = "";
+          traceBox.textContent = "Trace will appear here once you run the simulation.";
+          traceBox.style.color = "var(--color-text-faint)";
+        }
+
+        function getFilledRoleIds() {
+          return slots.map(function (s) { return s.dataset.roleId; });
+        }
+
+        runBtn.addEventListener("click", function () {
+          var roleIds = getFilledRoleIds();
+          if (roleIds.some(function (id) { return !id; })) {
+            status.textContent = "Fill all 4 slots before running the simulation.";
+            status.style.color = "var(--color-error)";
+            return;
+          }
+
+          clearWarnings();
+          var warnings = [];
+          for (var i = 1; i < roleIds.length; i++) {
+            if (roleIds[i] === roleIds[i - 1]) {
+              warnings.push("Potential infinite hand-off loop: steps " + i + " and " + (i + 1) +
+                " both use the same agent (" + ROLE_BY_ID[roleIds[i]].label + ") back-to-back with no new role added.");
+            }
+          }
+          if (roleIds.indexOf("critic") === -1 && roleIds.indexOf("factchecker") === -1) {
+            warnings.push("No quality-check role (Critic or Fact-Checker) included in this pipeline — nothing catches mistakes before the post ships.");
+          }
+          warnings.forEach(function (w) {
+            var box = document.createElement("div");
+            box.className = "mao-warning";
+            box.textContent = "⚠ " + w;
+            warningsBox.appendChild(box);
+          });
+
+          simRoleIds = roleIds;
+          simIndex = 0;
+          traceBox.innerHTML = "";
+          traceBox.style.color = "";
+          status.textContent = "Simulation ready. Click “Next hand-off” to step through it.";
+          status.style.color = "var(--color-text-muted)";
+          stepBtn.style.display = "inline-block";
+        });
+
+        stepBtn.addEventListener("click", function () {
+          var roleId = simRoleIds[simIndex];
+          var role = ROLE_BY_ID[roleId];
+          var line = document.createElement("div");
+          line.style.marginBottom = "var(--space-2)";
+          var head = document.createElement("div");
+          head.className = "mao-trace-step";
+          head.textContent = "Step " + (simIndex + 1) + " — " + role.label;
+          var body = document.createElement("div");
+          body.textContent = role.message;
+          line.appendChild(head);
+          line.appendChild(body);
+          traceBox.appendChild(line);
+
+          simIndex++;
+          if (simIndex >= simRoleIds.length) {
+            stepBtn.style.display = "none";
+            status.textContent = "Pipeline complete — final output handed off after " + simRoleIds.length + " agent steps.";
+            status.style.color = "var(--color-success)";
+          } else {
+            status.textContent = "Click “Next hand-off” to continue.";
+            status.style.color = "var(--color-text-muted)";
+          }
+        });
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In a supervisor/manager orchestration pattern, who decides where work is routed?",
+          options: [
+            "Each agent decides independently, with no coordination",
+            "A designated supervisor/manager agent routes work among the specialized agents",
+            "Hand-offs happen at random",
+            "There is only ever one agent, so no routing is needed"
+          ],
+          answer: 1,
+          explanation: "The supervisor/manager pattern centralizes routing decisions in one coordinating agent, unlike peer-to-peer handoff where agents pass work directly to each other."
+        },
+        {
+          q: "What is the primary purpose of shared state or message passing between agents in a pipeline?",
+          options: [
+            "To force every agent to redo the same work independently",
+            "To let each agent access relevant context and outputs produced by earlier agents",
+            "To prevent any agent from ever seeing another agent's output",
+            "To intentionally slow the pipeline down"
+          ],
+          answer: 1,
+          explanation: "Message passing / shared state is how one agent's output (e.g. the Planner's outline) becomes usable input for the next agent (e.g. the Writer)."
+        },
+        {
+          q: "In the exercise, what warning appears if a pipeline has no Critic or Fact-Checker role anywhere in it?",
+          options: [
+            "A warning that the pipeline is too long",
+            "A warning that nothing catches errors before the output ships",
+            "No warning — every pipeline is equally safe",
+            "A warning that the task will run twice"
+          ],
+          answer: 1,
+          explanation: "Skipping any review/verification role is a real design flaw: without a Critic or Fact-Checker, mistakes from earlier agents flow straight through to the final output."
+        },
+        {
+          q: "Which of these are genuine failure-mode risks in multi-agent orchestration? (select all that apply)",
+          options: [
+            "Conflicting goals between agents",
+            "Runaway cost from repeated tool/LLM calls",
+            "Infinite hand-off loops with no termination condition",
+            "Agents always agreeing perfectly with zero possibility of error"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Conflicting goals, runaway cost, and infinite loops are documented real risks. Agents never disagreeing or erring is not a real property of these systems — it's the opposite of a genuine risk."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

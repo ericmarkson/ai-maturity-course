@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Maturity Course — Beginner to Master</title>
+<meta name="description" content="A free, self-paced, 10-level, 80-topic interactive course covering all of AI, from the absolute basics to frontier research.">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script>window.SITE_ROOT = "";</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main page-main--wide" id="main-content">
+
+  <section class="hero">
+    <h1>AI Maturity Course</h1>
+    <p>A free, self-paced curriculum that takes you from "what even is AI?" to research-grade
+       fluency — 10 levels, 80 topics, every one with a real hands-on interactive exercise and
+       a graded quiz. No sign-up, no backend: your progress is saved right in this browser.</p>
+  </section>
+
+  <section class="progress-section" aria-labelledby="progress-heading">
+    <h2 id="progress-heading" class="visually-hidden">Your progress</h2>
+    <div class="progress-summary">
+      <div>
+        <div class="progress-summary-figure" id="home-progress-figure">0 / 80</div>
+        <div>topics complete</div>
+      </div>
+      <div class="progress-summary-bar">
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="80" aria-valuenow="0" id="home-progress-bar">
+          <div class="progress-bar-fill" id="home-progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary" id="reset-progress-btn">Reset progress</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="levels-heading">
+    <h2 id="levels-heading">Choose a level</h2>
+    <div class="card-grid" id="levels-grid"></div>
+  </section>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="assets/js/course-data.js"></script>
+<script src="assets/js/progress.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+  (function () {
+    function renderProgressSummary() {
+      var completed = window.Progress.getCompletedCount();
+      var total = window.Progress.getTotalCount();
+      var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      document.getElementById("home-progress-figure").textContent = completed + " / " + total;
+      var bar = document.getElementById("home-progress-bar");
+      bar.setAttribute("aria-valuenow", String(completed));
+      bar.setAttribute("aria-valuemax", String(total));
+      document.getElementById("home-progress-fill").style.width = pct + "%";
+    }
+
+    function renderLevelsGrid() {
+      var grid = document.getElementById("levels-grid");
+      grid.innerHTML = "";
+      window.COURSE.levels.forEach(function (level) {
+        var lp = window.Progress.getLevelProgress(level.num);
+        var card = document.createElement("a");
+        card.className = "card";
+        card.href = "levels/level-" + level.num + "/index.html";
+
+        var eyebrow = document.createElement("div");
+        eyebrow.className = "card-eyebrow";
+        eyebrow.textContent = "Level " + level.num;
+
+        var title = document.createElement("h3");
+        title.className = "card-title";
+        title.textContent = level.name;
+
+        var desc = document.createElement("p");
+        desc.className = "card-desc";
+        desc.textContent = level.topics.length + " topics";
+
+        var progressWrap = document.createElement("div");
+        progressWrap.className = "card-progress";
+        var badge = document.createElement("span");
+        badge.className = "badge badge-accent";
+        badge.textContent = lp.completed + " / " + lp.total + " complete";
+        progressWrap.appendChild(badge);
+
+        card.appendChild(eyebrow);
+        card.appendChild(title);
+        card.appendChild(desc);
+        card.appendChild(progressWrap);
+        grid.appendChild(card);
+      });
+    }
+
+    function renderAll() {
+      renderProgressSummary();
+      renderLevelsGrid();
+    }
+
+    renderAll();
+    window.Progress.onChange(renderAll);
+
+    document.getElementById("reset-progress-btn").addEventListener("click", function () {
+      if (window.confirm("Reset all course progress? This cannot be undone.")) {
+        window.Progress.reset();
+      }
+    });
+  })();
+</script>
+</body>
+</html>

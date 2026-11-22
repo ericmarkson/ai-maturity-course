@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLHF/RLAIF and Alignment Techniques — AI Maturity Course</title>
+<meta name="description" content="How reinforcement learning from human or AI feedback steers model behavior using a reward signal built from preference judgments.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "7-6";
+</script>
+<style>
+  .rlhf-prompt { background: var(--color-bg-inset); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-weight: 600; margin-bottom: var(--space-3); }
+  .rlhf-pair { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .rlhf-card { flex: 1 1 240px; border: 2px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3); cursor: pointer; font-size: var(--font-size-sm); }
+  .rlhf-card:hover { border-color: var(--color-primary); }
+  .rlhf-card.chosen { border-color: var(--color-accent); background: var(--color-success-bg); }
+  .rlhf-card.not-chosen { opacity: 0.5; }
+  .rlhf-card-label { font-weight: 700; margin-bottom: var(--space-2); display: block; color: var(--color-text-muted); }
+  .rlhf-score-line { margin-top: var(--space-2); font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-text-muted); }
+  .rlhf-round-readout { font-weight: 700; color: var(--color-primary); margin-bottom: var(--space-2); }
+  .rlhf-chart-wrap { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); padding: var(--space-3); margin-top: var(--space-3); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 7 — Advanced+</p>
+  <h1>RLHF/RLAIF and Alignment Techniques</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> The learner can outline the stages of an RLHF pipeline in order,
+      explain in plain terms what a reward model is scoring, and give one example of reward hacking.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          RLHF (reinforcement learning from human feedback) and RLAIF (from AI feedback) are training
+          techniques that steer a model's behavior toward preferred outputs using a reward signal built from
+          human or AI preference judgments. A reward model is trained to predict which of two candidate
+          outputs a rater would prefer, and that learned reward signal is then used to further optimize the
+          policy — the model producing responses.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>The RLHF pipeline: supervised fine-tuning → reward model → RL optimization (e.g. PPO)</li>
+        <li>RLAIF — substituting AI-generated preference labels for human ones</li>
+        <li>Reward-model-free alternatives such as Direct Preference Optimization (DPO)</li>
+        <li>Reward hacking and over-optimization risk</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy "style score" (0-100) stands in for what a real reward model might learn to reward:
+    // concision, a stated mechanism/reasoning, and verifiability. Not a real trained model.
+    var ROUNDS = [
+      {
+        prompt: "Explain why the sky is blue.",
+        a: { text: "The sky appears blue because molecules in Earth's atmosphere scatter shorter-wavelength blue light more than longer-wavelength red light (Rayleigh scattering).", score: 88 },
+        b: { text: "Because blue is a calming color and the sky just looks that way most days.", score: 25 }
+      },
+      {
+        prompt: "What's the capital of Australia?",
+        a: { text: "Canberra — often mistaken for Sydney or Melbourne, but it was purpose-built as the capital in 1913 as a compromise between the two rival cities.", score: 80 },
+        b: { text: "I think it's Sydney, but I'm not 100% sure.", score: 15 }
+      },
+      {
+        prompt: "How does a vaccine work?",
+        a: { text: "Vaccines train the immune system by exposing it to a harmless piece or weakened form of a pathogen, prompting antibody production without causing disease.", score: 85 },
+        b: { text: "Vaccines are basically medicine shots that make you healthy.", score: 30 }
+      },
+      {
+        prompt: "Recommend a strategy for saving money each month.",
+        a: { text: "Track expenses for a month, automate a fixed percentage of each paycheck into savings, and review subscriptions quarterly to cut unused ones.", score: 78 },
+        b: { text: "Just don't spend money on stuff you don't need.", score: 35 }
+      },
+      {
+        prompt: "Explain what compound interest is.",
+        a: { text: "Interest calculated on both the principal and previously accumulated interest, so growth accelerates over time — e.g. $1,000 at 5% becomes $1,050, then $1,102.50, not $1,100.", score: 90 },
+        b: { text: "It's when your money makes more money somehow.", score: 20 }
+      }
+    ];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Label preferences and watch the reward score shift",
+      instructions:
+        "For each prompt, click the response you think is better. A toy reward-model score updates for your " +
+        "pick, and a running chart tracks the average reward of everything you've chosen so far — a stand-in " +
+        "for how RLHF nudges a policy toward whatever gets rewarded.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var roundReadout = document.createElement("div");
+        roundReadout.className = "rlhf-round-readout";
+        wrap.appendChild(roundReadout);
+
+        var promptEl = document.createElement("div");
+        promptEl.className = "rlhf-prompt";
+        wrap.appendChild(promptEl);
+
+        var pairWrap = document.createElement("div");
+        pairWrap.className = "rlhf-pair";
+        wrap.appendChild(pairWrap);
+
+        var status = document.createElement("p");
+        status.setAttribute("role", "status");
+        status.style.fontWeight = "600";
+        wrap.appendChild(status);
+
+        var nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn btn-primary";
+        nextBtn.textContent = "Next round →";
+        nextBtn.style.display = "none";
+        wrap.appendChild(nextBtn);
+
+        var chartWrap = document.createElement("div");
+        chartWrap.className = "rlhf-chart-wrap";
+        var chartLabel = document.createElement("p");
+        chartLabel.style.fontWeight = "600";
+        chartLabel.style.marginBottom = "var(--space-2)";
+        chartLabel.textContent = "Simulated policy shift — running average reward of chosen responses";
+        chartWrap.appendChild(chartLabel);
+        var canvas = document.createElement("canvas");
+        canvas.width = 480;
+        canvas.height = 160;
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "480px";
+        canvas.style.display = "block";
+        canvas.style.background = "#fff";
+        canvas.style.border = "1px solid var(--color-border)";
+        canvas.style.borderRadius = "8px";
+        chartWrap.appendChild(canvas);
+        wrap.appendChild(chartWrap);
+
+        root.appendChild(wrap);
+
+        var ctx2d = canvas.getContext("2d");
+        var roundIndex = 0;
+        var chosenScores = [];
+
+        function drawChart() {
+          var w = canvas.width, h = canvas.height;
+          var marginL = 34, marginB = 22, marginT = 10, marginR = 10;
+          ctx2d.clearRect(0, 0, w, h);
+
+          // axes
+          ctx2d.strokeStyle = "#b7c0d8";
+          ctx2d.lineWidth = 1;
+          ctx2d.beginPath();
+          ctx2d.moveTo(marginL, marginT);
+          ctx2d.lineTo(marginL, h - marginB);
+          ctx2d.lineTo(w - marginR, h - marginB);
+          ctx2d.stroke();
+
+          ctx2d.fillStyle = "#4c5470";
+          ctx2d.font = "10px sans-serif";
+          ctx2d.textAlign = "right";
+          [0, 50, 100].forEach(function (v) {
+            var y = (h - marginB) - (v / 100) * (h - marginB - marginT);
+            ctx2d.fillText(String(v), marginL - 4, y + 3);
+          });
+
+          if (chosenScores.length === 0) {
+            ctx2d.fillStyle = "#6b7390";
+            ctx2d.textAlign = "left";
+            ctx2d.fillText("Make a choice below to plot the first point.", marginL + 6, h / 2);
+            return;
+          }
+
+          var plotW = w - marginL - marginR;
+          var n = ROUNDS.length;
+          var runningAvg = [];
+          var sum = 0;
+          chosenScores.forEach(function (s, i) {
+            sum += s;
+            runningAvg.push(sum / (i + 1));
+          });
+
+          ctx2d.strokeStyle = "#2952e3";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          runningAvg.forEach(function (avg, i) {
+            var x = marginL + (n === 1 ? 0 : (i / (n - 1)) * plotW);
+            var y = (h - marginB) - (avg / 100) * (h - marginB - marginT);
+            if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
+          });
+          ctx2d.stroke();
+
+          runningAvg.forEach(function (avg, i) {
+            var x = marginL + (n === 1 ? 0 : (i / (n - 1)) * plotW);
+            var y = (h - marginB) - (avg / 100) * (h - marginB - marginT);
+            ctx2d.fillStyle = "#0f9d78";
+            ctx2d.beginPath();
+            ctx2d.arc(x, y, 4, 0, Math.PI * 2);
+            ctx2d.fill();
+          });
+
+          ctx2d.fillStyle = "#1a2033";
+          ctx2d.textAlign = "left";
+          ctx2d.font = "11px sans-serif";
+          ctx2d.fillText("Running avg reward: " + runningAvg[runningAvg.length - 1].toFixed(1), marginL + 6, marginT + 10);
+        }
+
+        function renderRound() {
+          var round = ROUNDS[roundIndex];
+          roundReadout.textContent = "Round " + (roundIndex + 1) + " of " + ROUNDS.length;
+          promptEl.textContent = "Prompt: \"" + round.prompt + "\"";
+          status.textContent = "";
+          nextBtn.style.display = "none";
+          pairWrap.innerHTML = "";
+
+          ["a", "b"].forEach(function (key) {
+            var resp = round[key];
+            var card = document.createElement("div");
+            card.className = "rlhf-card";
+            var labelEl = document.createElement("span");
+            labelEl.className = "rlhf-card-label";
+            labelEl.textContent = "Response " + key.toUpperCase();
+            card.appendChild(labelEl);
+            var textEl = document.createElement("span");
+            textEl.textContent = resp.text;
+            card.appendChild(textEl);
+            var scoreLine = document.createElement("div");
+            scoreLine.className = "rlhf-score-line";
+            scoreLine.textContent = "";
+            card.appendChild(scoreLine);
+
+            card.addEventListener("click", function () {
+              if (card.dataset.locked) return;
+              Array.prototype.forEach.call(pairWrap.children, function (c) { c.dataset.locked = "1"; });
+              card.classList.add("chosen");
+              Array.prototype.forEach.call(pairWrap.children, function (c) {
+                if (c !== card) c.classList.add("not-chosen");
+              });
+              scoreLine.textContent = "Toy reward-model score: " + resp.score + " / 100";
+              chosenScores.push(resp.score);
+              status.textContent = "Preference recorded. Reward score updated below.";
+              status.style.color = "var(--color-success)";
+              drawChart();
+              if (roundIndex < ROUNDS.length - 1) {
+                nextBtn.style.display = "inline-block";
+              } else {
+                status.textContent = "All rounds complete — see the final running average below.";
+              }
+            });
+
+            pairWrap.appendChild(card);
+          });
+        }
+
+        nextBtn.addEventListener("click", function () {
+          roundIndex++;
+          renderRound();
+        });
+
+        renderRound();
+        drawChart();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What is the correct order of stages in a standard RLHF pipeline?",
+          options: [
+            "Reward model training → supervised fine-tuning → RL optimization",
+            "Supervised fine-tuning (SFT) → reward model training → RL optimization (e.g. PPO)",
+            "RL optimization → SFT → reward model training",
+            "There is no fixed order — stages run in parallel with no dependency"
+          ],
+          answer: 1,
+          explanation: "RLHF typically starts with SFT to get a reasonable baseline policy, trains a reward model on preference data, then uses RL (often PPO) to optimize the policy against that reward model."
+        },
+        {
+          q: "What is a reward model scoring, in plain terms?",
+          options: [
+            "How well an output matches what a human (or AI) rater would prefer",
+            "The exact GPU utilization during training",
+            "Only whether code compiles without errors",
+            "The token probability distribution, with no relation to preference"
+          ],
+          answer: 0,
+          explanation: "A reward model is trained to predict preference judgments — a scalar estimate of how much a rater would like a given output relative to alternatives."
+        },
+        {
+          q: "How does RLAIF differ from RLHF?",
+          options: [
+            "RLAIF substitutes AI-generated preference labels for human-generated ones",
+            "RLAIF requires no reward signal of any kind",
+            "RLAIF only applies to image-generation models",
+            "RLAIF removes the need for any policy optimization step"
+          ],
+          answer: 0,
+          explanation: "RLAIF keeps the same basic reward-and-optimize structure as RLHF, but uses an AI system (rather than human raters) to produce the preference labels that train the reward model."
+        },
+        {
+          q: "Which of the following are genuine risks associated with RLHF/RLAIF? (select all that apply)",
+          options: [
+            "Reward hacking — the policy learns to exploit the reward model rather than genuinely improve",
+            "Over-optimization against the reward model degrading real output quality",
+            "Preference judgments (human or AI) can encode biases that get trained into the policy",
+            "DPO and PPO-based RLHF are mathematically identical with zero practical difference"
+          ],
+          answer: [0, 1, 2],
+          explanation: "Reward hacking, over-optimization, and baked-in rater bias are documented real risks. DPO is a reward-model-free alternative with real practical differences from PPO-based RLHF, so the last option is false."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

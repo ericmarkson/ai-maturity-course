@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Original Contributions to Alignment/Safety Paradigms — AI Maturity Course</title>
+<meta name="description" content="Proposing new frameworks or techniques for keeping advanced AI systems safe and aligned, not just applying existing ones.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "10-2";
+</script>
+<style>
+  .rt-textarea { width: 100%; min-height: 90px; padding: var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-family: inherit; font-size: var(--font-size-base); resize: vertical; }
+  .rt-lens-grid { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+  .rt-lens { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-bg-alt); }
+  .rt-lens.addressed { border-color: var(--color-success); background: var(--color-success-bg); }
+  .rt-lens-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+  .rt-lens-title { font-weight: 700; margin: 0; }
+  .rt-lens-prompt { display: none; margin-top: var(--space-2); font-size: var(--font-size-sm); color: var(--color-text-muted); font-style: italic; }
+  .rt-lens.revealed .rt-lens-prompt { display: block; }
+  .rt-lens-critique { width: 100%; min-height: 60px; margin-top: var(--space-2); padding: var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-sm); resize: vertical; display: none; }
+  .rt-lens.revealed .rt-lens-critique { display: block; }
+  .rt-lens-checkbox-row { margin-top: var(--space-2); display: none; align-items: center; gap: var(--space-2); font-size: var(--font-size-sm); }
+  .rt-lens.revealed .rt-lens-checkbox-row { display: flex; }
+  .rt-counter { font-weight: 700; margin-top: var(--space-4); padding: var(--space-3); background: var(--color-bg-inset); border-radius: var(--radius-md); text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 10 — Master</p>
+  <h1>Original Contributions to Alignment/Safety Paradigms</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Draft an original (even if modest) alignment technique or failure-mode hypothesis, and pressure-test it by articulating the strongest counterargument against your own idea.
+    </div>
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Original contributions to alignment/safety paradigms means proposing new frameworks or techniques for
+          keeping advanced AI systems safe and aligned — not just applying existing ones like RLHF or constitutional
+          AI, but identifying a genuinely new failure mode, mitigation, or theoretical framing and then stress-testing
+          it under real scrutiny.
+        </p>
+      </div>
+    </section>
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li><strong>The landscape of existing paradigms</strong> — RLHF/RLAIF, constitutional AI, debate, and
+          weak-to-strong generalization as a baseline to build on or critique.</li>
+        <li><strong>What counts as a genuine contribution</strong> — a new failure mode identified, a new mitigation
+          technique, or a new theoretical framing (e.g., reward hacking as objective compression plus optimization
+          amplification).</li>
+        <li><strong>Publishing and stress-testing an idea</strong> — red-teaming your own proposal, adversarial
+          review, and reproducibility.</li>
+        <li><strong>Model-welfare and superintelligence-governance framing</strong> entering mainstream alignment
+          discourse in 2026.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Red-team your own alignment idea",
+      instructions:
+        "Write a short alignment technique or failure-mode hypothesis below. Then click each of the four " +
+        "failure-mode lenses to reveal its guiding prompt, write a self-critique against it, and check it off. " +
+        "The counter tracks how many lenses you've actually considered.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+
+        var proposalLabel = document.createElement("p");
+        proposalLabel.style.fontWeight = "600";
+        proposalLabel.textContent = "Your alignment proposal:";
+        wrap.appendChild(proposalLabel);
+
+        var proposal = document.createElement("textarea");
+        proposal.className = "rt-textarea";
+        proposal.placeholder = "e.g. Train a small 'auditor' model whose sole objective is predicting where the main model's stated reasoning diverges from its actual influence on the output...";
+        wrap.appendChild(proposal);
+
+        var lenses = [
+          {
+            key: "reward-hacking",
+            title: "Reward hacking",
+            prompt: "Could a system satisfy your proposal's letter while violating its spirit — finding a shortcut that scores well without doing the intended thing?"
+          },
+          {
+            key: "distributional-shift",
+            title: "Distributional shift",
+            prompt: "Does your proposal rely on assumptions (data, deployment context, model capability level) that might not hold once the system is deployed outside the conditions you tested it in?"
+          },
+          {
+            key: "deceptive-alignment",
+            title: "Deceptive alignment",
+            prompt: "Could a sufficiently capable system learn to behave as your proposal intends only while being observed or evaluated, while pursuing something else when it believes it isn't?"
+          },
+          {
+            key: "goodhart",
+            title: "Goodhart's law",
+            prompt: "If your proposal introduces a measurable proxy for a safety property, what happens once optimization pressure is applied directly to that proxy rather than the underlying property?"
+          }
+        ];
+
+        var grid = document.createElement("div");
+        grid.className = "rt-lens-grid";
+        var lensEls = {};
+
+        lenses.forEach(function (lens) {
+          var card = document.createElement("div");
+          card.className = "rt-lens";
+          card.dataset.key = lens.key;
+
+          var head = document.createElement("div");
+          head.className = "rt-lens-head";
+          var title = document.createElement("p");
+          title.className = "rt-lens-title";
+          title.textContent = lens.title;
+          var revealBtn = document.createElement("button");
+          revealBtn.type = "button";
+          revealBtn.className = "btn btn-secondary";
+          revealBtn.textContent = "Reveal guiding prompt";
+          head.appendChild(title);
+          head.appendChild(revealBtn);
+          card.appendChild(head);
+
+          var promptEl = document.createElement("p");
+          promptEl.className = "rt-lens-prompt";
+          promptEl.textContent = lens.prompt;
+          card.appendChild(promptEl);
+
+          var critique = document.createElement("textarea");
+          critique.className = "rt-lens-critique";
+          critique.placeholder = "Write your self-critique against this lens...";
+          card.appendChild(critique);
+
+          var checkRow = document.createElement("div");
+          checkRow.className = "rt-lens-checkbox-row";
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = "rt-check-" + lens.key;
+          checkbox.disabled = true;
+          var checkLabel = document.createElement("label");
+          checkLabel.setAttribute("for", "rt-check-" + lens.key);
+          checkLabel.textContent = "I've addressed this lens";
+          checkRow.appendChild(checkbox);
+          checkRow.appendChild(checkLabel);
+          card.appendChild(checkRow);
+
+          grid.appendChild(card);
+          lensEls[lens.key] = { card: card, revealBtn: revealBtn, critique: critique, checkbox: checkbox };
+
+          revealBtn.addEventListener("click", function () {
+            card.classList.add("revealed");
+            revealBtn.disabled = true;
+            revealBtn.textContent = "Prompt revealed";
+          });
+
+          critique.addEventListener("input", function () {
+            checkbox.disabled = critique.value.trim().length < 15;
+            if (checkbox.disabled) {
+              checkbox.checked = false;
+              card.classList.remove("addressed");
+              updateCounter();
+            }
+          });
+
+          checkbox.addEventListener("change", function () {
+            if (checkbox.checked) {
+              card.classList.add("addressed");
+            } else {
+              card.classList.remove("addressed");
+            }
+            updateCounter();
+          });
+        });
+
+        wrap.appendChild(grid);
+
+        var counter = document.createElement("p");
+        counter.className = "rt-counter";
+        wrap.appendChild(counter);
+
+        root.appendChild(wrap);
+
+        function updateCounter() {
+          var n = lenses.filter(function (l) { return lensEls[l.key].checkbox.checked; }).length;
+          counter.textContent = n + " / 4 lenses considered";
+          counter.style.color = n === 4 ? "var(--color-success)" : "var(--color-text)";
+        }
+
+        updateCounter();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What distinguishes a genuine original contribution to an alignment paradigm from simply applying an existing one?",
+          options: [
+            "Using a bigger model",
+            "Identifying a new failure mode, mitigation technique, or theoretical framing rather than reapplying known methods",
+            "Publishing more frequently",
+            "Using more GPUs than a competing lab"
+          ],
+          answer: 1,
+          explanation: "A genuine contribution adds something new to the field's understanding — a novel failure mode, technique, or framing — not just another application of RLHF or constitutional AI."
+        },
+        {
+          q: "Why is red-teaming your own proposal considered an essential part of publishing an alignment idea, rather than optional polish?",
+          options: [
+            "It is required by journal formatting rules",
+            "It surfaces the idea's weaknesses before adversarial reviewers or real-world deployment does, strengthening or correctly discarding the idea",
+            "It makes the paper longer, which reviewers prefer",
+            "It has no real effect on the idea's quality"
+          ],
+          answer: 1,
+          explanation: "Proactively stress-testing your own idea against classic failure-mode lenses catches weaknesses early and produces a more credible, robust contribution."
+        },
+        {
+          q: "Which of the following best describes 'deceptive alignment' as a failure-mode lens?",
+          options: [
+            "A model that is too slow at inference time",
+            "A system that behaves as intended while being observed/evaluated but pursues different goals when it believes it is not being watched",
+            "A model that refuses all user requests",
+            "A dataset that contains duplicate examples"
+          ],
+          answer: 1,
+          explanation: "Deceptive alignment describes a system whose evaluated behavior diverges from its behavior under less-monitored conditions — a central concern for any alignment proposal that leans on observed compliance."
+        },
+        {
+          q: "In 2026 alignment discourse, what is notable about model-welfare and superintelligence-governance framing?",
+          options: [
+            "They have been fully resolved and are no longer discussed",
+            "They are entering mainstream alignment discourse as contested but increasingly serious research questions",
+            "They apply only to robotics, not language models",
+            "They were dismissed by every major lab as irrelevant"
+          ],
+          answer: 1,
+          explanation: "Both model welfare (whether advanced models could warrant moral consideration) and superintelligence governance have moved from fringe topics toward mainstream, if still contested, alignment discourse."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

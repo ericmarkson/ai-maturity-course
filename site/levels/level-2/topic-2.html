@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basic Probability and Statistics for ML — AI Maturity Course</title>
+<meta name="description" content="The handful of core statistics ideas ML relies on: probability, mean, variance, and correlation vs. causation.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-2";
+</script>
+<style>
+  .stat-readouts { display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-3) 0 var(--space-4); }
+  .stat-readouts .stat-box {
+    background: var(--color-bg-inset); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-4);
+    font-family: var(--font-mono); font-size: var(--font-size-md); font-weight: 700;
+  }
+  .stat-readouts .stat-box span.stat-label { display: block; font-family: var(--font-body); font-weight: 600; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .scatter-btn-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .scatter-btn-row .btn.is-active { background: var(--color-primary-dark); }
+  .scatter-caption { color: var(--color-text-muted); font-size: var(--font-size-sm); margin-top: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Basic Probability and Statistics for ML</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Read a model's output like "87% confidence this is spam" and correctly
+      explain what that percentage represents and why it isn't a guarantee.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          Machine learning leans on a small toolbox of statistics ideas to describe data and quantify
+          uncertainty: <strong>probability</strong> (how likely something is, from 0 to 1), the
+          <strong>mean and variance</strong> of a dataset (its center and spread), and
+          <strong>correlation</strong> (whether two variables tend to move together — which is not the
+          same thing as one causing the other).
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Probability basics: the likelihood of an event, expressed as 0–1 or a percentage</li>
+        <li>Mean, median, and variance/spread of a dataset</li>
+        <li>Correlation (two variables moving together) vs. causation</li>
+        <li>Why ML predictions are often probabilities/confidence scores, not certainties</li>
+      </ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Histogram builder + correlation explorer",
+      instructions: "Drag the Shift and Spread sliders to reshape the distribution and watch the mean/variance update live. Then click through the scatter-plot examples to see correlated, uncorrelated, and \"correlated but not causal\" data.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var wrap = document.createElement("div");
+        root.appendChild(wrap);
+
+        // ---------- Part 1: histogram builder ----------
+        var h3a = document.createElement("h4");
+        h3a.textContent = "1. Shift and spread a distribution";
+        wrap.appendChild(h3a);
+
+        var shiftRow = document.createElement("div");
+        shiftRow.className = "slider-row";
+        var shiftLabel = document.createElement("label");
+        shiftLabel.textContent = "Shift (mean)";
+        shiftLabel.setAttribute("for", "hist-shift");
+        var shiftSlider = document.createElement("input");
+        shiftSlider.type = "range"; shiftSlider.id = "hist-shift";
+        shiftSlider.min = "-3"; shiftSlider.max = "3"; shiftSlider.step = "0.5"; shiftSlider.value = "0";
+        var shiftReadout = document.createElement("span");
+        shiftReadout.className = "readout";
+        shiftRow.appendChild(shiftLabel); shiftRow.appendChild(shiftSlider); shiftRow.appendChild(shiftReadout);
+        wrap.appendChild(shiftRow);
+
+        var spreadRow = document.createElement("div");
+        spreadRow.className = "slider-row";
+        var spreadLabel = document.createElement("label");
+        spreadLabel.textContent = "Spread (variance)";
+        spreadLabel.setAttribute("for", "hist-spread");
+        var spreadSlider = document.createElement("input");
+        spreadSlider.type = "range"; spreadSlider.id = "hist-spread";
+        spreadSlider.min = "0.6"; spreadSlider.max = "2.4"; spreadSlider.step = "0.1"; spreadSlider.value = "1";
+        var spreadReadout = document.createElement("span");
+        spreadReadout.className = "readout";
+        spreadRow.appendChild(spreadLabel); spreadRow.appendChild(spreadSlider); spreadRow.appendChild(spreadReadout);
+        wrap.appendChild(spreadRow);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = 480; canvas.height = 200;
+        canvas.style.width = "100%"; canvas.style.maxWidth = "480px"; canvas.style.display = "block";
+        canvas.style.background = "#fff"; canvas.style.border = "1px solid var(--color-border)"; canvas.style.borderRadius = "8px";
+        wrap.appendChild(canvas);
+
+        var statBox = document.createElement("div");
+        statBox.className = "stat-readouts";
+        statBox.innerHTML =
+          '<div class="stat-box"><span class="stat-label">Mean</span><span id="hist-mean">-</span></div>' +
+          '<div class="stat-box"><span class="stat-label">Variance</span><span id="hist-var">-</span></div>';
+        wrap.appendChild(statBox);
+
+        var ctx2d = canvas.getContext("2d");
+        var BINS = 10; // bin centers 0..9
+
+        function gaussianFreq(center, mu, sigma) {
+          var z = (center - mu) / sigma;
+          return Math.exp(-0.5 * z * z);
+        }
+
+        function draw() {
+          var shift = parseFloat(shiftSlider.value);
+          var spread = parseFloat(spreadSlider.value);
+          shiftReadout.textContent = (shift > 0 ? "+" : "") + shift;
+          spreadReadout.textContent = "×" + spread.toFixed(1);
+
+          var mu = 4.5 + shift;
+          var sigma = 1.5 * spread;
+
+          var freqs = [];
+          var sumF = 0;
+          for (var i = 0; i < BINS; i++) {
+            var f = gaussianFreq(i, mu, sigma);
+            freqs.push(f);
+            sumF += f;
+          }
+          var mean = 0;
+          for (i = 0; i < BINS; i++) mean += freqs[i] * i;
+          mean = mean / sumF;
+          var variance = 0;
+          for (i = 0; i < BINS; i++) variance += freqs[i] * Math.pow(i - mean, 2);
+          variance = variance / sumF;
+
+          document.getElementById("hist-mean").textContent = mean.toFixed(2);
+          document.getElementById("hist-var").textContent = variance.toFixed(2);
+
+          var w = canvas.width, h = canvas.height;
+          ctx2d.clearRect(0, 0, w, h);
+          var marginX = 20, marginBottom = 24, marginTop = 10;
+          var plotW = w - marginX * 2;
+          var plotH = h - marginBottom - marginTop;
+          var barW = plotW / BINS;
+          var maxF = Math.max.apply(null, freqs);
+
+          for (i = 0; i < BINS; i++) {
+            var barH = (freqs[i] / maxF) * plotH;
+            var x = marginX + i * barW;
+            var y = h - marginBottom - barH;
+            ctx2d.fillStyle = "#2952e3";
+            ctx2d.fillRect(x + 2, y, barW - 4, barH);
+            ctx2d.fillStyle = "#4c5470";
+            ctx2d.font = "11px sans-serif";
+            ctx2d.textAlign = "center";
+            ctx2d.fillText(String(i), x + barW / 2, h - 8);
+          }
+
+          // mean marker
+          var meanX = marginX + (mean + 0.5) * barW;
+          ctx2d.strokeStyle = "#b3261e";
+          ctx2d.lineWidth = 2;
+          ctx2d.beginPath();
+          ctx2d.moveTo(meanX, marginTop);
+          ctx2d.lineTo(meanX, h - marginBottom);
+          ctx2d.stroke();
+          ctx2d.fillStyle = "#b3261e";
+          ctx2d.font = "bold 11px sans-serif";
+          ctx2d.fillText("mean", meanX, marginTop - 0 + 10);
+        }
+
+        shiftSlider.addEventListener("input", draw);
+        spreadSlider.addEventListener("input", draw);
+        draw();
+
+        // ---------- Part 2: correlation scatter toggle ----------
+        var h3b = document.createElement("h4");
+        h3b.textContent = "2. Correlated, uncorrelated, or correlated-but-not-causal?";
+        h3b.style.marginTop = "var(--space-6)";
+        wrap.appendChild(h3b);
+
+        var btnRow = document.createElement("div");
+        btnRow.className = "scatter-btn-row";
+        wrap.appendChild(btnRow);
+
+        var scatterCanvas = document.createElement("canvas");
+        scatterCanvas.width = 400; scatterCanvas.height = 240;
+        scatterCanvas.style.width = "100%"; scatterCanvas.style.maxWidth = "400px"; scatterCanvas.style.display = "block";
+        scatterCanvas.style.background = "#fff"; scatterCanvas.style.border = "1px solid var(--color-border)"; scatterCanvas.style.borderRadius = "8px";
+        wrap.appendChild(scatterCanvas);
+
+        var caption = document.createElement("p");
+        caption.className = "scatter-caption";
+        wrap.appendChild(caption);
+
+        var sctx = scatterCanvas.getContext("2d");
+
+        var EXAMPLES = [
+          {
+            key: "correlated",
+            label: "Correlated",
+            xLabel: "Hours studied", yLabel: "Exam score",
+            caption: "Strong positive correlation: as study hours go up, exam scores tend to go up too. Here it's also plausible that studying causes better scores.",
+            gen: function () {
+              var pts = [];
+              for (var i = 0; i < 25; i++) {
+                var x = Math.random() * 10;
+                var y = 40 + x * 5 + (Math.random() - 0.5) * 15;
+                pts.push([x, y]);
+              }
+              return pts;
+            }
+          },
+          {
+            key: "uncorrelated",
+            label: "Uncorrelated",
+            xLabel: "Shoe size", yLabel: "Typing speed",
+            caption: "No meaningful relationship: knowing someone's shoe size tells you nothing about their typing speed. The points form a random cloud.",
+            gen: function () {
+              var pts = [];
+              for (var i = 0; i < 25; i++) {
+                pts.push([Math.random() * 10, Math.random() * 100]);
+              }
+              return pts;
+            }
+          },
+          {
+            key: "spurious",
+            label: "Correlated, not causal",
+            xLabel: "Ice cream sales", yLabel: "Drowning incidents",
+            caption: "These move together too — but ice cream doesn't cause drownings. A hidden third factor (hot summer weather) drives both. Correlation alone never proves causation.",
+            gen: function () {
+              var pts = [];
+              for (var i = 0; i < 25; i++) {
+                var heat = Math.random() * 10;
+                var x = heat * 8 + (Math.random() - 0.5) * 10;
+                var y = heat * 3 + (Math.random() - 0.5) * 6;
+                pts.push([x, y]);
+              }
+              return pts;
+            }
+          }
+        ];
+
+        var currentExample = null;
+
+        function drawScatter(example) {
+          var pts = example.gen();
+          var w = scatterCanvas.width, h = scatterCanvas.height;
+          sctx.clearRect(0, 0, w, h);
+          var marginX = 40, marginY = 30;
+          var maxX = Math.max.apply(null, pts.map(function (p) { return p[0]; })) * 1.1 || 1;
+          var maxY = Math.max.apply(null, pts.map(function (p) { return p[1]; })) * 1.1 || 1;
+
+          sctx.strokeStyle = "#b7c0d8";
+          sctx.lineWidth = 1;
+          sctx.beginPath();
+          sctx.moveTo(marginX, h - marginY);
+          sctx.lineTo(w - 10, h - marginY);
+          sctx.moveTo(marginX, h - marginY);
+          sctx.lineTo(marginX, 10);
+          sctx.stroke();
+
+          sctx.fillStyle = "#0f9d78";
+          pts.forEach(function (p) {
+            var px = marginX + (p[0] / maxX) * (w - marginX - 10);
+            var py = (h - marginY) - (p[1] / maxY) * (h - marginY - 10);
+            sctx.beginPath();
+            sctx.arc(px, py, 4, 0, Math.PI * 2);
+            sctx.fill();
+          });
+
+          sctx.fillStyle = "#4c5470";
+          sctx.font = "11px sans-serif";
+          sctx.textAlign = "center";
+          sctx.fillText(example.xLabel, w / 2, h - 8);
+          sctx.save();
+          sctx.translate(12, h / 2);
+          sctx.rotate(-Math.PI / 2);
+          sctx.fillText(example.yLabel, 0, 0);
+          sctx.restore();
+
+          caption.textContent = example.caption;
+        }
+
+        EXAMPLES.forEach(function (ex) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "btn btn-secondary";
+          b.textContent = ex.label;
+          b.addEventListener("click", function () {
+            btnRow.querySelectorAll(".btn").forEach(function (x) { x.classList.remove("is-active"); });
+            b.classList.add("is-active");
+            currentExample = ex;
+            drawScatter(ex);
+          });
+          btnRow.appendChild(b);
+        });
+
+        // default view
+        btnRow.firstChild.classList.add("is-active");
+        drawScatter(EXAMPLES[0]);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "A spam filter says it is \"87% confident\" an email is spam. What does that number represent?",
+          options: [
+            "A guarantee that the email is spam",
+            "The model's estimated probability that the email is spam, not a certainty",
+            "The percentage of the model's training data that was spam",
+            "The number of spam keywords found"
+          ],
+          answer: 1,
+          explanation: "Confidence scores are probabilities. 87% confident still leaves a real chance the model is wrong."
+        },
+        {
+          q: "If you shift an entire distribution to the right without changing its shape, what happens to the mean and variance?",
+          options: [
+            "Both increase",
+            "The mean increases, variance stays the same",
+            "The variance increases, mean stays the same",
+            "Both stay the same"
+          ],
+          answer: 1,
+          explanation: "Shifting moves the center (mean) but doesn't change the spread of values around that center (variance)."
+        },
+        {
+          q: "Ice cream sales and drowning incidents both rise in the summer. What does this best illustrate?",
+          options: [
+            "Ice cream sales cause drownings",
+            "Correlation without causation — a hidden factor (hot weather) drives both",
+            "Drownings cause ice cream sales",
+            "The two variables are uncorrelated"
+          ],
+          answer: 1,
+          explanation: "The two are correlated because a third factor (summer heat) influences both, not because either causes the other."
+        },
+        {
+          q: "Which statistic best describes how spread out a dataset's values are around the mean?",
+          options: ["Median", "Probability", "Variance", "Correlation"],
+          answer: 2,
+          explanation: "Variance measures how far values tend to be from the mean — the spread of the data."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

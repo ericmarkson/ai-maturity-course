@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What a Neural Network Is, Conceptually — AI Maturity Course</title>
+<meta name="description" content="A conceptual, no-math introduction to neurons, layers, and connections, with an animated clickable network diagram.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "1-5";
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 1 — Beginner</p>
+  <h1>What a Neural Network Is, Conceptually</h1>
+
+  <div class="lesson-content">
+
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Learner can describe, in plain language and without
+      equations, how a neural network takes an input (e.g., a photo) and produces an output (e.g.,
+      "cat") by passing signals through layers.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A neural network is a system of simple, interconnected "neurons" arranged in layers that
+          loosely mimics how brain cells pass signals to each other, allowing the system to learn
+          complex patterns from examples. Each neuron takes in signals from the layer before it,
+          combines them, and passes a new signal forward — layer by layer — until the final layer
+          produces an answer.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Subtopics</h2>
+      <ul>
+        <li>Neurons, layers (input / hidden / output), and the connections between them — conceptual only, no math</li>
+        <li>The brain-inspired metaphor, and its limits: artificial neurons are simplified math functions inspired by, not identical to, biological neurons</li>
+        <li>Why more layers/neurons generally let a network capture more complex patterns</li>
+        <li>A simple mental model: pattern recognition through adjustable connection strengths</li>
+      </ul>
+      <p>
+        Picture a tiny network built to tell "cat" from "dog." The input layer receives some raw
+        signal about the image — is the ear pointy, is the sound high-pitched, how fast is the
+        tail wagging. Each connection between neurons has a strength (a weight), so some signals
+        matter more than others when they reach the next layer. The hidden layer combines those
+        weighted signals into intermediate patterns, and the output layer turns those patterns
+        into a final decision. Training is simply the process of adjusting all those connection
+        strengths, based on many labeled examples, until the network's outputs line up with
+        reality.
+      </p>
+    </section>
+
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID;
+
+    // Toy fixed weights — purely illustrative, not "trained" on anything real.
+    var W_IH = [ // 3 inputs x 4 hidden
+      [2.0, -1.0, 1.0, -0.5],
+      [1.0, -1.0, -1.0, 1.5],
+      [-1.0, 2.0, 0.5, -1.0]
+    ];
+    var B_H = [-1.5, -0.5, -0.5, -0.2];
+
+    var W_HO = [ // 4 hidden x 2 outputs [cat, dog]
+      [1.5, -1.2],
+      [-1.0, 1.6],
+      [0.8, -0.3],
+      [0.5, -0.6]
+    ];
+    var B_O = [-0.5, -0.2];
+
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+    function forward(inputs01) {
+      var hidden = [];
+      for (var j = 0; j < 4; j++) {
+        var sum = B_H[j];
+        for (var i = 0; i < 3; i++) sum += inputs01[i] * W_IH[i][j];
+        hidden.push(sigmoid(sum));
+      }
+      var output = [];
+      for (var k = 0; k < 2; k++) {
+        var sum2 = B_O[k];
+        for (var j2 = 0; j2 < 4; j2++) sum2 += hidden[j2] * W_HO[j2][k];
+        output.push(sigmoid(sum2));
+      }
+      return { hidden: hidden, output: output };
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lerpColor(t, from, to) {
+      var r = Math.round(lerp(from[0], to[0], t));
+      var g = Math.round(lerp(from[1], to[1], t));
+      var b = Math.round(lerp(from[2], to[2], t));
+      return "rgb(" + r + "," + g + "," + b + ")";
+    }
+
+    var GRAY = [222, 227, 240];
+    var BLUE = [41, 82, 227];
+    var GREEN = [15, 157, 120];
+    var ORANGE = [214, 110, 20];
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Run a signal through a tiny cat-vs-dog network",
+      instructions: "Drag the three input sliders to describe an animal, then click “Run” to " +
+        "watch the signal light up the network layer by layer. Sliders also update the network " +
+        "live as you move them.",
+      topicId: TOPIC_ID,
+      mount: function (root, ctx) {
+        var inputs = [50, 50, 50]; // ear pointiness, vocal pitch, tail wag speed (0-100)
+        var running = false;
+
+        var sliderWrap = document.createElement("div");
+        root.appendChild(sliderWrap);
+
+        var sliderDefs = [
+          { label: "Ear pointiness (cat-like)", },
+          { label: "Vocal pitch (higher = more meow-like)" },
+          { label: "Tail wag speed (higher = more dog-like)" }
+        ];
+
+        sliderDefs.forEach(function (def, idx) {
+          var row = document.createElement("div");
+          row.className = "slider-row";
+          var label = document.createElement("label");
+          label.textContent = def.label;
+          label.style.minWidth = "0";
+          label.style.flex = "1 1 220px";
+          var slider = document.createElement("input");
+          slider.type = "range";
+          slider.min = "0";
+          slider.max = "100";
+          slider.value = "50";
+          var readout = document.createElement("span");
+          readout.className = "readout";
+          readout.textContent = "50";
+
+          slider.addEventListener("input", function () {
+            inputs[idx] = parseInt(slider.value, 10);
+            readout.textContent = String(inputs[idx]);
+            renderNetwork(false);
+          });
+
+          row.appendChild(label);
+          row.appendChild(slider);
+          row.appendChild(readout);
+          sliderWrap.appendChild(row);
+        });
+
+        var runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "btn btn-primary";
+        runBtn.textContent = "Run (animate)";
+        runBtn.style.margin = "8px 0 16px 0";
+        root.appendChild(runBtn);
+
+        var diagramWrap = document.createElement("div");
+        diagramWrap.style.position = "relative";
+        diagramWrap.style.width = "100%";
+        diagramWrap.style.maxWidth = "560px";
+        diagramWrap.style.height = "260px";
+        diagramWrap.style.background = "#fff";
+        diagramWrap.style.border = "1px solid var(--color-border)";
+        diagramWrap.style.borderRadius = "10px";
+        root.appendChild(diagramWrap);
+
+        var svgNS = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("viewBox", "0 0 560 260");
+        svg.style.position = "absolute";
+        svg.style.top = "0";
+        svg.style.left = "0";
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+        diagramWrap.appendChild(svg);
+
+        var inputPos = [[40, 60], [40, 130], [40, 200]];
+        var hiddenPos = [[280, 30], [280, 93], [280, 156], [280, 219]];
+        var outputPos = [[500, 80], [500, 170]];
+
+        var linesIH = [];
+        for (var i = 0; i < 3; i++) {
+          linesIH[i] = [];
+          for (var j = 0; j < 4; j++) {
+            var line = document.createElementNS(svgNS, "line");
+            line.setAttribute("x1", inputPos[i][0] + 16);
+            line.setAttribute("y1", inputPos[i][1]);
+            line.setAttribute("x2", hiddenPos[j][0] - 16);
+            line.setAttribute("y2", hiddenPos[j][1]);
+            line.setAttribute("stroke", "#c7cfe6");
+            line.setAttribute("stroke-width", String(1 + Math.abs(W_IH[i][j])));
+            svg.appendChild(line);
+            linesIH[i][j] = line;
+          }
+        }
+        var linesHO = [];
+        for (var j2 = 0; j2 < 4; j2++) {
+          linesHO[j2] = [];
+          for (var k = 0; k < 2; k++) {
+            var line2 = document.createElementNS(svgNS, "line");
+            line2.setAttribute("x1", hiddenPos[j2][0] + 16);
+            line2.setAttribute("y1", hiddenPos[j2][1]);
+            line2.setAttribute("x2", outputPos[k][0] - 16);
+            line2.setAttribute("y2", outputPos[k][1]);
+            line2.setAttribute("stroke", "#c7cfe6");
+            line2.setAttribute("stroke-width", String(1 + Math.abs(W_HO[j2][k])));
+            svg.appendChild(line2);
+            linesHO[j2][k] = line2;
+          }
+        }
+
+        function makeNode(pos, diameter) {
+          var el = document.createElement("div");
+          el.style.position = "absolute";
+          el.style.width = diameter + "px";
+          el.style.height = diameter + "px";
+          el.style.borderRadius = "50%";
+          el.style.left = (pos[0] - diameter / 2) + "px";
+          el.style.top = (pos[1] - diameter / 2) + "px";
+          el.style.border = "2px solid var(--color-border-strong)";
+          el.style.background = "rgb(222,227,240)";
+          el.style.transition = "background 0.3s ease, box-shadow 0.3s ease";
+          el.style.transform = "translate(0,0)"; // scale to viewBox via percentage below
+          diagramWrap.appendChild(el);
+          return el;
+        }
+
+        // Position nodes as percentage of 560x260 box for responsiveness
+        function positionNode(el, pos, diameter) {
+          el.style.left = (pos[0] / 560 * 100) + "%";
+          el.style.top = (pos[1] / 260 * 100) + "%";
+          el.style.marginLeft = -(diameter / 2) + "px";
+          el.style.marginTop = -(diameter / 2) + "px";
+        }
+
+        var inputNodes = inputPos.map(function (p) { var n = makeNode(p, 30); positionNode(n, p, 30); return n; });
+        var hiddenNodes = hiddenPos.map(function (p) { var n = makeNode(p, 26); positionNode(n, p, 26); return n; });
+        var outputNodes = outputPos.map(function (p) { var n = makeNode(p, 40); positionNode(n, p, 40); return n; });
+
+        var catLabel = document.createElement("div");
+        catLabel.textContent = "CAT";
+        catLabel.style.position = "absolute";
+        catLabel.style.left = (outputPos[0][0] / 560 * 100) + "%";
+        catLabel.style.top = (outputPos[0][1] / 260 * 100) + "%";
+        catLabel.style.transform = "translate(18px, -10px)";
+        catLabel.style.fontWeight = "700";
+        catLabel.style.fontSize = "0.8rem";
+        diagramWrap.appendChild(catLabel);
+
+        var dogLabel = document.createElement("div");
+        dogLabel.textContent = "DOG";
+        dogLabel.style.position = "absolute";
+        dogLabel.style.left = (outputPos[1][0] / 560 * 100) + "%";
+        dogLabel.style.top = (outputPos[1][1] / 260 * 100) + "%";
+        dogLabel.style.transform = "translate(18px, -10px)";
+        dogLabel.style.fontWeight = "700";
+        dogLabel.style.fontSize = "0.8rem";
+        diagramWrap.appendChild(dogLabel);
+
+        var resultText = document.createElement("p");
+        resultText.setAttribute("role", "status");
+        resultText.style.marginTop = "12px";
+        resultText.style.fontWeight = "600";
+        root.appendChild(resultText);
+
+        function resetLines() {
+          linesIH.forEach(function (row) { row.forEach(function (l) { l.setAttribute("stroke", "#c7cfe6"); l.setAttribute("opacity", "0.6"); }); });
+          linesHO.forEach(function (row) { row.forEach(function (l) { l.setAttribute("stroke", "#c7cfe6"); l.setAttribute("opacity", "0.6"); }); });
+        }
+
+        function renderNetwork(animated) {
+          var normInputs = inputs.map(function (v) { return v / 100; });
+          var result = forward(normInputs);
+
+          inputNodes.forEach(function (n, idx) {
+            n.style.background = lerpColor(normInputs[idx], GRAY, BLUE);
+            n.style.boxShadow = "none";
+          });
+
+          function applyRest() {
+            hiddenNodes.forEach(function (n, idx) {
+              n.style.background = lerpColor(result.hidden[idx], GRAY, BLUE);
+            });
+            outputNodes.forEach(function (n, idx) {
+              var t = result.output[idx];
+              n.style.background = lerpColor(t, GRAY, idx === 0 ? GREEN : ORANGE);
+            });
+            var winner = result.output[0] >= result.output[1] ? 0 : 1;
+            outputNodes.forEach(function (n, idx) {
+              n.style.boxShadow = idx === winner ? "0 0 0 4px rgba(211,57,12,0.5)" : "none";
+            });
+            var catPct = Math.round(result.output[0] * 100);
+            var dogPct = Math.round(result.output[1] * 100);
+            resultText.textContent = "Prediction: " + (winner === 0 ? "CAT" : "DOG") +
+              " — cat " + catPct + "% vs dog " + dogPct + "%.";
+            resultText.style.color = winner === 0 ? "#0f7a4a" : "#a06a00";
+          }
+
+          if (!animated) {
+            resetLines();
+            applyRest();
+            return;
+          }
+
+          running = true;
+          runBtn.disabled = true;
+          resetLines();
+          hiddenNodes.forEach(function (n) { n.style.background = "rgb(222,227,240)"; });
+          outputNodes.forEach(function (n) { n.style.background = "rgb(222,227,240)"; n.style.boxShadow = "none"; });
+          resultText.textContent = "Signal entering input layer...";
+
+          setTimeout(function () {
+            linesIH.forEach(function (row) { row.forEach(function (l) { l.setAttribute("stroke", "#2952e3"); l.setAttribute("opacity", "1"); }); });
+            hiddenNodes.forEach(function (n, idx) { n.style.background = lerpColor(result.hidden[idx], GRAY, BLUE); });
+            resultText.textContent = "Hidden layer combining weighted signals...";
+          }, 450);
+
+          setTimeout(function () {
+            linesHO.forEach(function (row) { row.forEach(function (l) { l.setAttribute("stroke", "#2952e3"); l.setAttribute("opacity", "1"); }); });
+            applyRest();
+            running = false;
+            runBtn.disabled = false;
+          }, 950);
+        }
+
+        runBtn.addEventListener("click", function () {
+          if (running) return;
+          renderNetwork(true);
+        });
+
+        renderNetwork(false);
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "In a neural network, what does the hidden layer do?",
+          options: ["Stores the raw training dataset", "Combines weighted signals from the previous layer and passes a new signal forward", "Displays the final answer to the user", "Deletes signals it doesn't need"],
+          answer: 1,
+          explanation: "Hidden-layer neurons take in weighted signals from the layer before them, combine them, and pass a transformed signal onward."
+        },
+        {
+          q: "Why is the “inspired by the brain” description of neural networks only a loose metaphor?",
+          options: ["Because neural networks don't use layers at all", "Because artificial neurons are simplified mathematical functions, not literal biological cells", "Because neural networks can't process images", "Because the term “neuron” was invented for computers first"],
+          answer: 1,
+          explanation: "Artificial neurons borrow the general idea of connected signal-passing units, but they're simplified math, not actual biology."
+        },
+        {
+          q: "What generally happens when you add more layers or neurons to a network?",
+          options: ["It becomes provably worse at every task", "It can capture more complex patterns (with real tradeoffs, not a free lunch)", "It stops being able to learn from data", "Nothing changes"],
+          answer: 1,
+          explanation: "More capacity generally lets a network represent more complex patterns, though it isn't automatically better — it comes with real tradeoffs."
+        },
+        {
+          q: "In the exercise's toy network, what determines how strongly one neuron's signal influences the next neuron?",
+          options: ["The neuron's color", "The connection's weight (strength)", "How many total neurons exist in the network", "The order the sliders were moved in"],
+          answer: 1,
+          explanation: "Each connection has a weight that scales how much of that signal gets passed forward — the core idea behind “adjustable connection strengths.”"
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>
