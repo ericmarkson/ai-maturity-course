@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Level Overview — AI Maturity Course</title>
+<meta name="description" content="Topic list and progress for Level 3: Prompt Engineering in the AI Maturity Course.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_LEVEL = 3;
+</script>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+  <p class="card-eyebrow" id="level-eyebrow">Level 3</p>
+  <h1 id="level-title">Loading…</h1>
+  <p id="level-subtitle" style="color: var(--color-text-muted);"></p>
+
+  <div class="progress-summary" style="margin-bottom: var(--space-6);">
+    <div>
+      <div class="progress-summary-figure" id="level-progress-figure">0 / 0</div>
+      <div class="progress-summary-label">topics complete in this level</div>
+    </div>
+    <div class="progress-summary-bar">
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" id="level-progress-bar">
+        <div class="progress-bar-fill" id="level-progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="topic-list" id="topic-list"></ul>
+
+  <nav class="topic-prev-next" aria-label="Level navigation" id="level-prev-next"></nav>
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    if (window.Site && typeof window.Site.renderLevelOverview === "function") {
+      window.Site.renderLevelOverview(window.CURRENT_LEVEL);
+    }
+  })();
+</script>
+</body>
+</html>

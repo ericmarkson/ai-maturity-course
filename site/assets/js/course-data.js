@@ -2,19 +2,20 @@
  * course-data.js
  * ---------------------------------------------------------------------------
  * Canonical source of truth for the entire course structure: 4 tiers,
- * 10 levels, and 83 topics with display titles, summaries, and canonical file
+ * 11 levels, and 89 topics with display titles, summaries, and canonical file
  * paths relative to the site root (`site/index.html`).
  *
- * NOTE: Topic `id` and `file` paths remain stable across curriculum revisions
- * so URLs and localStorage progress entries (`aimc:progress:v1`) never break.
+ * NOTE: Topic `id`, `file`, and level `indexFile` paths remain stable across
+ * curriculum revisions so URLs and localStorage progress entries
+ * (`aimc:progress:v1`) never break.
  * ---------------------------------------------------------------------------
  */
 window.COURSE = {
   tiers: [
-    { slug: "foundations", name: "Foundations", levels: [1, 2], desc: "Core concepts, terminology, classical intuition, and practical prompting." },
-    { slug: "core-ml", name: "Core ML & Deep Learning", levels: [3, 4], desc: "Tabular ML, optimization, neural nets, CNNs, sequences, and evaluation." },
-    { slug: "llms-agents", name: "LLMs, RAG & Agents", levels: [5, 6, 7], desc: "Transformers, structured tool use, RAG, evals, tracing, alignment, and scaling." },
-    { slug: "frontier", name: "Production, Safety & Frontier", levels: [8, 9, 10], desc: "Autonomous systems, reasoning, inference optimization, interpretability, and capstones." }
+    { slug: "foundations", name: "Foundations", levels: [1, 2, 3], desc: "Core mental models, practical AI stacks/teams, and reliable prompt engineering." },
+    { slug: "core-ml", name: "Core ML & Deep Learning", levels: [4, 5], desc: "Tabular ML, optimization, neural nets, CNNs, sequences, and evaluation." },
+    { slug: "llms-agents", name: "LLMs, RAG & Agents", levels: [6, 7, 8], desc: "Transformers, structured tool use, RAG, evals, tracing, alignment, and scaling." },
+    { slug: "frontier", name: "Production, Safety & Frontier", levels: [9, 10, 11], desc: "Autonomous systems, reasoning, inference optimization, interpretability, and capstones." }
   ],
   levels: [
     {
@@ -22,6 +23,7 @@ window.COURSE = {
       name: "Beginner",
       tier: "Foundations",
       tierSlug: "foundations",
+      indexFile: "levels/level-1/index.html",
       summary: "Build a practical mental model of what happens behind the scenes when you use AI — using everyday analogies, core vocabulary, and real tool behavior.",
       topics: [
         { num: 1, id: "1-7", title: "How AI Actually Works Behind the Scenes (Through Everyday Analogies)", file: "levels/level-1/topic-7.html", added: true },
@@ -38,7 +40,8 @@ window.COURSE = {
       name: "Novice",
       tier: "Foundations",
       tierSlug: "foundations",
-      summary: "Learn how models learn from data, validate without overfitting, prompt AI APIs, and structure Prompts, Rules, Tools (MCP), Skills, Workflows, and AI Teams.",
+      indexFile: "levels/level-2/index.html",
+      summary: "Learn how models learn from data, validate without overfitting, call AI APIs, and structure Prompts, Rules, Tools (MCP), Skills, Workflows, and AI Teams.",
       topics: [
         { num: 1, id: "2-1", title: "Supervised vs. Unsupervised vs. Reinforcement Learning", file: "levels/level-2/topic-1.html" },
         { num: 2, id: "2-2", title: "Basic Probability and Statistics for ML", file: "levels/level-2/topic-2.html" },
@@ -47,17 +50,34 @@ window.COURSE = {
         { num: 5, id: "2-5", title: "Train/Validation/Test Splits", file: "levels/level-2/topic-5.html" },
         { num: 6, id: "2-6", title: "Overfitting vs. Underfitting", file: "levels/level-2/topic-6.html" },
         { num: 7, id: "2-7", title: "Using AI Tools and APIs (ChatGPT, Claude, etc.)", file: "levels/level-2/topic-7.html" },
-        { num: 8, id: "2-8", title: "Basic Prompt Engineering", file: "levels/level-2/topic-8.html" },
-        { num: 9, id: "2-9", title: "Chatbots vs. Workflows vs. Agents: The Spectrum of AI Autonomy", file: "levels/level-2/topic-9.html" },
-        { num: 10, id: "2-10", title: "The Modern AI Stack: Prompts, Rules, Tools (MCP), Skills & Memory", file: "levels/level-2/topic-10.html" },
-        { num: 11, id: "2-11", title: "Designing an AI Team: Roles, Handoffs & Structured Processes", file: "levels/level-2/topic-11.html" }
+        { num: 8, id: "2-9", title: "Chatbots vs. Workflows vs. Agents: The Spectrum of AI Autonomy", file: "levels/level-2/topic-9.html" },
+        { num: 9, id: "2-10", title: "The Modern AI Stack: Prompts, Rules, Tools (MCP), Skills & Memory", file: "levels/level-2/topic-10.html" },
+        { num: 10, id: "2-11", title: "Designing an AI Team: Roles, Handoffs & Structured Processes", file: "levels/level-2/topic-11.html" }
       ]
     },
     {
       num: 3,
+      name: "Prompt Engineering",
+      tier: "Foundations",
+      tierSlug: "foundations",
+      indexFile: "levels/prompt-engineering/index.html",
+      summary: "Learn why some prompts work and others fail, how to write clear rules and escape hatches, control output formats, use few-shot examples, chain tasks, and debug regressions.",
+      topics: [
+        { num: 1, id: "pe-1", title: "Why Some Prompts Work and Others Fail (How the Model Reads You)", file: "levels/prompt-engineering/topic-1.html" },
+        { num: 2, id: "2-8", title: "Anatomy of a Clear Prompt: Role, Context, Task & Format", file: "levels/level-2/topic-8.html" },
+        { num: 3, id: "pe-3", title: "Giving Clear Instructions: Rules, Constraints & Escape Hatches", file: "levels/prompt-engineering/topic-3.html" },
+        { num: 4, id: "pe-4", title: "Controlling What It Outputs: Formats, Templates, Tone & Length", file: "levels/prompt-engineering/topic-4.html" },
+        { num: 5, id: "pe-5", title: "Show, Don't Just Tell: Using Examples (Few-Shot Prompting)", file: "levels/prompt-engineering/topic-5.html" },
+        { num: 6, id: "pe-6", title: "Breaking Big Tasks Down: Step-by-Step & Chained Prompting", file: "levels/prompt-engineering/topic-6.html" },
+        { num: 7, id: "pe-7", title: "Debugging & Iterating Prompts When They Almost Work", file: "levels/prompt-engineering/topic-7.html" }
+      ]
+    },
+    {
+      num: 4,
       name: "Advanced Beginner",
       tier: "Core ML & Deep Learning",
       tierSlug: "core-ml",
+      indexFile: "levels/level-3/index.html",
       summary: "Work with tabular data in NumPy/Pandas, train classical trees and clustering models, engineer features, and grasp gradient descent and loss.",
       topics: [
         { num: 1, id: "3-1", title: "Python for ML: NumPy and Pandas", file: "levels/level-3/topic-1.html" },
@@ -70,10 +90,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 4,
+      num: 5,
       name: "Intermediate",
       tier: "Core ML & Deep Learning",
       tierSlug: "core-ml",
+      indexFile: "levels/level-4/index.html",
       summary: "Build deep neural nets across vision and text, evaluate models rigorously with precision/recall/ROC-AUC, and prevent overfitting with regularization.",
       topics: [
         { num: 1, id: "4-1", title: "Backpropagation and Activation Functions", file: "levels/level-4/topic-1.html" },
@@ -88,10 +109,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 5,
+      num: 6,
       name: "Intermediate+",
       tier: "LLMs, RAG & Agents",
       tierSlug: "llms-agents",
+      indexFile: "levels/level-5/index.html",
       summary: "Master the Transformer attention mechanism, embeddings and vector search, reinforcement learning basics, generative models, and MLOps serving.",
       topics: [
         { num: 1, id: "5-1", title: "Transformer Architecture and Attention", file: "levels/level-5/topic-1.html" },
@@ -106,10 +128,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 6,
+      num: 7,
       name: "Advanced",
       tier: "LLMs, RAG & Agents",
       tierSlug: "llms-agents",
+      indexFile: "levels/level-6/index.html",
       summary: "Dive inside LLM architecture, structured tool protocols (MCP), RAG pipelines, LoRA fine-tuning, systematic evals, interpretability, and guardrails.",
       topics: [
         { num: 1, id: "6-1", title: "LLM Architecture in Depth: Self-Attention, Positional Encoding, Tokenizers", file: "levels/level-6/topic-1.html" },
@@ -123,10 +146,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 7,
+      num: 8,
       name: "Advanced+",
       tier: "LLMs, RAG & Agents",
       tierSlug: "llms-agents",
+      indexFile: "levels/level-7/index.html",
       summary: "Architect tool-using and multi-agent systems, hybrid RAG, OpenTelemetry-style tracing, RLHF/RLAIF/Constitutional AI, quantization, and scaling laws.",
       topics: [
         { num: 1, id: "7-1", title: "Agentic Systems: Tool Use, Function Calling, ReAct", file: "levels/level-7/topic-1.html" },
@@ -140,10 +164,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 8,
+      num: 9,
       name: "Expert",
       tier: "Production, Safety & Frontier",
       tierSlug: "frontier",
+      indexFile: "levels/level-8/index.html",
       summary: "Engineer autonomous loops, production inference optimization, reasoning/RLVR models, MoE, multimodal architectures, red-teaming, and statistical evals.",
       topics: [
         { num: 1, id: "8-1", title: "Autonomous Agent Architecture: Planning, Self-Correction, Guardrails", file: "levels/level-8/topic-1.html" },
@@ -157,10 +182,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 9,
+      num: 10,
       name: "Expert+ / Research-Adjacent",
       tier: "Production, Safety & Frontier",
       tierSlug: "frontier",
+      indexFile: "levels/level-9/index.html",
       summary: "Explore state-space models, mechanistic interpretability, scalable oversight, 3D parallelism, synthetic data pipelines, reward modeling, and long context.",
       topics: [
         { num: 1, id: "9-1", title: "Novel Architectures: State-Space Models, Mamba, and Beyond", file: "levels/level-9/topic-1.html" },
@@ -174,10 +200,11 @@ window.COURSE = {
       ]
     },
     {
-      num: 10,
+      num: 11,
       name: "Master",
       tier: "Production, Safety & Frontier",
       tierSlug: "frontier",
+      indexFile: "levels/level-10/index.html",
       summary: "Synthesize Chinchilla pretraining tradeoffs, frontier safety cases, experimental rigor, benchmark design, sandboxed coding agents, and production capstones.",
       topics: [
         { num: 1, id: "10-1", title: "Frontier Model Pretraining and Research", file: "levels/level-10/topic-1.html" },

@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Show, Don't Just Tell: Using Examples (Few-Shot Prompting) — AI Maturity Course</title>
+<meta name="description" content="Learn why 2–4 concrete Input → Output examples beat paragraphs of prose, how to include tricky edge cases, and how to avoid label-imbalance bias.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "pe-5";
+</script>
+<style>
+  .fs-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+  }
+  .fs-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .fs-tab {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .fs-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .fs-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .fs-counter {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .fs-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .fs-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .fs-card-title { margin: 0; font-size: var(--font-size-md); }
+  .fs-pool {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+  }
+  .fs-ex-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .fs-ex-item:hover { border-color: var(--color-primary); }
+  .fs-ex-item.is-selected {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+  }
+  .fs-ex-item.is-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .fs-ex-item input { margin-top: 3px; flex-shrink: 0; }
+  .fs-ex-meta {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .fs-ex-meta--edge { background: var(--color-primary-light); color: var(--color-primary); }
+  .fs-ex-meta--skew { background: var(--color-warning-bg); color: #855200; }
+  .fs-ex-in { display: block; font-size: var(--font-size-xs); color: var(--color-text); font-weight: 600; margin-bottom: 3px; }
+  .fs-ex-out {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 3px 6px;
+    word-break: break-word;
+  }
+  .fs-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .fs-limit-note {
+    font-size: var(--font-size-xs);
+    color: var(--color-error);
+    font-weight: 600;
+    margin: var(--space-2) 0 0 0;
+    min-height: 1.2em;
+  }
+  .fs-results {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .fs-bias-alert {
+    background: var(--color-warning-bg);
+    border: 1px solid #d97706;
+    border-left: 4px solid #d97706;
+    color: #855200;
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+  .fs-bias-ok {
+    background: var(--color-success-bg);
+    border: 1px solid var(--color-success);
+    border-left: 4px solid var(--color-success);
+    color: var(--color-success);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .fs-meters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  @media (max-width: 640px) {
+    .fs-meters { grid-template-columns: 1fr; }
+  }
+  .fs-meter-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .fs-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .fs-test-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .fs-test-row {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    background: var(--color-bg-alt);
+  }
+  .fs-test-row.is-pass { border-left: 4px solid var(--color-success); }
+  .fs-test-row.is-fail { border-left: 4px solid var(--color-error); }
+  .fs-test-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: 4px;
+  }
+  .fs-test-kind {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--color-text-muted);
+  }
+  .fs-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .fs-pill--pass { background: var(--color-success-bg); color: var(--color-success); }
+  .fs-pill--fail { background: var(--color-error-bg); color: var(--color-error); }
+  .fs-test-input { font-size: var(--font-size-sm); font-weight: 600; margin-bottom: 6px; }
+  .fs-test-io {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+  .fs-test-note { font-size: var(--font-size-xs); color: var(--color-text-muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Prompt Engineering</p>
+  <h1>Show, Don't Just Tell: Using Examples (Few-Shot Prompting)</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Use 2–4 well-chosen <code>Input &rarr; Output</code> examples (<strong>few-shot prompting</strong>) to lock in format, tone, and subtle edge-case boundaries—without creating label bias.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Zero-shot prompting</strong> asks a model to complete a task using instructions alone.
+          <strong>Few-shot prompting</strong> includes 2–5 concrete <code>Input &rarr; Output</code> demonstrations directly
+          in the prompt so the model infers your exact schema, tone, granularity, and boundary rules by pattern matching.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (Why Examples Beat Paragraphs of Rules)</h2>
+      <p>
+        Prose adjectives like <em>"concise, calm, non-defensive"</em> or <em>"strict JSON"</em> still leave dozens of valid interpretations.
+        Because language models predict text by continuing patterns in context, a handful of real <code>Input &rarr; Output</code> pairs
+        simultaneously settles punctuation, JSON key names, sentence length, and judgment calls that would take three paragraphs to explain.
+      </p>
+
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Approach</th>
+            <th>What You Include</th>
+            <th>Best For</th>
+            <th>Common Watch-Out</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Zero-Shot</strong></td>
+            <td>Task + rules only (0 examples)</td>
+            <td>Simple summaries, brainstorming, open Q&amp;A</td>
+            <td>Drifts on strict formats, custom tone, or subtle categories</td>
+          </tr>
+          <tr>
+            <td><strong>One-Shot</strong></td>
+            <td>1 clean example</td>
+            <td>Teaching an output template quickly</td>
+            <td>May over-copy that single example's wording or label</td>
+          </tr>
+          <tr>
+            <td><strong>Few-Shot (2–4)</strong></td>
+            <td>2–4 diverse examples + edge cases</td>
+            <td>Classification, extraction, consistent brand tone</td>
+            <td>Unbalanced labels skew predictions toward the majority</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Three rules for choosing high-leverage examples:</strong></p>
+      <ul>
+        <li><strong>Stay compact (2–4 pairs):</strong> Two pairs lock the output shape; adding 1–2 tricky edge cases sets the decision line without bloating tokens.</li>
+        <li><strong>Demonstrate the hard boundaries:</strong> Easy inputs only teach syntax. Include borderline examples (e.g., an angry customer requesting a feature, or an unclear note mapped to <code>unknown</code>) where rules alone wobble.</li>
+        <li><strong>Balance labels and styles:</strong> Cover different output labels and tones evenly so the model doesn't treat one label as the automatic default.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Resolving Ticket Ambiguity with 3 Examples</h3>
+      <p>
+        Suppose your zero-shot prompt says: <em>"Classify tickets into billing, bug, or feature, and set priority."</em>
+        Angry customers requesting missing features often get misfiled as high-priority bugs. Adding three balanced examples fixes both schema and nuance:
+      </p>
+      <pre class="code-block">Input: "Can I get last month's PDF receipt?"
+Output: {"category": "billing", "priority": "normal"}
+
+Input: "Love manually exporting 12 CSVs every Friday lol—bulk export please."
+Output: {"category": "feature", "priority": "normal"}
+
+Input: "It's broken on my screen, please fix."
+Output: {"category": "unknown", "priority": "unknown"}</pre>
+      <p>
+        Example 2 proves sarcasm is still a <code>feature</code> (not a <code>bug</code>), while Example 3 gives a clean escape hatch instead of guessing.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Label-Imbalance &amp; Copycat Bias</h3>
+      <p>
+        Few-shot examples teach <strong>label frequency</strong> as well as format. If all 3 examples happen to be
+        <code>billing / high</code> (or start with <em>"We sincerely apologize for the inconvenience"</em>), the model
+        infers that pattern as the norm and over-predicts <code>billing / high</code>—or repeats your corporate boilerplate—on
+        completely unrelated inputs. Always audit your example pool for accidental skew.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "pe-5"
+
+    var TASKS = [
+      {
+        id: "ticket-classifier",
+        label: "1. Ticket Classifier & Tagger",
+        goal: "Output strict JSON {\"category\": \"billing|bug|feature|unknown\", \"priority\": \"high|normal|unknown\"} across normal tickets and tricky edge cases.",
+        examples: [
+          {
+            id: "tc-std-1",
+            kind: "Standard (Billing / Normal)",
+            kindType: "std",
+            input: "Can I get a PDF copy of last month's invoice?",
+            output: '{"category": "billing", "priority": "normal"}',
+            cat: "billing",
+            prio: "normal"
+          },
+          {
+            id: "tc-std-2",
+            kind: "Standard (Bug / High)",
+            kindType: "std",
+            input: "Checkout crashes with a 500 error for every EU customer.",
+            output: '{"category": "bug", "priority": "high"}',
+            cat: "bug",
+            prio: "high"
+          },
+          {
+            id: "tc-bias-1",
+            kind: "Same-Label Pair A (Billing / High)",
+            kindType: "skew",
+            input: "Double charged on renewal! Reverse this immediately!",
+            output: '{"category": "billing", "priority": "high"}',
+            cat: "billing",
+            prio: "high"
+          },
+          {
+            id: "tc-bias-2",
+            kind: "Same-Label Pair B (Billing / High)",
+            kindType: "skew",
+            input: "My corporate card keeps declining on renewal—urgent!",
+            output: '{"category": "billing", "priority": "high"}',
+            cat: "billing",
+            prio: "high"
+          },
+          {
+            id: "tc-edge-1",
+            kind: "Edge Case (Sarcastic Feature)",
+            kindType: "edge",
+            input: "Love having to export 12 CSVs by hand every Friday lol. Bulk export please.",
+            output: '{"category": "feature", "priority": "normal"}',
+            cat: "feature",
+            prio: "normal"
+          },
+          {
+            id: "tc-edge-2",
+            kind: "Edge Case (Vague Escape Hatch)",
+            kindType: "edge",
+            input: "It's not working on my screen. Please check.",
+            output: '{"category": "unknown", "priority": "unknown"}',
+            cat: "unknown",
+            prio: "unknown"
+          }
+        ],
+        tests: [
+          {
+            id: "t1",
+            isEdge: false,
+            kind: "Normal — Routine Billing",
+            input: "Please change our billing contact email from ops@ to ap@acme.com.",
+            expected: '{"category": "billing", "priority": "normal"}'
+          },
+          {
+            id: "t2",
+            isEdge: false,
+            kind: "Normal — Org-Wide Outage",
+            input: "SSO login throws 'Invalid SAML signature' for our whole team.",
+            expected: '{"category": "bug", "priority": "high"}'
+          },
+          {
+            id: "t3",
+            isEdge: false,
+            kind: "Normal — Feature Request",
+            input: "Could you add keyboard shortcuts for archiving threads?",
+            expected: '{"category": "feature", "priority": "normal"}'
+          },
+          {
+            id: "t4",
+            isEdge: true,
+            kind: "Edge — Angry Threat Disguising a Bug",
+            input: "Refund me today or I'm canceling—every time I click Pay it freezes on a blank screen!",
+            expected: '{"category": "bug", "priority": "high"}'
+          },
+          {
+            id: "t5",
+            isEdge: true,
+            kind: "Edge — Sarcastic Feature Request",
+            input: "Oh great, another app without dark mode in 2026. Guess I'll keep wearing sunglasses.",
+            expected: '{"category": "feature", "priority": "normal"}'
+          },
+          {
+            id: "t6",
+            isEdge: true,
+            kind: "Edge — Underspecified / Missing Detail",
+            input: "Something seems off since yesterday, any update?",
+            expected: '{"category": "unknown", "priority": "unknown"}'
+          }
+        ],
+        evaluate: function (selectedIds) {
+          var sel = this.examples.filter(function (e) { return selectedIds.indexOf(e.id) !== -1; });
+          var n = sel.length;
+          var has = function (id) { return selectedIds.indexOf(id) !== -1; };
+
+          var billingCount = sel.filter(function (e) { return e.cat === "billing"; }).length;
+          var highCount = sel.filter(function (e) { return e.prio === "high"; }).length;
+          var hasSkew = n >= 2 && ((billingCount / n) >= 0.66 || (highCount / n) >= 0.75);
+          var hasBugContrast = has("tc-std-2") && (has("tc-std-1") || has("tc-edge-1") || has("tc-edge-2"));
+          var hasSarcasmEdge = has("tc-edge-1");
+          var hasUnknownEdge = has("tc-edge-2");
+
+          var biasMsg = null;
+          if (hasSkew) {
+            biasMsg = "Bias Alert: " + Math.max(billingCount, highCount) + " of " + n +
+              " selected examples push 'billing' or 'high' priority. The model treats that skewed distribution as the default and over-classifies routine requests.";
+          }
+
+          var rows = [];
+
+          // Test 1: Routine Billing
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Category: Billing (Low urgency) — I can help update your email.", note: "Zero-shot guessed key names and added conversational text instead of strict JSON." });
+          } else if (hasSkew && highCount >= 2) {
+            rows.push({ pass: false, formatOk: true, output: '{"category": "billing", "priority": "high"}', note: "Format passed, but high-priority example skew inflated routine email update to 'high'." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "billing", "priority": "normal"}', note: "Clean JSON and accurate classification." });
+          }
+
+          // Test 2: Org-Wide Bug
+          if (n === 0) {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "bug", "priority": "high"}', note: "Zero-shot happened to output valid JSON and right labels." });
+          } else if (hasSkew && billingCount === n) {
+            rows.push({ pass: false, formatOk: true, output: '{"category": "billing", "priority": "high"}', note: "100% billing examples pulled even an SSO bug into 'billing'." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "bug", "priority": "high"}', note: "Matched bug outage pattern cleanly." });
+          }
+
+          // Test 3: Feature Request
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Here is the tag: [Feature Request / Medium]", note: "Zero-shot drifted into bracketed text and invented priority 'Medium'." });
+          } else if (n === 1) {
+            rows.push({ pass: false, formatOk: false, output: "Sure! ```json\n{\"category\": \"feature\", \"priority\": \"normal\"}\n```", note: "One-shot captured labels but wrapped JSON in prose and markdown fences." });
+          } else if (hasSkew && !has("tc-edge-1")) {
+            rows.push({ pass: false, formatOk: true, output: '{"category": "billing", "priority": "high"}', note: "Unbalanced billing/high examples biased a plain feature request." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "feature", "priority": "normal"}', note: "Clean JSON and accurate feature label." });
+          }
+
+          // Test 4 (Edge): Disguised Bug
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Billing dispute — Urgent refund needed.", note: "Zero-shot fell for 'Refund me' at the start and missed strict JSON." });
+          } else if (!hasBugContrast || (hasSkew && billingCount >= 2)) {
+            rows.push({ pass: false, formatOk: true, output: '{"category": "billing", "priority": "high"}', note: "Without balanced bug vs. billing contrast, 'Refund me' tricked the classifier." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "bug", "priority": "high"}', note: "Balanced bug/billing contrast caught the checkout freeze root cause." });
+          }
+
+          // Test 5 (Edge): Sarcastic Feature
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Complaint (Bug) — High", note: "Zero-shot misread sarcasm as a bug and broke JSON schema." });
+          } else if (!hasSarcasmEdge) {
+            rows.push({ pass: false, formatOk: true, output: hasSkew ? '{"category": "billing", "priority": "high"}' : '{"category": "bug", "priority": "high"}', note: "Missing sarcastic boundary example: model mistook snarky tone for a bug." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "feature", "priority": "normal"}', note: "Sarcastic edge example taught the model that snark != bug." });
+          }
+
+          // Test 6 (Edge): Underspecified
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Needs follow-up (Technical?)", note: "Zero-shot did not emit valid JSON." });
+          } else if (!hasUnknownEdge) {
+            rows.push({ pass: false, formatOk: true, output: hasSkew ? '{"category": "billing", "priority": "high"}' : '{"category": "bug", "priority": "normal"}', note: "No escape-hatch example shown, so the model guessed instead of returning 'unknown'." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: '{"category": "unknown", "priority": "unknown"}', note: "Escape-hatch example enabled safe 'unknown' output." });
+          }
+
+          return { rows: rows, biasMsg: biasMsg };
+        }
+      },
+      {
+        id: "tone-matcher",
+        label: "2. Support Reply Tone Matcher",
+        goal: "Write 1 calm, plainspoken sentence (<=25 words) with a concrete next step and zero hollow corporate apologies.",
+        examples: [
+          {
+            id: "tm-std-1",
+            kind: "Standard (Delay)",
+            kindType: "std",
+            input: "My report export has been spinning for 3 minutes.",
+            output: "Exports over 10k rows take up to 5 minutes; I'll email your link directly if it isn't ready by 2:10 PM.",
+            fluff: false
+          },
+          {
+            id: "tm-std-2",
+            kind: "Standard (How-To)",
+            kindType: "std",
+            input: "Where do I change my workspace timezone?",
+            output: "Open Settings > Workspace > Timezone, pick your region, and click Save; timestamps update immediately.",
+            fluff: false
+          },
+          {
+            id: "tm-bias-1",
+            kind: "Robotic Fluff Pair A (Over-Apology)",
+            kindType: "skew",
+            input: "Why was my seat count wrong on the invoice?",
+            output: "We sincerely apologize for any inconvenience caused! Thank you for your patience while our team looks into this matter.",
+            fluff: true
+          },
+          {
+            id: "tm-bias-2",
+            kind: "Robotic Fluff Pair B (Over-Apology)",
+            kindType: "skew",
+            input: "The mobile app logged me out twice today.",
+            output: "We deeply regret the frustration this has caused! Our valued customers are always our highest priority.",
+            fluff: true
+          },
+          {
+            id: "tm-edge-1",
+            kind: "Edge Case (Hostile Customer)",
+            kindType: "edge",
+            input: "Your garbage app ruined my live morning demo!!",
+            output: "I see the preview timed out at 9:04 AM; I've flagged your logs for engineering and can share a manual fallback now.",
+            fluff: false
+          },
+          {
+            id: "tm-edge-2",
+            kind: "Edge Case (Unsupported Request)",
+            kindType: "edge",
+            input: "Can you restore a project I permanently deleted 6 months ago?",
+            output: "Permanent deletions purge after 30 days and can't be restored, though I can help export your remaining active projects.",
+            fluff: false
+          }
+        ],
+        tests: [
+          {
+            id: "s1",
+            isEdge: false,
+            kind: "Normal — Sync Question",
+            input: "How long do CSV imports usually take to appear?",
+            expected: "1 crisp sentence with concrete timing + next step, no hollow apology."
+          },
+          {
+            id: "s2",
+            isEdge: false,
+            kind: "Normal — Billing Receipt",
+            input: "Can I add our VAT number to past invoices?",
+            expected: "1 crisp sentence naming exact path/action, <=25 words."
+          },
+          {
+            id: "s3",
+            isEdge: false,
+            kind: "Normal — Permissions Issue",
+            input: "My teammate can't see the Q3 dashboard.",
+            expected: "1 crisp sentence giving concrete permission fix, <=25 words."
+          },
+          {
+            id: "s4",
+            isEdge: true,
+            kind: "Edge — Hostile Complaint",
+            input: "Worst onboarding ever—nothing works and my team is furious!!",
+            expected: "Calm, non-defensive, concrete step (no groveling or mirror anger)."
+          },
+          {
+            id: "s5",
+            isEdge: true,
+            kind: "Edge — Out-of-Policy Refund",
+            input: "Give me a full refund for all 14 months I didn't log in.",
+            expected: "Direct, kind policy boundary + practical alternative, <=25 words."
+          },
+          {
+            id: "s6",
+            isEdge: true,
+            kind: "Edge — Empty / Vague Ticket",
+            input: "Fix this asap.",
+            expected: "Calm 1-sentence request for the specific error or page URL."
+          }
+        ],
+        evaluate: function (selectedIds) {
+          var sel = this.examples.filter(function (e) { return selectedIds.indexOf(e.id) !== -1; });
+          var n = sel.length;
+          var has = function (id) { return selectedIds.indexOf(id) !== -1; };
+          var fluffCount = sel.filter(function (e) { return e.fluff; }).length;
+          var cleanCount = n - fluffCount;
+          var hasFluffSkew = fluffCount > 0 && fluffCount >= cleanCount;
+
+          var biasMsg = null;
+          if (hasFluffSkew) {
+            biasMsg = "Tone Bias Alert: Robotic boilerplate examples ('We sincerely apologize...') dominate your selection (" +
+              fluffCount + " of " + n + "). The model copies that hollow fluff and drops concrete next steps.";
+          }
+
+          var rows = [];
+
+          // s1
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Hello! Thank you for reaching out. CSV imports typically take a few minutes depending on file size, so please wait patiently and let us know if you need anything else!", note: "Zero-shot produced a wordy 29-word multi-sentence greeting." });
+          } else if (hasFluffSkew) {
+            rows.push({ pass: false, formatOk: true, output: "We sincerely apologize for any delay with your CSV import! Thank you for your patience as it processes.", note: "Copied corporate apology boilerplate and omitted actual import timing." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Standard CSV imports finish within 2 minutes; refresh the Data tab or send me the filename if it stalls.", note: "Matched 1-sentence <=25-word style with concrete timing." });
+          }
+
+          // s2
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Hi there, thanks for contacting support! You can update billing details in Settings, and our billing team can review past invoices if needed.", note: "Exceeded 25 words and stayed vague on exact steps." });
+          } else if (hasFluffSkew) {
+            rows.push({ pass: false, formatOk: true, output: "We apologize for the inconvenience! Our valued customers can reach out anytime regarding VAT updates.", note: "Fluff examples caused the model to skip the Settings step." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Add your VAT ID under Billing > Tax Details, then reply with the invoice numbers so I can regenerate PDFs.", note: "Actionable, concise, and free of filler." });
+          }
+
+          // s3
+          if (n === 0) {
+            rows.push({ pass: true, formatOk: true, output: "Ask an Admin to grant Viewer access under Members > Permissions so the Q3 dashboard appears.", note: "Zero-shot happened to land concisely here." });
+          } else if (n === 1 && !hasFluffSkew) {
+            rows.push({ pass: false, formatOk: false, output: "Ask an Admin to check Members > Permissions and wait 5 minutes for sync.", note: "One-shot example over-copied the '5 minutes' timing artifact from the single example!" });
+          } else if (hasFluffSkew) {
+            rows.push({ pass: false, formatOk: true, output: "We deeply regret this sharing issue! Thank you for your patience while your teammate tries again.", note: "Tone skew replaced troubleshooting with empty apologies." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Have a Workspace Admin switch your teammate from Guest to Editor under Settings > Members.", note: "Clean, exact, 15 words." });
+          }
+
+          // s4 (Edge): Hostile Complaint
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "We are so, so sorry for this terrible experience! Please don't cancel—let us know what went wrong so we can make it right.", note: "Zero-shot defaulted to groveling apology." });
+          } else if (hasFluffSkew || !has("tm-edge-1")) {
+            rows.push({ pass: false, formatOk: true, output: "We sincerely apologize for the extreme frustration this caused your team today!", note: "Missing calm hostile-customer example: model defaulted to defensive apologizing without a next step." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Tell me which page blocked your team first and I'll inspect your workspace errors directly and send a fix.", note: "Hostile edge example kept tone calm and focused on next step." });
+          }
+
+          // s5 (Edge): Out-of-Policy Refund
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Unfortunately our policy does not allow refunds for 14 months, we apologize for any inconvenience this causes you!", note: "Zero-shot used robotic 'Unfortunately' + hollow apology." });
+          } else if (hasFluffSkew || !has("tm-edge-2")) {
+            rows.push({ pass: false, formatOk: true, output: "We deeply regret that we may not be able to fulfill a 14-month refund at this time.", note: "Missing 'kind no + alternative' example: reply sounded stiff and offered no path forward." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Refunds cover the past 30 days rather than 14 months, though I can pause your plan and credit this current cycle.", note: "Unsupported-request example gave a crisp boundary plus a helpful alternative." });
+          }
+
+          // s6 (Edge): Vague "Fix this asap."
+          if (n === 0) {
+            rows.push({ pass: false, formatOk: false, output: "Happy to help! Could you please provide more details, screenshots, browser version, and timestamps? Thank you!", note: "Zero-shot generated a long multi-question checklist." });
+          } else if (hasFluffSkew) {
+            rows.push({ pass: false, formatOk: true, output: "We apologize for the trouble! Please let our valued support team know how we can assist.", note: "Boilerplate skew asked for nothing concrete." });
+          } else if (!has("tm-edge-1") && !has("tm-edge-2")) {
+            rows.push({ pass: false, formatOk: true, output: "I'd be glad to check; please confirm your Settings > Workspace path and wait 5 minutes.", note: "Without edge variety, the model awkwardly echoed phrasing from the standard examples." });
+          } else {
+            rows.push({ pass: true, formatOk: true, output: "Share the URL or screenshot of the error you're seeing and I'll check the logs right away.", note: "Diverse examples generalized cleanly to a calm 17-word clarification." });
+          }
+
+          return { rows: rows, biasMsg: biasMsg };
+        }
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function buildMeter(labelText, pct) {
+      var box = el("div", { class: "fs-meter-box" });
+      var head = el("div", { class: "fs-meter-head" }, [
+        el("span", { text: labelText }),
+        el("span", { text: pct + "%" })
+      ]);
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = pct + "%";
+      fill.style.background = pct >= 85 ? "var(--color-success)" : (pct >= 65 ? "#d97706" : "var(--color-error)");
+      bar.appendChild(fill);
+      box.appendChild(head);
+      box.appendChild(bar);
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Few-Shot Example Lab",
+      instructions:
+        "Pick a task, toggle 0 to 5 candidate examples from the pool (compare zero-shot, biased same-label pairs, standard-only, and diverse + edge examples), " +
+        "then click Evaluate on 6 Test Inputs to inspect Format Adherence, Edge-Case Accuracy, and Bias Alerts.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var MAX_EXAMPLES = 5;
+        var state = {
+          taskIdx: 0,
+          selectedByTask: {
+            "ticket-classifier": [],
+            "tone-matcher": []
+          },
+          evaluated: {},
+          limitWarning: ""
+        };
+
+        var toolbar = el("div", { class: "fs-toolbar" });
+        var tabs = el("div", { class: "fs-tabs", role: "tablist", "aria-label": "Few-shot lab tasks" });
+        var counter = el("span", { class: "fs-counter" });
+        toolbar.appendChild(tabs);
+        toolbar.appendChild(counter);
+
+        var stage = el("div");
+        var results = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(toolbar);
+        root.appendChild(stage);
+        root.appendChild(results);
+
+        function currentTask() {
+          return TASKS[state.taskIdx];
+        }
+
+        function currentSelection() {
+          return state.selectedByTask[currentTask().id];
+        }
+
+        function renderToolbar() {
+          tabs.innerHTML = "";
+          TASKS.forEach(function (t, idx) {
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.taskIdx ? "true" : "false",
+              class: "fs-tab" + (idx === state.taskIdx ? " is-active" : ""),
+              text: t.label
+            });
+            btn.addEventListener("click", function () {
+              state.taskIdx = idx;
+              state.limitWarning = "";
+              renderAll();
+            });
+            tabs.appendChild(btn);
+          });
+          counter.textContent = "Selected: " + currentSelection().length + " / " + MAX_EXAMPLES + " examples";
+        }
+
+        function renderStage() {
+          stage.innerHTML = "";
+          var task = currentTask();
+          var sel = currentSelection();
+
+          var card = el("div", { class: "fs-card" });
+          card.appendChild(el("div", { class: "fs-card-head" }, [
+            el("h4", { class: "fs-card-title", text: task.label }),
+            el("span", { class: "fs-counter", text: sel.length === 0 ? "Zero-Shot (0 examples)" : sel.length + "-Shot Prompt" })
+          ]));
+          card.appendChild(el("p", { text: "Target behavior: " + task.goal }));
+
+          var pool = el("div", { class: "fs-pool" });
+          task.examples.forEach(function (ex) {
+            var checked = sel.indexOf(ex.id) !== -1;
+            var disabled = !checked && sel.length >= MAX_EXAMPLES;
+            var cbId = "fs-" + task.id + "-" + ex.id;
+
+            var lbl = el("label", {
+              for: cbId,
+              class: "fs-ex-item" + (checked ? " is-selected" : "") + (disabled ? " is-disabled" : "")
+            });
+            var cb = el("input", { type: "checkbox", id: cbId });
+            cb.checked = checked;
+            cb.disabled = disabled;
+            cb.addEventListener("change", function () {
+              state.limitWarning = "";
+              var arr = currentSelection();
+              var pos = arr.indexOf(ex.id);
+              if (cb.checked && pos === -1) {
+                if (arr.length >= MAX_EXAMPLES) {
+                  cb.checked = false;
+                  state.limitWarning = "Maximum of " + MAX_EXAMPLES + " examples reached. Uncheck one first to swap.";
+                  renderStage();
+                  return;
+                }
+                arr.push(ex.id);
+              } else if (!cb.checked && pos !== -1) {
+                arr.splice(pos, 1);
+              }
+              renderToolbar();
+              renderStage();
+            });
+
+            var metaCls = "fs-ex-meta" + (ex.kindType === "edge" ? " fs-ex-meta--edge" : (ex.kindType === "skew" ? " fs-ex-meta--skew" : ""));
+            var body = el("span", { style: "min-width:0; flex:1;" }, [
+              el("span", { class: metaCls, text: ex.kind }),
+              el("span", { class: "fs-ex-in", text: "In: \"" + ex.input + "\"" }),
+              el("span", { class: "fs-ex-out", text: "Out: " + ex.output })
+            ]);
+            lbl.appendChild(cb);
+            lbl.appendChild(body);
+            pool.appendChild(lbl);
+          });
+          card.appendChild(pool);
+
+          var actions = el("div", { class: "fs-actions" });
+          var evalBtn = el("button", { type: "button", class: "btn btn-primary", text: "Evaluate on 6 Test Inputs" });
+          evalBtn.addEventListener("click", function () {
+            state.evaluated[task.id] = true;
+            renderResults();
+          });
+          actions.appendChild(evalBtn);
+
+          var clearBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Test 0-Shot (Clear)" });
+          clearBtn.addEventListener("click", function () {
+            state.selectedByTask[task.id] = [];
+            state.limitWarning = "";
+            state.evaluated[task.id] = true;
+            renderAll();
+          });
+          actions.appendChild(clearBtn);
+
+          var biasPresetBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Load Biased Pair" });
+          biasPresetBtn.addEventListener("click", function () {
+            var skewIds = task.examples.filter(function (e) { return e.kindType === "skew"; }).map(function (e) { return e.id; });
+            state.selectedByTask[task.id] = skewIds;
+            state.limitWarning = "";
+            state.evaluated[task.id] = true;
+            renderAll();
+          });
+          actions.appendChild(biasPresetBtn);
+
+          card.appendChild(actions);
+          card.appendChild(el("p", { class: "fs-limit-note", text: state.limitWarning }));
+          stage.appendChild(card);
+        }
+
+        function renderResults() {
+          results.innerHTML = "";
+          var task = currentTask();
+          if (!state.evaluated[task.id]) {
+            results.appendChild(el("p", {
+              class: "exercise-empty",
+              text: "Toggle 0–5 examples above and click \"Evaluate on 6 Test Inputs\" to measure Format Adherence, Edge-Case Accuracy, and label bias."
+            }));
+            return;
+          }
+
+          var sel = currentSelection();
+          var evalRes = task.evaluate(sel);
+          var rows = evalRes.rows;
+
+          var formatHits = rows.filter(function (r) { return r.formatOk; }).length;
+          var edgeRows = rows.filter(function (_, i) { return task.tests[i].isEdge; });
+          var edgeHits = edgeRows.filter(function (r) { return r.pass; }).length;
+          var totalHits = rows.filter(function (r) { return r.pass; }).length;
+
+          var formatPct = Math.round((formatHits / rows.length) * 100);
+          var edgePct = Math.round((edgeHits / edgeRows.length) * 100);
+          var totalPct = Math.round((totalHits / rows.length) * 100);
+
+          var panel = el("div", { class: "fs-results" });
+
+          if (evalRes.biasMsg) {
+            panel.appendChild(el("div", { class: "fs-bias-alert", text: evalRes.biasMsg }));
+          } else if (sel.length >= 2) {
+            panel.appendChild(el("div", {
+              class: "fs-bias-ok",
+              text: "Distribution Check: No label skew detected across your " + sel.length + " selected examples."
+            }));
+          }
+
+          panel.appendChild(el("div", { class: "fs-meters" }, [
+            buildMeter("Format Adherence", formatPct),
+            buildMeter("Edge-Case Accuracy (" + edgeHits + "/" + edgeRows.length + ")", edgePct),
+            buildMeter("Overall Test Pass (" + totalHits + "/6)", totalPct)
+          ]));
+
+          var grid = el("div", { class: "fs-test-grid" });
+          task.tests.forEach(function (t, idx) {
+            var r = rows[idx];
+            var row = el("div", { class: "fs-test-row " + (r.pass ? "is-pass" : "is-fail") });
+            row.appendChild(el("div", { class: "fs-test-top" }, [
+              el("span", { class: "fs-test-kind", text: "Test " + (idx + 1) + ": " + t.kind }),
+              el("span", { class: "fs-pill " + (r.pass ? "fs-pill--pass" : "fs-pill--fail"), text: r.pass ? "Pass" : "Fail" })
+            ]));
+            row.appendChild(el("div", { class: "fs-test-input", text: "Input: \"" + t.input + "\"" }));
+            row.appendChild(el("div", { class: "fs-test-io", text: "Predicted: " + r.output + "\nExpected:  " + t.expected }));
+            row.appendChild(el("p", { class: "fs-test-note", text: r.note }));
+            grid.appendChild(row);
+          });
+          panel.appendChild(grid);
+          results.appendChild(panel);
+        }
+
+        function renderAll() {
+          renderToolbar();
+          renderStage();
+          renderResults();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why do 2–4 concrete Input → Output examples often outperform a 200-word prose rubric for tone and classification tasks?",
+          options: [
+            "Examples permanently fine-tune the model's weights for your session, whereas prose rules stay temporary",
+            "Examples anchor output syntax, granularity, and subtle decision boundaries simultaneously instead of relying on ambiguous adjectives",
+            "Few-shot prompts bypass the model's system prompt so instructions cannot conflict",
+            "Zero-shot prompts cannot read JSON schemas unless at least three examples appear first"
+          ],
+          answer: 1,
+          explanation: "Prose adjectives ('concise', 'calm') still leave many interpretations. A few concrete Input → Output pairs demonstrate exact shape, tone, and boundary lines at once without retraining weights."
+        },
+        {
+          q: "You add 4 few-shot examples to a ticket classifier, and all 4 happen to be priority='high'. What failure mode is most likely in production?",
+          options: [
+            "The model ignores duplicate examples and falls back to random priority labels",
+            "JSON syntax breaks whenever two examples share the same field value",
+            "The model treats 'high' as the expected prior distribution and over-flags routine tickets as urgent",
+            "Context tokens compress automatically, shortening the reasoning window for normal tickets"
+          ],
+          answer: 2,
+          explanation: "Few-shot examples teach label frequency as well as format. Skewing all demonstrations toward one label biases the model to over-predict that label across new inputs."
+        },
+        {
+          q: "Your 3-example ticket tagger nails straightforward billing and bug reports, yet misfiles sarcastic feature requests as bugs and invents guesses on blank tickets ('fix pls'). What is the best adjustment?",
+          options: [
+            "Add 5 more standard billing and bug examples to reinforce the JSON keys",
+            "Raise model temperature to 1.0 so the classifier interprets humor more flexibly",
+            "Delete all examples and repeat 'DO NOT GUESS' in all caps inside the system prompt",
+            "Include one sarcastic feature-request example and one 'unknown' escape-hatch example to teach those boundaries"
+          ],
+          answer: 3,
+          explanation: "Standard examples only teach easy cases. Showing one borderline sarcastic example and one 'unknown' escape hatch directly resolves the exact boundaries where the model was guessing."
+        },
+        {
+          q: "Why is it usually counterproductive to paste 20+ repetitive examples into every prompt when 3–4 diverse examples work?",
+          options: [
+            "Extra repetitive examples inflate token cost and latency while risking copycat bias toward incidental phrasing in the examples",
+            "Models strictly ignore every example after the fourth one in context",
+            "Adding more than 5 examples disables instruction-following for system rules",
+            "Large few-shot prompts force the model to output prose instead of structured JSON"
+          ],
+          answer: 0,
+          explanation: "Beyond 2–4 diverse examples covering key labels and edge cases, extra repetitive demonstrations add cost/latency and encourage the model to mimic surface artifacts rather than generalize."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

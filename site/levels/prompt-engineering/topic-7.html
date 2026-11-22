@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debugging &amp; Iterating Prompts When They Almost Work — AI Maturity Course</title>
+<meta name="description" content="Learn a systematic prompt debugging loop: diagnose the root failure category, isolate one edit at a time, and run a mini test suite to prevent regressions.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "pe-7";
+</script>
+<style>
+  .dbg-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .dbg-tab {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .dbg-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .dbg-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .dbg-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .dbg-prompt-box {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin: var(--space-2) 0 var(--space-3);
+    word-break: break-word;
+  }
+  .dbg-patch-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+  }
+  .dbg-patch-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .dbg-patch-item:hover { border-color: var(--color-primary); }
+  .dbg-patch-item.is-checked { background: var(--color-primary-light); border-color: var(--color-primary); }
+  .dbg-patch-item input { margin-top: 3px; flex-shrink: 0; }
+  .dbg-patch-title { display: block; font-weight: 700; font-size: var(--font-size-sm); }
+  .dbg-patch-text { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; font-family: var(--font-mono); }
+  .dbg-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .dbg-run-meta {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .dbg-results {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .dbg-banner {
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .dbg-banner--ok { background: var(--color-success-bg); border-left: 4px solid var(--color-success); color: var(--color-success); }
+  .dbg-banner--warn { background: var(--color-warning-bg); border-left: 4px solid #d97706; color: #855200; }
+  .dbg-banner--bad { background: var(--color-error-bg); border-left: 4px solid var(--color-error); color: var(--color-error); }
+  .dbg-cases {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .dbg-case {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    background: var(--color-bg-alt);
+  }
+  .dbg-case.is-pass { border-left: 4px solid var(--color-success); }
+  .dbg-case.is-fail { border-left: 4px solid #d97706; }
+  .dbg-case.is-reg { border-left: 4px solid var(--color-error); background: var(--color-error-bg); }
+  .dbg-case-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: 4px;
+  }
+  .dbg-case-name { font-weight: 700; font-size: var(--font-size-sm); }
+  .dbg-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .dbg-pill--pass { background: var(--color-success-bg); color: var(--color-success); }
+  .dbg-pill--fail { background: var(--color-warning-bg); color: #855200; }
+  .dbg-pill--reg { background: var(--color-error-bg); color: var(--color-error); border: 1px solid var(--color-error); }
+  .dbg-case-io {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 6px 0 4px;
+    word-break: break-word;
+  }
+  .dbg-case-diag { font-size: var(--font-size-xs); color: var(--color-text-muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Prompt Engineering</p>
+  <h1>Debugging &amp; Iterating Prompts When They Almost Work</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Debug an "almost-working" prompt systematically by diagnosing its root failure category, changing one variable at a time, and running a mini test suite to catch regressions.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Systematic prompt debugging</strong> replaces guesswork and random rewording with a repeatable three-step engineering loop:
+          <strong>(1) diagnose the root failure category</strong>, <strong>(2) isolate one targeted edit</strong>, and
+          <strong>(3) test against a 4–6 case check</strong> (normal + edge inputs) so fixing one bug never silently breaks yesterday's working cases.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (The 4 Failure Categories &amp; Triage Loop)</h2>
+      <p>
+        When an output is 80% right and 20% wrong, stop tweaking random adjectives. Almost every prompt bug maps to one of four root causes:
+      </p>
+
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Failure Category</th>
+            <th>Symptom in Output</th>
+            <th>Targeted Fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Missing Context</strong></td>
+            <td>Model invents defaults, guesses missing figures, or misses internal policy</td>
+            <td>Supply the missing rule/reference or add an explicit <code>null</code> / <code>"unknown"</code> escape hatch</td>
+          </tr>
+          <tr>
+            <td><strong>2. Ambiguous Instruction</strong></td>
+            <td>Vague words (<em>"short"</em>, <em>"urgent"</em>, <em>"main total"</em>) cause inconsistent choices</td>
+            <td>Replace adjectives with concrete rules or 1–2 boundary few-shot examples</td>
+          </tr>
+          <tr>
+            <td><strong>3. Loose Output Contract</strong></td>
+            <td>Facts are right, but extra intro text or markdown fences break JSON parsing</td>
+            <td>Specify exact schema, field types, and <em>"Return ONLY raw JSON; no markdown fences"</em></td>
+          </tr>
+          <tr>
+            <td><strong>4. Task Too Big for One Step</strong></td>
+            <td>Model drops middle instructions when extracting, judging, and formatting at once</td>
+            <td>Split into a 2–3 step prompt chain instead of stuffing more rules into one call</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ol>
+        <li><strong>Diagnose before editing:</strong> Tag each failing example with one of the 4 buckets above.</li>
+        <li><strong>Isolate one change at a time:</strong> Editing five lines at once hides which edit fixed the bug—and which caused a side effect.</li>
+        <li><strong>Regression-check 4–6 cases:</strong> Keep 2–3 standard "happy path" inputs alongside 2–3 tricky edge cases and re-run all of them after each change.</li>
+      </ol>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Avoiding "Whack-a-Mole" Invoice Regressions</h3>
+      <p>
+        An invoice extractor passes standard SaaS bills, then hallucinates <code>$52.50</code> when a courier quote says <code>Final Total: TBD</code>.
+      </p>
+      <ul>
+        <li><strong>Reactive Quick Hack:</strong> Adding <em>"Only read lines literally labeled Final Total; otherwise output null"</em> fixes the courier quote—but immediately <strong>breaks normal invoices</strong> labeled <code>Grand Total: $432.00</code>!</li>
+        <li><strong>Targeted Root-Cause Fix:</strong> Diagnose as <em>Missing Escape Hatch</em> + <em>Ambiguous Field Rule</em>: keep <code>Grand Total / Amount Paid</code> precedence clear, and add <em>"Never average estimates; if final payment is TBD or missing, return null."</em> All normal and edge cases pass together.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Whack-a-Mole Patching &amp; All-Caps Shouting</h3>
+      <p>
+        Writing narrow, reactive patches for today's bug—without re-running yesterday's passing examples—creates <strong>prompt regressions</strong>
+        where fixing Case 3 silently breaks Case 1. Just as ineffective is shouting in uppercase (<em>"CRITICAL!! NEVER MAKE MISTAKES!!"</em>):
+        louder wording adds noise without fixing missing context, ambiguous criteria, or loose schemas.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "pe-7"
+
+    var SCENARIOS = [
+      {
+        id: "invoice-extractor",
+        tabLabel: "1. Invoice JSON Extractor",
+        title: "Invoice & Receipt JSON Extractor",
+        basePrompt:
+          "Extract vendor, invoice_date, and total_usd from the receipt below into JSON. If anything looks unclear, use your best estimate.",
+        cases: [
+          {
+            id: "inv-1",
+            name: "Case 1 (Normal — Standard SaaS Invoice)",
+            input: "Northstar Cloud | Date: 2026-04-14 | Subtotal: $400.00 | Tax: $32.00 | Grand Total: $432.00",
+            expected: '{"vendor": "Northstar Cloud", "invoice_date": "2026-04-14", "total_usd": 432.00}'
+          },
+          {
+            id: "inv-2",
+            name: "Case 2 (Normal — Prose Bakery Receipt)",
+            input: "Receipt from Bean & Co. Bakery on 2026-04-15. Coffee $4.50 + Bagel $3.50. Paid: $8.00.",
+            expected: '{"vendor": "Bean & Co. Bakery", "invoice_date": "2026-04-15", "total_usd": 8.00}'
+          },
+          {
+            id: "inv-3",
+            name: "Case 3 (Edge — Missing / Pending Total)",
+            input: "Metro Courier | Date: 2026-04-18 | Quote Range: $45.00–$60.00 | Final Total: TBD",
+            expected: '{"vendor": "Metro Courier", "invoice_date": "2026-04-18", "total_usd": null}'
+          },
+          {
+            id: "inv-4",
+            name: "Case 4 (Edge — Subtotal vs. Promo Credit)",
+            input: "PixelForge | Date: 2026-04-19 | Subtotal: $200.00 | Promo Credit: -$50.00 | Net Amount Paid: $150.00",
+            expected: '{"vendor": "PixelForge", "invoice_date": "2026-04-19", "total_usd": 150.00}'
+          }
+        ],
+        patches: [
+          {
+            id: "p-hack",
+            title: "Quick Hack: Literal 'Final Total' Label Filter",
+            text: "+ Add: 'Only extract total_usd from lines literally labeled Final Total; otherwise output null.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "p-contract",
+            title: "Targeted Fix (Loose Output Contract): Raw JSON Only",
+            text: "+ Add: 'Return ONLY a single raw JSON object with keys vendor, invoice_date, total_usd—no intro text or markdown fences.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "p-escape",
+            title: "Targeted Fix (Missing Context / Escape Hatch): Null for TBD",
+            text: "~ Replace 'use your best estimate' with: 'Never guess or average ranges; if final amount is TBD or missing, set total_usd to null.'",
+            replacesBaseEstimate: true
+          },
+          {
+            id: "p-precedence",
+            title: "Targeted Fix (Ambiguous Instruction): Grand/Net Total Rule",
+            text: "+ Add: 'For total_usd, always pick the final post-tax, post-discount amount (Grand Total, Net Amount Paid, Paid)—never Subtotal.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "p-caps",
+            title: "All-Caps Plea: Demand Perfection",
+            text: "+ Prepend: 'CRITICAL!! BE 100% ACCURATE AND NEVER MAKE MISTAKES!!'",
+            replacesBaseEstimate: false
+          }
+        ],
+        evaluate: function (selected) {
+          var has = function (id) { return selected.indexOf(id) !== -1; };
+          var hack = has("p-hack");
+          var contract = has("p-contract");
+          var escape = has("p-escape");
+          var precedence = has("p-precedence");
+
+          var rows = [];
+
+          // Case 1: Normal SaaS Invoice (passes at baseline; breaks if hack is enabled!)
+          if (hack) {
+            rows.push({
+              pass: false,
+              output: '{"vendor": "Northstar Cloud", "invoice_date": "2026-04-14", "total_usd": null}',
+              diag: "REGRESSION! The literal 'Final Total' hack rejected 'Grand Total: $432.00' and broke a previously passing normal invoice."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"vendor": "Northstar Cloud", "invoice_date": "2026-04-14", "total_usd": 432.00}',
+              diag: "Passes cleanly: Grand Total extracted accurately as valid JSON."
+            });
+          }
+
+          // Case 2: Normal Prose Receipt
+          if (!contract) {
+            rows.push({
+              pass: false,
+              output: "Sure! Here is the extracted JSON:\n```json\n{\"vendor\": \"Bean & Co. Bakery\", \"invoice_date\": \"2026-04-15\", \"total_usd\": 8.00}\n```",
+              diag: "Failure Category — Loose Output Contract: Prose receipt triggered conversational intro + markdown fences, crashing JSON.parse()."
+            });
+          } else if (hack) {
+            rows.push({
+              pass: false,
+              output: '{"vendor": "Bean & Co. Bakery", "invoice_date": "2026-04-15", "total_usd": null}',
+              diag: "JSON syntax passed, but literal 'Final Total' hack broke 'Paid: $8.00' and returned null!"
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"vendor": "Bean & Co. Bakery", "invoice_date": "2026-04-15", "total_usd": 8.00}',
+              diag: "Passes cleanly: strict output contract eliminated wrapper prose and fences."
+            });
+          }
+
+          // Case 3: Edge — Pending Total
+          if (hack) {
+            rows.push({
+              pass: true,
+              output: '{"vendor": "Metro Courier", "invoice_date": "2026-04-18", "total_usd": null}',
+              diag: "Quick hack fixed Case 3 (TBD -> null), but notice what it broke on Case 1!"
+            });
+          } else if (!escape) {
+            rows.push({
+              pass: false,
+              output: '{"vendor": "Metro Courier", "invoice_date": "2026-04-18", "total_usd": 52.50}',
+              diag: "Failure Category — Missing Escape Hatch: Base prompt's 'use your best estimate' made the model average $45–$60 into 52.50 instead of null."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"vendor": "Metro Courier", "invoice_date": "2026-04-18", "total_usd": null}',
+              diag: "Passes cleanly: explicit null escape hatch prevented guessing on TBD."
+            });
+          }
+
+          // Case 4: Edge — Subtotal vs Promo Credit
+          if (hack) {
+            rows.push({
+              pass: false,
+              output: '{"vendor": "PixelForge", "invoice_date": "2026-04-19", "total_usd": null}',
+              diag: "Quick hack missed 'Net Amount Paid: $150.00' and returned null."
+            });
+          } else if (!precedence) {
+            rows.push({
+              pass: false,
+              output: '{"vendor": "PixelForge", "invoice_date": "2026-04-19", "total_usd": 200.00}',
+              diag: "Failure Category — Ambiguous Instruction: Without precedence rules, model grabbed the first dollar figure (Subtotal $200.00) instead of Net Amount Paid ($150.00)."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"vendor": "PixelForge", "invoice_date": "2026-04-19", "total_usd": 150.00}',
+              diag: "Passes cleanly: explicit net-total precedence skipped Subtotal and picked $150.00."
+            });
+          }
+
+          return rows;
+        }
+      },
+      {
+        id: "support-triage",
+        tabLabel: "2. Support Triage Classifier",
+        title: "Customer Support Triage Classifier",
+        basePrompt:
+          "Classify each support ticket into category (billing, technical, feature) and urgency (high, normal). Escalate frustrated customers to high urgency. Reply with the classification.",
+        cases: [
+          {
+            id: "sup-1",
+            name: "Case 1 (Normal — Urgent Production Outage)",
+            input: "SSO is completely broken for all 40 employees!! Nobody can log in!!",
+            expected: '{"category": "technical", "urgency": "high"}'
+          },
+          {
+            id: "sup-2",
+            name: "Case 2 (Normal — Routine Invoice Request)",
+            input: "Hi, could you resend invoice #4021 to our accounting inbox?",
+            expected: '{"category": "billing", "urgency": "normal"}'
+          },
+          {
+            id: "sup-3",
+            name: "Case 3 (Edge — Sarcastic Feature Request)",
+            input: "Oh awesome, another Monday without bulk CSV export—guess I'll click 90 buttons manually lol.",
+            expected: '{"category": "feature", "urgency": "normal"}'
+          },
+          {
+            id: "sup-4",
+            name: "Case 4 (Edge — Underspecified / Vague Ticket)",
+            input: "Help ASAP please!!!",
+            expected: '{"category": "needs_clarification", "urgency": "unknown"}'
+          }
+        ],
+        patches: [
+          {
+            id: "s-hack",
+            title: "Quick Hack: Punctuation Urgency Downgrade",
+            text: "+ Add: 'If a message contains exclamation marks (!!) or casual slang (lol), downgrade urgency to normal so sarcasm doesn't trigger high.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "s-contract",
+            title: "Targeted Fix (Loose Output Contract): Strict Raw JSON",
+            text: "+ Replace 'Reply with the classification' with: 'Return ONLY raw JSON {\"category\": \"...\", \"urgency\": \"...\"} with no prose.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "s-ambiguity",
+            title: "Targeted Fix (Ambiguous Instruction): Symptom Over Tone + Example",
+            text: "~ Replace 'Escalate frustrated customers to high urgency' with: 'Set urgency=high only for outages, security, or blocked payments—not sarcastic feature wishes (e.g., \"another Monday without export lol\" -> feature, normal).'",
+            replacesBaseEstimate: true
+          },
+          {
+            id: "s-escape",
+            title: "Targeted Fix (Missing Escape Hatch): Allow Clarification Label",
+            text: "+ Add: 'If the ticket states no concrete issue or request, output {\"category\": \"needs_clarification\", \"urgency\": \"unknown\"}.'",
+            replacesBaseEstimate: false
+          },
+          {
+            id: "s-caps",
+            title: "All-Caps Plea: Enforce Accuracy",
+            text: "+ Prepend: 'IMPORTANT!! DO NOT MISCLASSIFY ANY EDGE CASES!!'",
+            replacesBaseEstimate: false
+          }
+        ],
+        evaluate: function (selected) {
+          var has = function (id) { return selected.indexOf(id) !== -1; };
+          var hack = has("s-hack");
+          var contract = has("s-contract");
+          var ambiguity = has("s-ambiguity");
+          var escape = has("s-escape");
+
+          var rows = [];
+
+          // Case 1: Urgent Outage with "!!"
+          if (hack) {
+            rows.push({
+              pass: false,
+              output: '{"category": "technical", "urgency": "normal"}',
+              diag: "REGRESSION! The '!!' punctuation hack downgraded a live 40-employee SSO outage to normal urgency!"
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"category": "technical", "urgency": "high"}',
+              diag: "Passes cleanly: full-org outage correctly tagged technical / high."
+            });
+          }
+
+          // Case 2: Routine Invoice
+          if (!contract) {
+            rows.push({
+              pass: false,
+              output: "Classification: Billing (Normal urgency) — resend invoice request.",
+              diag: "Failure Category — Loose Output Contract: Without a raw JSON rule, routine messages return plain text instead of JSON."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"category": "billing", "urgency": "normal"}',
+              diag: "Passes cleanly: strict raw JSON emitted."
+            });
+          }
+
+          // Case 3: Sarcastic Feature
+          if (hack) {
+            rows.push({
+              pass: true,
+              output: '{"category": "feature", "urgency": "normal"}',
+              diag: "Quick hack fixed Case 3 ('lol' -> normal), but broke the real outage in Case 1!"
+            });
+          } else if (!ambiguity) {
+            rows.push({
+              pass: false,
+              output: contract ? '{"category": "feature", "urgency": "high"}' : "Feature / High urgency (frustrated tone)",
+              diag: "Failure Category — Ambiguous Instruction: 'Escalate frustrated customers' misread snark as high urgency."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"category": "feature", "urgency": "normal"}',
+              diag: "Passes cleanly: symptom-based urgency rule + boundary example handled sarcasm accurately."
+            });
+          }
+
+          // Case 4: Vague "Help ASAP please!!!"
+          if (!escape) {
+            rows.push({
+              pass: false,
+              output: contract ? '{"category": "technical", "urgency": "high"}' : "Technical — High urgency",
+              diag: "Failure Category — Missing Escape Hatch: With no clarification option allowed, the model guessed technical/high."
+            });
+          } else if (!contract) {
+            rows.push({
+              pass: false,
+              output: "Category: needs_clarification, Urgency: unknown",
+              diag: "Right labels, but Loose Output Contract still emitted prose instead of raw JSON."
+            });
+          } else {
+            rows.push({
+              pass: true,
+              output: '{"category": "needs_clarification", "urgency": "unknown"}',
+              diag: "Passes cleanly: safe clarification escape hatch in valid JSON."
+            });
+          }
+
+          return rows;
+        }
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Prompt Triage & Regression Bench",
+      instructions:
+        "Inspect the failing test cases in the baseline run below, toggle candidate prompt patches, and click Run 4-Case Test Suite. " +
+        "Watch out for quick hacks that fix an edge case while breaking a previously passing normal test (regression)!",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          scenIdx: 0,
+          byScen: {}
+        };
+
+        SCENARIOS.forEach(function (sc) {
+          var baseline = sc.evaluate([]);
+          var basePass = baseline.map(function (r) { return r.pass; });
+          state.byScen[sc.id] = {
+            selected: [],
+            runNum: 1,
+            lastResults: baseline,
+            baselinePass: basePass,
+            prevPass: basePass.slice()
+          };
+        });
+
+        var tabs = el("div", { class: "dbg-tabs", role: "tablist", "aria-label": "Debugging scenarios" });
+        var stage = el("div");
+        var resultsWrap = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(tabs);
+        root.appendChild(stage);
+        root.appendChild(resultsWrap);
+
+        function currentScen() { return SCENARIOS[state.scenIdx]; }
+        function currentState() { return state.byScen[currentScen().id]; }
+
+        function buildEffectivePrompt(sc, selected) {
+          var lines = [];
+          var hasCaps = selected.indexOf("p-caps") !== -1 || selected.indexOf("s-caps") !== -1;
+          if (hasCaps) {
+            var capPatch = sc.patches.find(function (p) { return p.id === "p-caps" || p.id === "s-caps"; });
+            if (capPatch) lines.push(capPatch.text.replace(/^\+\s*Prepend:\s*/, ""));
+          }
+          var base = sc.basePrompt;
+          selected.forEach(function (pid) {
+            var p = sc.patches.find(function (x) { return x.id === pid; });
+            if (!p || p.id === "p-caps" || p.id === "s-caps") return;
+            if (p.replacesBaseEstimate) {
+              base = base.replace(" If anything looks unclear, use your best estimate.", "")
+                         .replace(" Escalate frustrated customers to high urgency.", "");
+            }
+          });
+          lines.push(base);
+          selected.forEach(function (pid) {
+            var p = sc.patches.find(function (x) { return x.id === pid; });
+            if (!p || p.id === "p-caps" || p.id === "s-caps") return;
+            lines.push(p.text.replace(/^[+~]\s*/, ""));
+          });
+          return lines.join("\n");
+        }
+
+        function renderTabs() {
+          tabs.innerHTML = "";
+          SCENARIOS.forEach(function (sc, idx) {
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.scenIdx ? "true" : "false",
+              class: "dbg-tab" + (idx === state.scenIdx ? " is-active" : ""),
+              text: sc.tabLabel
+            });
+            btn.addEventListener("click", function () {
+              state.scenIdx = idx;
+              renderAll();
+            });
+            tabs.appendChild(btn);
+          });
+        }
+
+        function renderStage() {
+          stage.innerHTML = "";
+          var sc = currentScen();
+          var st = currentState();
+
+          var card = el("div", { class: "dbg-card" });
+          card.appendChild(el("h4", { style: "margin-bottom:var(--space-1);", text: sc.title }));
+          card.appendChild(el("p", { style: "font-size:var(--font-size-xs); color:var(--color-text-muted); margin-bottom:0;", text: "Active Prompt Under Test:" }));
+          card.appendChild(el("div", { class: "dbg-prompt-box", text: buildEffectivePrompt(sc, st.selected) }));
+
+          var list = el("div", { class: "dbg-patch-list" });
+          sc.patches.forEach(function (p) {
+            var checked = st.selected.indexOf(p.id) !== -1;
+            var cbId = "dbg-" + sc.id + "-" + p.id;
+            var lbl = el("label", { for: cbId, class: "dbg-patch-item" + (checked ? " is-checked" : "") });
+            var cb = el("input", { type: "checkbox", id: cbId });
+            cb.checked = checked;
+            cb.addEventListener("change", function () {
+              var idx = st.selected.indexOf(p.id);
+              if (cb.checked && idx === -1) st.selected.push(p.id);
+              else if (!cb.checked && idx !== -1) st.selected.splice(idx, 1);
+              renderStage();
+            });
+            lbl.appendChild(cb);
+            lbl.appendChild(el("span", {}, [
+              el("span", { class: "dbg-patch-title", text: p.title }),
+              el("span", { class: "dbg-patch-text", text: p.text })
+            ]));
+            list.appendChild(lbl);
+          });
+          card.appendChild(list);
+
+          var actions = el("div", { class: "dbg-actions" });
+          var runBtn = el("button", { type: "button", class: "btn btn-primary", text: "Run 4-Case Test Suite" });
+          runBtn.addEventListener("click", function () {
+            st.prevPass = st.lastResults.map(function (r) { return r.pass; });
+            st.lastResults = sc.evaluate(st.selected);
+            st.runNum += 1;
+            renderStage();
+            renderResults();
+          });
+          actions.appendChild(runBtn);
+
+          var clearBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Clear Patches (Baseline)" });
+          clearBtn.addEventListener("click", function () {
+            st.prevPass = st.lastResults.map(function (r) { return r.pass; });
+            st.selected = [];
+            st.lastResults = sc.evaluate([]);
+            st.runNum += 1;
+            renderStage();
+            renderResults();
+          });
+          actions.appendChild(clearBtn);
+
+          actions.appendChild(el("span", { class: "dbg-run-meta", text: "Test Run #" + st.runNum }));
+          card.appendChild(actions);
+          stage.appendChild(card);
+        }
+
+        function renderResults() {
+          resultsWrap.innerHTML = "";
+          var sc = currentScen();
+          var st = currentState();
+          var rows = st.lastResults;
+
+          var passCount = rows.filter(function (r) { return r.pass; }).length;
+          var regressions = 0;
+          rows.forEach(function (r, idx) {
+            if (!r.pass && (st.prevPass[idx] || st.baselinePass[idx])) regressions += 1;
+          });
+
+          var panel = el("div", { class: "dbg-results" });
+
+          var bannerCls, bannerText;
+          if (regressions > 0) {
+            bannerCls = "dbg-banner dbg-banner--bad";
+            bannerText = "Regression Detected (" + passCount + " / 4 passing, " + regressions + " regression): A patch broke a previously passing normal test!";
+          } else if (passCount === 4) {
+            bannerCls = "dbg-banner dbg-banner--ok";
+            bannerText = "4 / 4 Passing — Zero Regressions! All normal and edge cases pass cleanly.";
+          } else {
+            bannerCls = "dbg-banner dbg-banner--warn";
+            bannerText = passCount + " / 4 Passing (" + (st.runNum === 1 ? "Baseline Run" : "Run #" + st.runNum) + ") — Diagnose the remaining failures above and patch one cause at a time.";
+          }
+          panel.appendChild(el("div", { class: bannerCls, text: bannerText }));
+
+          var list = el("div", { class: "dbg-cases" });
+          sc.cases.forEach(function (c, idx) {
+            var r = rows[idx];
+            var isReg = !r.pass && (st.prevPass[idx] || st.baselinePass[idx]);
+            var newlyFixed = r.pass && !st.prevPass[idx];
+
+            var rowCls = "dbg-case " + (r.pass ? "is-pass" : (isReg ? "is-reg" : "is-fail"));
+            var pillCls = "dbg-pill " + (r.pass ? "dbg-pill--pass" : (isReg ? "dbg-pill--reg" : "dbg-pill--fail"));
+            var pillTxt = r.pass ? (newlyFixed ? "Pass (Fixed)" : "Pass") : (isReg ? "Regression" : "Fail");
+
+            var box = el("div", { class: rowCls });
+            box.appendChild(el("div", { class: "dbg-case-head" }, [
+              el("span", { class: "dbg-case-name", text: c.name }),
+              el("span", { class: pillCls, text: pillTxt })
+            ]));
+            box.appendChild(el("div", { style: "font-size:var(--font-size-xs); font-weight:600;", text: "Input: " + c.input }));
+            box.appendChild(el("div", { class: "dbg-case-io", text: "Actual:   " + r.output + "\nExpected: " + c.expected }));
+            box.appendChild(el("p", { class: "dbg-case-diag", text: r.diag }));
+            list.appendChild(box);
+          });
+          panel.appendChild(list);
+          resultsWrap.appendChild(panel);
+        }
+
+        function renderAll() {
+          renderTabs();
+          renderStage();
+          renderResults();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why should you change only ONE targeted rule or example per iteration when debugging an almost-working prompt?",
+          options: [
+            "Rewriting five lines at once triggers automatic fallback to zero-shot behavior",
+            "Isolating one change lets you verify which edit solved the bug—and immediately spot if that single edit caused a regression elsewhere",
+            "Language models cache earlier wording unless only one sentence changes between runs",
+            "Multi-line edits increase token costs permanently even after unused lines are deleted"
+          ],
+          answer: 1,
+          explanation: "Changing multiple rules simultaneously makes debugging blind: if accuracy shifts, you won't know which edit helped and which introduced a side effect."
+        },
+        {
+          q: "Your call-summary extractor gets every field accurate, yet 20% of outputs start with 'Sure! Here is your JSON:' before a markdown code block, crashing your JSON parser. Which failure category is this, and what is the cleanest fix?",
+          options: [
+            "Missing Context — paste 10 extra call transcripts above the instructions",
+            "Task Too Big for One Step — split the JSON extraction into 4 separate prompts",
+            "Loose Output Contract — explicitly require raw JSON only with no intro prose or markdown fences",
+            "Ambiguous Instruction — prepend 'CRITICAL!! BE 100% ACCURATE!!' in uppercase"
+          ],
+          answer: 2,
+          explanation: "When the extracted facts are correct but formatting breaks parsers, the issue is a Loose Output Contract—best solved by banning wrapper prose and markdown fences directly."
+        },
+        {
+          q: "To fix a courier invoice showing 'Final Total: TBD', you add: 'Only read lines literally labeled Final Total; otherwise output null.' Case 3 passes, yet normal invoices labeled 'Grand Total: $432' start returning null. What happened and how do you avoid it?",
+          options: [
+            "A prompt regression ('whack-a-mole'); prevent it by re-running a 4–6 case suite of both normal and edge inputs after every edit",
+            "Context overflow; prevent it by deleting normal invoices from your test set",
+            "Temperature drift; prevent it by repeating 'NEVER RETURN NULL' in uppercase",
+            "Schema collision; prevent it by switching from JSON output to plain bullet lists"
+          ],
+          answer: 0,
+          explanation: "Over-fitting an edge case with an overly narrow rule broke previously passing normal inputs. A small normal + edge regression suite catches this immediately."
+        },
+        {
+          q: "You have stacked 9 rules into one prompt to parse noisy emails, score compliance risk, rewrite in warm tone, and validate strict JSON, yet the model keeps dropping rule #6. What is the highest-leverage next step?",
+          options: [
+            "Copy rule #6 three times in bold uppercase at the bottom of the prompt",
+            "Remove all examples so the prompt uses fewer tokens overall",
+            "Keep all 9 rules in one prompt and raise temperature slightly for better flexibility",
+            "Diagnose it as 'Task Too Big for One Step' and split extraction/scoring from tone rewriting into a 2-step chain"
+          ],
+          answer: 3,
+          explanation: "When adding more rules causes middle instructions to silently drop, the single prompt is overloaded. Splitting into a 2-step chain isolates each job cleanly."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

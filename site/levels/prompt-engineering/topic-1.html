@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why Some Prompts Work and Others Fail (How the Model Reads You) — AI Maturity Course</title>
+<meta name="description" content="Connect Level 1's next-piece prediction model to practical prompting: see why vague prompts trigger average-internet fluff and hallucinations, and how clarity removes degrees of freedom.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "pe-1";
+</script>
+<style>
+  .pe-compare-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+  }
+  @media (max-width: 680px) {
+    .pe-compare-grid { grid-template-columns: 1fr; }
+  }
+  .pe-compare-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    background: var(--color-bg-alt);
+  }
+  .pe-compare-card--weak { border-top: 3px solid var(--color-error); }
+  .pe-compare-card--strong { border-top: 3px solid var(--color-success); }
+  .pe-compare-label {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-2);
+  }
+  .pe-compare-card--weak .pe-compare-label { color: var(--color-error); }
+  .pe-compare-card--strong .pe-compare-label { color: var(--color-success); }
+  .pe-mini-pre {
+    margin: 0 0 var(--space-3) 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    white-space: pre-wrap;
+    color: var(--color-text);
+  }
+
+  /* Prompt Autopsy Widget */
+  .pa-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--color-text-muted);
+  }
+  .pa-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .pa-tab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pa-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .pa-tab.is-active {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .pa-tab-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    white-space: nowrap;
+  }
+  .pa-tab.is-active .pa-tab-badge { background: rgba(255, 255, 255, 0.22); }
+  .pa-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .pa-section-label {
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 6px 0;
+  }
+  .pa-prompt-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    white-space: pre-wrap;
+    margin: 0 0 var(--space-3) 0;
+    color: var(--color-text);
+  }
+  .pa-prompt-box--upgraded {
+    border-color: var(--color-success);
+    background: var(--color-success-bg);
+  }
+  .pa-context-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    background: var(--color-bg-inset);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    margin: 0 0 var(--space-4) 0;
+  }
+  .pa-diag-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+    margin: var(--space-2) 0 var(--space-3) 0;
+  }
+  @media (max-width: 640px) {
+    .pa-diag-grid { grid-template-columns: 1fr; }
+  }
+  .pa-diag-btn {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .pa-diag-btn:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .pa-diag-btn.is-correct {
+    border-color: var(--color-success);
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+  .pa-diag-btn.is-wrong {
+    border-color: var(--color-error);
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+  .pa-diag-feedback {
+    font-size: var(--font-size-sm);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-4);
+    border-left: 3px solid var(--color-border-strong);
+    background: var(--color-bg-alt);
+  }
+  .pa-diag-feedback.is-ok { border-left-color: var(--color-success); background: var(--color-success-bg); }
+  .pa-diag-feedback.is-err { border-left-color: var(--color-error); background: var(--color-error-bg); }
+
+  .pa-upgrade-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+  .pa-mode-group {
+    display: inline-flex;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .pa-mode-btn {
+    border: none;
+    background: var(--color-bg);
+    color: var(--color-text);
+    padding: 7px 14px;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pa-mode-btn + .pa-mode-btn { border-left: 1px solid var(--color-border-strong); }
+  .pa-mode-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+  }
+  .pa-mode-btn--upgrade[aria-pressed="true"] {
+    background: var(--color-success);
+    color: #fff;
+  }
+
+  .pa-result-panel {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .pa-meter-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: 6px;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+  }
+  .pa-risk-pill {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pa-risk-pill--bad { background: var(--color-error-bg); color: var(--color-error); }
+  .pa-risk-pill--warn { background: var(--color-warning-bg); color: #855200; }
+  .pa-risk-pill--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .pa-output-pre {
+    background: var(--color-bg-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    white-space: pre-wrap;
+    font-family: var(--font-body);
+    font-size: 0.93rem;
+    line-height: 1.55;
+    margin: var(--space-3) 0;
+    color: var(--color-text);
+  }
+  .pa-why-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Prompt Engineering</p>
+  <h1>Why Some Prompts Work and Others Fail (How the Model Reads You)</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Connect Level 1's next-piece prediction model to everyday prompting—explaining
+      why vague prompts drift toward generic "average internet" slop or confident hallucinations, and how clear details
+      remove guesswork.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A language model does not read your mind or look up what you meant—it predicts the most likely continuation of
+          your exact text, one word-piece at a time. <strong>Prompt clarity</strong> means removing unnecessary
+          <strong>degrees of freedom</strong> (unstated audience, goal, scope, evidence, or shape) so the right answer
+          becomes the highest-probability continuation.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (Next-Piece Prediction Meets Ambiguity)</h2>
+      <p>
+        Remember Level 1: after reading your prompt, the model scores thousands of possible next tokens and picks a
+        plausible continuation. Every detail you leave blank stays a wide-open probability cloud, causing three common
+        failures:
+      </p>
+      <ul>
+        <li>
+          <strong>Unstated audience or goal &rarr; "Average internet" fluff:</strong> If you type <em>"Write a marketing
+          email,"</em> the model blends millions of generic promos it saw in training. You get clichés like <em>"Unlock
+          your potential in today's fast-paced world!"</em> because generic filler is the safest statistical average.
+        </li>
+        <li>
+          <strong>Unstated scope or criteria &rarr; Mismatched depth:</strong> Asking <em>"Compare cloud providers"</em>
+          could mean a 10-page enterprise architecture review or a $20/month hobby hosting chart. Without scope and
+          comparison axes, the model guesses a shallow middle ground that fits nobody well.
+        </li>
+        <li>
+          <strong>Missing source facts or boundaries &rarr; Confident hallucination:</strong> If you ask about your
+          company's refund policy without pasting the policy (and without telling the model to say <em>"I don't know"</em>
+          when facts are missing), next-piece prediction smoothly completes the sentence with realistic-sounding numbers
+          like <em>"30-day full refund"</em>—even if your real policy is 14 days.
+        </li>
+      </ul>
+      <p>
+        Every concrete detail you supply—who is reading, what decision they need to make, which facts to trust, and what
+        cannot be invented—locks down another degree of freedom and collapses the guesswork.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Side-by-Side Vague vs. High-Signal Prompt</h3>
+      <div class="pe-compare-grid">
+        <div class="pe-compare-card pe-compare-card--weak">
+          <span class="pe-compare-label">Vague Prompt (High Degrees of Freedom)</span>
+          <pre class="pe-mini-pre">Summarize our Q3 ops update.</pre>
+          <p style="margin-bottom:0; font-size:0.9rem;">
+            <strong>Typical output:</strong> Three generic paragraphs restating every minor detail equally—or inventing
+            fake Q3 numbers if you forgot to paste the update.
+          </p>
+        </div>
+        <div class="pe-compare-card pe-compare-card--strong">
+          <span class="pe-compare-label">High-Signal Prompt (Tight Constraints)</span>
+          <pre class="pe-mini-pre">Audience: VP of Ops deciding next week's hiring freeze.
+Using ONLY the notes in &lt;notes&gt;...&lt;/notes&gt;, list the top 3 delivery bottlenecks and their dollar impact in 3 bullets (&le;15 words each). If dollar impact isn't stated, write "Impact not listed."</pre>
+          <p style="margin-bottom:0; font-size:0.9rem;">
+            <strong>Result:</strong> Crisp, scannable, grounded executive bullets with zero made-up figures.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Prompting Like a Search Engine</h3>
+      <p>
+        Years of using Google trained us to type 3–5 keywords (<em>"fix python bug"</em> or <em>"refund policy email"</em>)
+        and scan ten blue links ourselves. A search engine retrieves existing pages; an AI <strong>generates</strong> a
+        brand-new reply shaped entirely by your prompt. Treating a prompt box like a keyword bar forces the model to
+        invent every missing requirement on your behalf.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "pe-1"
+
+    var CASES = [
+      {
+        id: "marketing-email",
+        tabLabel: "1. Marketing Email",
+        weakPrompt: "Write a marketing email.",
+        contextNote: "Situation: You want to re-engage 14-day free-trial users of your async standup tool (PulseNote) before their trial expires Friday.",
+        diagOptions: [
+          {
+            label: "Missing Target Audience, Offer & Tone",
+            correct: true,
+            feedback: "Spot on. Without knowing who the reader is, what product is offered, or the single action to take, next-piece prediction falls back to generic 'Unlock your potential' internet marketing tropes."
+          },
+          {
+            label: "Missing Strict JSON Key Schema",
+            correct: false,
+            feedback: "Not the main issue—a marketing email is human prose, not machine-parsed JSON. Even in JSON, the copy inside the fields would still be vague clichés."
+          },
+          {
+            label: "Missing Delimiters Around Untrusted Text",
+            correct: false,
+            feedback: "There is no pasted third-party document here; the problem is that the prompt gives zero information about audience, product, or goal."
+          },
+          {
+            label: "Missing Numerical Word-Count Cap Only",
+            correct: false,
+            feedback: "Adding 'under 100 words' alone still produces 100 words of generic fluff about an imaginary product. Audience, offer, and CTA are the missing anchors."
+          }
+        ],
+        upgradedPrompt:
+          "Role: SaaS lifecycle copywriter.\n" +
+          "Audience: Engineering leads on day 11 of a 14-day PulseNote trial who haven't invited teammates yet.\n" +
+          "Goal: Get them to run one 2-minute async standup before trial ends Friday.\n" +
+          "Tone: Peer-to-peer, practical, zero hype.\n" +
+          "Format: Subject line (<=7 words) + 3 short paragraphs (<=90 words total) + 1 clear CTA link.",
+        weakScore: 14,
+        weakRisk: "Generic Slop Risk",
+        weakRiskTone: "bad",
+        weakOutput:
+          "Subject: Elevate Your Workflow Today!\n\n" +
+          "Dear Valued Customer,\n\n" +
+          "In today's fast-paced digital landscape, productivity is more important than ever. Our innovative solution helps teams streamline communication, boost synergy, and achieve extraordinary results.\n\n" +
+          "Don't miss this amazing opportunity—upgrade now to unlock your full potential!\n\n" +
+          "Best regards, The Team",
+        weakWhy:
+          "With zero product, audience, or tone clues, the model predicts the highest-probability generic promo clichés seen across millions of internet templates.",
+        strongScore: 93,
+        strongRisk: "Targeted & Copy-Ready",
+        strongRiskTone: "ok",
+        strongOutput:
+          "Subject: Quick 2-minute test before Friday\n\n" +
+          "Hi {{first_name}},\n\n" +
+          "Your PulseNote trial wraps up Friday, and your workspace hasn't tried a team check-in yet.\n\n" +
+          "Before paying anything, run one async standup tomorrow morning: paste your invite link in Slack and skip the 15-minute status call. If half your team finishes in under two minutes, you'll know it fits.\n\n" +
+          "Start a 2-minute check-in -> [Launch Friday Standup]",
+        strongWhy:
+          "Specifying reader stage (day 11, uninvited team), concrete action (1 async check-in), and tone locks out generic adjectives and pulls specific, usable phrasing to the top."
+      },
+      {
+        id: "summarize-report",
+        tabLabel: "2. Summarize Report",
+        weakPrompt: "Summarize this report.",
+        contextNote: "Attached 4-page Q3 Customer Support Report (ticket volume +18%, billing bugs drove 42% of escalations, average first response improved from 6h to 3.5h, 2 support reps resigned in August).",
+        diagOptions: [
+          {
+            label: "Unspecified Reader Purpose, Focus & Output Shape",
+            correct: true,
+            feedback: "Correct. 'Summarize' has dozens of valid interpretations—a Head of Product needs bug drivers, while Finance wants staffing costs. Without purpose and shape, the AI writes a bland middle-of-the-road recap."
+          },
+          {
+            label: "Missing Source Document / Data",
+            correct: false,
+            feedback: "The report IS attached here. The breakdown happens because the model doesn't know which insights matter to the reader or what format to produce."
+          },
+          {
+            label: "Contradictory Instruction Collision",
+            correct: false,
+            feedback: "There are no conflicting rules in a 3-word prompt—the issue is under-specification leaving too many valid ways to summarize."
+          },
+          {
+            label: "Missing Creative Storytelling Persona",
+            correct: false,
+            feedback: "Adding creative flair won't tell the model whether to highlight staffing losses, response SLA wins, or product bugs."
+          }
+        ],
+        upgradedPrompt:
+          "Context: Preparing a 2-minute briefing for our Head of Product to prioritize Q4 bug fixes.\n" +
+          "Task: Extract ONLY customer-facing product issues and escalation drivers from <report>...</report>.\n" +
+          "Format: 3 numbered bullets (Issue | Share of Escalations | Impact), <=18 words per bullet.\n" +
+          "Boundary: Do not include staffing or HR details unless directly tied to bug resolution.",
+        weakScore: 22,
+        weakRisk: "Unfocused Middle-Ground",
+        weakRiskTone: "warn",
+        weakOutput:
+          "Overall, Q3 was a mixed quarter for customer support. Ticket volume rose by 18%, though the team improved first-response times from 6 hours down to 3.5 hours, showing strong operational efficiency. Several billing bugs caused escalations, and two representatives departed in August, suggesting potential staffing considerations heading into Q4.",
+        weakWhy:
+          "Because you didn't name the reader or decision, the model blends HR, metrics, and bugs evenly into a passive summary that requires manual editing before pasting into a product review.",
+        strongScore: 91,
+        strongRisk: "Decision-Ready Brief",
+        strongRiskTone: "ok",
+        strongOutput:
+          "1. Billing invoice & charge sync bugs | 42% of Q3 escalations | Primary driver of overall +18% ticket surge.\n" +
+          "2. Checkout coupon mismatch | 14% of Q3 escalations | Triggered manual refunds during August promo.\n" +
+          "3. CSV export timeout on >10k rows | 9% of Q3 escalations | Repeat complaints from enterprise accounts.",
+        strongWhy:
+          "Naming the Head of Product decision, scoping to product bugs, and defining a 3-column bullet format collapses 4 pages into an immediately actionable triage list."
+      },
+      {
+        id: "fix-code",
+        tabLabel: "3. Fix My Code",
+        weakPrompt:
+          "Fix my code:\nfunction cartTotal(items) {\n  return items.reduce((sum, x) => sum + x.price, 0);\n}",
+        contextNote: "Hidden reality: In production, some items lack a `.price` field (causing NaN) and `items` can be null on new accounts (throwing TypeError).",
+        diagOptions: [
+          {
+            label: "Unspecified Error Symptom, Edge Cases & Success Criteria",
+            correct: true,
+            feedback: "Exactly right. That JavaScript snippet runs fine on happy-path inputs! Without the actual error message, failing input, and expected fallback, the model guesses unrelated 'fixes' like formatting or async syntax."
+          },
+          {
+            label: "Missing Target Programming Language Name",
+            correct: false,
+            feedback: "The syntax (`function`, `=>`, `.reduce`) already signals JavaScript unmistakably. What's missing is *what broke* and *what fixed behavior looks like*."
+          },
+          {
+            label: "Missing Tone Anchor ('Friendly Senior Dev')",
+            correct: false,
+            feedback: "Changing the explanation's politeness doesn't reveal which runtime bug or edge case you hit."
+          },
+          {
+            label: "Missing Strict Markdown Table Layout",
+            correct: false,
+            feedback: "Code repair doesn't fail for lack of a table—it fails because the model cannot guess the failing test case from valid-looking syntax."
+          }
+        ],
+        upgradedPrompt:
+          "Task: Fix two production bugs in the JavaScript function below.\n" +
+          "Observed failures:\n" +
+          "1. Calling cartTotal(null) throws TypeError: Cannot read properties of null.\n" +
+          "2. Promotional free items omit `price`, returning NaN for the whole cart.\n" +
+          "Success criteria: Return 0 if `items` is null/empty; treat missing/non-numeric `price` as 0; round final total to 2 decimals.\n" +
+          "Output: Return the updated function plus 3 one-line test assertions.",
+        weakScore: 18,
+        weakRisk: "Wild Guessing Risk",
+        weakRiskTone: "bad",
+        weakOutput:
+          "Your code looks mostly fine, though you can modernize it with an arrow function and optional chaining on `reduce`, or add `parseFloat` in case prices are strings:\n\n" +
+          "const cartTotal = (items) => items.reduce((s, x) => s + Number(x.price), 0);\n\n" +
+          "Let me know if you're seeing a specific error!",
+        weakWhy:
+          "Since the snippet has no syntax error, next-piece prediction guesses generic code-review refactorings—actually leaving BOTH the null crash and missing-price NaN bug intact!",
+        strongScore: 95,
+        strongRisk: "Targeted & Verifiable",
+        strongRiskTone: "ok",
+        strongOutput:
+          "function cartTotal(items) {\n" +
+          "  if (!Array.isArray(items) || items.length === 0) return 0;\n" +
+          "  const sum = items.reduce((acc, item) => {\n" +
+          "    const price = Number(item && item.price);\n" +
+          "    return acc + (Number.isFinite(price) ? price : 0);\n" +
+          "  }, 0);\n" +
+          "  return Math.round(sum * 100) / 100;\n" +
+          "}\n\n" +
+          "// Checks: cartTotal(null) === 0 | cartTotal([{price:10}, {}]) === 10 | cartTotal([{price:0.1},{price:0.2}]) === 0.3",
+        strongWhy:
+          "Stating the exact runtime errors and acceptance rules gives the model unambiguous targets, turning guesswork into verifiable bug fixes."
+      },
+      {
+        id: "compare-cloud",
+        tabLabel: "4. Compare Cloud",
+        weakPrompt: "Compare cloud providers.",
+        contextNote: "Situation: A 4-person SaaS startup needs to host one Postgres database + a containerized Node API on a <=$200/month budget with minimal DevOps.",
+        diagOptions: [
+          {
+            label: "Missing Scope, Workload & Decision Axes",
+            correct: true,
+            feedback: "Spot on. 'Cloud providers' spans 200+ services from AWS/GCP/Azure to Fly.io/Render. Without workload, team size, budget, and comparison axes, you get an encyclopedic wall of trivia."
+          },
+          {
+            label: "Missing Conversational Outro Removal Rule",
+            correct: false,
+            feedback: "Cutting 'Hope this helps!' won't rescue a comparison that covers enterprise mainframe migration when you only need a $200/mo Node + Postgres host."
+          },
+          {
+            label: "Missing Escape Hatch for Private Data",
+            correct: false,
+            feedback: "General platform capabilities are public knowledge—the failure here is zero scoping on team size, stack, budget, and evaluation criteria."
+          },
+          {
+            label: "Negative-Only Phrasing Trap",
+            correct: false,
+            feedback: "No negative constraints were used; the issue is leaving scope and decision axes completely open."
+          }
+        ],
+        upgradedPrompt:
+          "Context: 4-person SaaS team deploying 1 containerized Node.js API + managed Postgres.\n" +
+          "Constraints: Budget <=$200/month; zero dedicated DevOps engineer.\n" +
+          "Task: Compare AWS ECS+RDS vs. Render vs. Fly.io across 4 axes: Monthly Est. Cost, Setup Complexity, Auto-Scaling, and Managed DB Backups.\n" +
+          "Format: Markdown comparison table + a 2-sentence recommendation.",
+        weakScore: 15,
+        weakRisk: "Textbook Bloat Risk",
+        weakRiskTone: "bad",
+        weakOutput:
+          "The three largest cloud providers are AWS, Microsoft Azure, and Google Cloud Platform (GCP). AWS offers the broadest catalog of over 200 services and strong global reach. Azure integrates deeply with Microsoft enterprise tools like Active Directory and Office 365. GCP is known for Kubernetes leadership and big-data analytics like BigQuery. Each provider offers pay-as-you-go pricing...",
+        weakWhy:
+          "Without workload or budget constraints, the model defaults to the most common encyclopedia article pattern—completely missing simpler PaaS options that fit a 4-person team.",
+        strongScore: 92,
+        strongRisk: "Decision-Scoped Comparison",
+        strongRiskTone: "ok",
+        strongOutput:
+          "| Provider | Est. Cost (API + DB) | Setup Complexity | Auto-Scaling | Managed DB Backups |\n" +
+          "|---|---|---|---|---|\n" +
+          "| AWS (ECS + RDS) | ~$90–$160/mo | High (IAM, VPC, ALB) | Fine-grained | Automated snapshots |\n" +
+          "| Render | ~$45–$95/mo | Low (Git push) | Built-in simple | Daily automated |\n" +
+          "| Fly.io | ~$35–$85/mo | Medium (CLI/TOML) | Edge regions | Snapshot-based |\n\n" +
+          "Recommendation: Choose Render first to ship without IAM/VPC overhead, and revisit AWS only if compliance or custom networking requires it.",
+        strongWhy:
+          "Locking down the exact 3 candidates, stack, budget ceiling, and 4 table columns forces every token to serve your actual decision."
+      },
+      {
+        id: "refund-policy",
+        tabLabel: "5. Refund Policy",
+        weakPrompt: "Answer this customer email about our refund policy:\n\"Hi, I bought the annual Pro plan 45 days ago and barely used it. Can I get a refund?\"",
+        contextNote: "Critical detail: Your company's real policy (not included in the prompt!) only allows refunds within 14 days of purchase, with no partial-year refunds after day 14.",
+        diagOptions: [
+          {
+            label: "Missing Source Context & Grounding Boundary",
+            correct: true,
+            feedback: "Bullseye! The model has zero access to your private billing rules. Without pasted policy text AND a rule saying not to guess, next-piece prediction smoothly fabricates a polite, confident—and legally false—refund promise."
+          },
+          {
+            label: "Missing Friendly Support Role Anchor",
+            correct: false,
+            feedback: "Adding 'Act as an empathetic support lead' only makes the hallucinated refund promise sound warmer and more convincing!"
+          },
+          {
+            label: "Missing Word-Count Constraint",
+            correct: false,
+            feedback: "A shorter hallucination is just as harmful—sending a 30-word false refund guarantee still creates a billing dispute."
+          },
+          {
+            label: "Missing Markdown Table Output Format",
+            correct: false,
+            feedback: "Customer emails are short notes, not tables—and formatting missing facts into columns doesn't prevent invention."
+          }
+        ],
+        upgradedPrompt:
+          "Role: Customer Support Specialist.\n" +
+          "Rules: Answer ONLY using the policy inside <policy>. Do NOT invent exceptions, dollar amounts, or timelines.\n" +
+          "Escape hatch: If <policy> lacks the details needed to decide, reply \"POLICY_MISSING\" and list what info is needed.\n" +
+          "<policy>\n" +
+          "Annual Pro plans are eligible for a full refund only within 14 calendar days of initial purchase. After 14 days, no full or prorated refunds are issued; customers may cancel auto-renewal to keep access until term end.\n" +
+          "</policy>\n" +
+          "<customer_email>\n" +
+          "Hi, I bought the annual Pro plan 45 days ago and barely used it. Can I get a refund?\n" +
+          "</customer_email>\n" +
+          "Task: Draft a calm, empathetic 3-sentence reply.",
+        weakScore: 20,
+        weakRisk: "High Hallucination Risk",
+        weakRiskTone: "bad",
+        weakOutput:
+          "Hi there,\n\n" +
+          "Thanks for reaching out! Since you purchased the annual Pro plan 45 days ago and haven't used it much, we'd be happy to offer a prorated refund for the remaining 10 months of your subscription under our customer satisfaction policy. Please reply with your invoice number and we'll process it within 3–5 business days!\n\n" +
+          "Warmly, Support",
+        weakWhy:
+          "Because 'helpful customer support' completions frequently grant prorated refunds in training text, the model smoothly invents a nonexistent refund promise when your real policy isn't provided.",
+        strongScore: 96,
+        strongRisk: "Grounded & Policy-Safe",
+        strongRiskTone: "ok",
+        strongOutput:
+          "Hi there, thank you for reaching out and sharing how your first few weeks went. Under our billing policy, annual Pro plans are only eligible for a refund within 14 calendar days of purchase, so a refund isn't available at day 45. I've noted your feedback, and you can cancel auto-renewal anytime in Billing Settings to keep full access through the rest of your current year without being charged again.",
+        strongWhy:
+          "Attaching the exact policy in XML delimiters plus an explicit grounding boundary eliminates invented exceptions and anchors every claim to verified rules."
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "class") node.className = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Prompt Autopsy: Diagnose Ambiguity & Watch the Output Shift",
+      instructions:
+        "Inspect all 5 weak prompts below. For each prompt, (1) diagnose the primary ambiguity flaw, then " +
+        "(2) toggle between the Original Weak Prompt and Clear Upgrade to watch the Specificity Meter and simulated AI output transform.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          activeIdx: 0,
+          perCase: {}
+        };
+        CASES.forEach(function (c) {
+          state.perCase[c.id] = { pickedIdx: null, diagnosedRight: false, upgraded: false };
+        });
+
+        var progressRow = el("div", { class: "pa-progress-row" });
+        var tabsWrap = el("div", { class: "pa-tabs", role: "tablist", "aria-label": "Weak prompt cases" });
+        var stageWrap = el("div");
+        var resultWrap = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(progressRow);
+        root.appendChild(tabsWrap);
+        root.appendChild(stageWrap);
+        root.appendChild(resultWrap);
+
+        function countCompleted() {
+          var diagCount = 0;
+          var fullCount = 0;
+          CASES.forEach(function (c) {
+            var st = state.perCase[c.id];
+            if (st.diagnosedRight) diagCount++;
+            if (st.diagnosedRight && st.upgraded) fullCount++;
+          });
+          return { diagCount: diagCount, fullCount: fullCount };
+        }
+
+        function renderProgress() {
+          var counts = countCompleted();
+          progressRow.innerHTML = "";
+          progressRow.appendChild(el("span", {
+            text: "Diagnosed accurately: " + counts.diagCount + " / " + CASES.length
+          }));
+          progressRow.appendChild(el("span", {
+            text: "Upgraded & inspected: " + counts.fullCount + " / " + CASES.length
+          }));
+        }
+
+        function renderTabs() {
+          tabsWrap.innerHTML = "";
+          CASES.forEach(function (c, idx) {
+            var st = state.perCase[c.id];
+            var badge = st.diagnosedRight && st.upgraded ? "Done" : (st.diagnosedRight ? "Diagnosed" : "Inspect");
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.activeIdx ? "true" : "false",
+              class: "pa-tab" + (idx === state.activeIdx ? " is-active" : "")
+            }, [
+              el("span", { text: c.tabLabel }),
+              el("span", { class: "pa-tab-badge", text: badge })
+            ]);
+            btn.addEventListener("click", function () {
+              state.activeIdx = idx;
+              renderAll();
+            });
+            tabsWrap.appendChild(btn);
+          });
+        }
+
+        function renderStage() {
+          stageWrap.innerHTML = "";
+          var c = CASES[state.activeIdx];
+          var st = state.perCase[c.id];
+
+          var card = el("div", { class: "pa-card" });
+          card.appendChild(el("p", {
+            class: "pa-section-label",
+            text: st.upgraded ? "Prompt Sent to Model (Clear Upgrade Applied)" : "Prompt Sent to Model (Original Weak Prompt)"
+          }));
+          card.appendChild(el("pre", {
+            class: "pa-prompt-box" + (st.upgraded ? " pa-prompt-box--upgraded" : ""),
+            text: st.upgraded ? c.upgradedPrompt : c.weakPrompt
+          }));
+          card.appendChild(el("p", { class: "pa-context-note", text: c.contextNote }));
+
+          card.appendChild(el("p", {
+            class: "pa-section-label",
+            text: "Step 1 — Diagnose the primary ambiguity flaw:"
+          }));
+          var diagGrid = el("div", { class: "pa-diag-grid" });
+          c.diagOptions.forEach(function (opt, optIdx) {
+            var cls = "pa-diag-btn";
+            if (st.pickedIdx === optIdx) {
+              cls += opt.correct ? " is-correct" : " is-wrong";
+            }
+            var btn = el("button", {
+              type: "button",
+              class: cls,
+              "aria-pressed": st.pickedIdx === optIdx ? "true" : "false",
+              text: opt.label
+            });
+            btn.addEventListener("click", function () {
+              st.pickedIdx = optIdx;
+              if (opt.correct) st.diagnosedRight = true;
+              renderAll();
+            });
+            diagGrid.appendChild(btn);
+          });
+          card.appendChild(diagGrid);
+
+          if (st.pickedIdx !== null) {
+            var chosen = c.diagOptions[st.pickedIdx];
+            card.appendChild(el("div", {
+              class: "pa-diag-feedback " + (chosen.correct ? "is-ok" : "is-err"),
+              text: (chosen.correct ? "Accurate diagnosis: " : "Not the primary flaw: ") + chosen.feedback
+            }));
+          }
+
+          var upgradeBar = el("div", { class: "pa-upgrade-bar" });
+          upgradeBar.appendChild(el("span", {
+            class: "pa-section-label",
+            style: "margin:0;",
+            text: "Step 2 — Compare Model Output:"
+          }));
+
+          var modeGroup = el("div", { class: "pa-mode-group", role: "group", "aria-label": "Prompt clarity mode" });
+          var weakBtn = el("button", {
+            type: "button",
+            class: "pa-mode-btn",
+            "aria-pressed": !st.upgraded ? "true" : "false",
+            text: "Original Weak Prompt"
+          });
+          var upBtn = el("button", {
+            type: "button",
+            class: "pa-mode-btn pa-mode-btn--upgrade",
+            "aria-pressed": st.upgraded ? "true" : "false",
+            text: "Apply Clear Upgrade"
+          });
+          weakBtn.addEventListener("click", function () {
+            st.upgraded = false;
+            renderAll();
+          });
+          upBtn.addEventListener("click", function () {
+            st.upgraded = true;
+            renderAll();
+          });
+          modeGroup.appendChild(weakBtn);
+          modeGroup.appendChild(upBtn);
+          upgradeBar.appendChild(modeGroup);
+          card.appendChild(upgradeBar);
+
+          stageWrap.appendChild(card);
+        }
+
+        function renderResult() {
+          resultWrap.innerHTML = "";
+          var c = CASES[state.activeIdx];
+          var st = state.perCase[c.id];
+          var score = st.upgraded ? c.strongScore : c.weakScore;
+          var riskLabel = st.upgraded ? c.strongRisk : c.weakRisk;
+          var riskTone = st.upgraded ? c.strongRiskTone : c.weakRiskTone;
+          var outputText = st.upgraded ? c.strongOutput : c.weakOutput;
+          var whyText = st.upgraded ? c.strongWhy : c.weakWhy;
+
+          var panel = el("div", { class: "pa-result-panel" });
+
+          var meterHead = el("div", { class: "pa-meter-head" }, [
+            el("span", { text: "Specificity Meter: " + score + " / 100" }),
+            el("span", { class: "pa-risk-pill pa-risk-pill--" + riskTone, text: riskLabel })
+          ]);
+          panel.appendChild(meterHead);
+
+          var bar = el("div", { class: "progress-bar" });
+          var fill = el("div", { class: "progress-bar-fill" });
+          fill.style.width = score + "%";
+          fill.style.background = riskTone === "ok"
+            ? "var(--color-success)"
+            : (riskTone === "warn" ? "#d97706" : "var(--color-error)");
+          bar.appendChild(fill);
+          panel.appendChild(bar);
+
+          panel.appendChild(el("p", {
+            class: "pa-section-label",
+            style: "margin-top: var(--space-3);",
+            text: "Simulated AI Output"
+          }));
+          panel.appendChild(el("div", { class: "pa-output-pre", text: outputText }));
+          panel.appendChild(el("p", {
+            class: "pa-why-note",
+            text: "Why the model predicted this: " + whyText
+          }));
+
+          if (state.activeIdx < CASES.length - 1) {
+            var nextRow = el("div", { style: "margin-top: var(--space-3);" });
+            var nextBtn = el("button", {
+              type: "button",
+              class: "btn btn-secondary btn-sm",
+              text: "Next Weak Prompt \u2192"
+            });
+            nextBtn.addEventListener("click", function () {
+              if (state.activeIdx < CASES.length - 1) {
+                state.activeIdx += 1;
+                renderAll();
+              }
+            });
+            nextRow.appendChild(nextBtn);
+            panel.appendChild(nextRow);
+          }
+
+          resultWrap.appendChild(panel);
+        }
+
+        function renderAll() {
+          renderProgress();
+          renderTabs();
+          renderStage();
+          renderResult();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "You type 'Write a blog post about remote teamwork' with no audience, angle, or structure. Why does the reply usually read like generic cliché advice?",
+          options: [
+            "Because next-piece prediction averages across millions of generic internet articles when audience, goal, and constraints are omitted",
+            "Because prompts under 10 words automatically route to a smaller, less capable fallback model",
+            "Because omitting a role disables the model's ability to recall factual examples from training",
+            "Because open-ended creative prompts require a higher temperature setting before clear prose appears"
+          ],
+          answer: 0,
+          explanation: "Without an audience, specific scenario, or output shape, the safest statistical continuation across training data is generic middle-of-the-road filler. Shorter prompts don't trigger smaller models or disable recall—they simply leave too many degrees of freedom open."
+        },
+        {
+          q: "A teammate asks an AI 'Answer this customer asking about our warranty transfer fee' without pasting the warranty policy. The AI fluently replies: 'Customers can transfer coverage for a $25 fee within 60 days.' What caused this error?",
+          options: [
+            "The model queried an outdated cached snapshot of your company website from last year",
+            "Without source facts or a boundary, next-piece prediction smoothly invented plausible warranty numbers to fit the pattern (hallucination)",
+            "The user forgot to specify a bulleted list format, which causes numeric values to drift",
+            "The prompt lacked a polite greeting, pushing the model toward speculative wording"
+          ],
+          answer: 1,
+          explanation: "The model has no access to private company rules unless you supply them. Because training completions to support questions usually state dollar fees and day limits, it confidently hallucinates plausible-looking figures—fixing format or tone alone would not supply the real policy."
+        },
+        {
+          q: "You want an AI to compare three project tools for a 10-person design studio on a $150/month cap. Which prompt edit removes the most harmful ambiguity?",
+          options: [
+            "Adding 'Be extremely thorough, accurate, and thoughtful in your analysis'",
+            "Repeating 'Compare project tools' at the start and end for stronger model attention",
+            "Specifying team size (10), budget ceiling ($150/mo), must-have workflows (Figma review, guest links), and a comparison table",
+            "Leaving the prompt short and open so the model covers every feature neutrally without bias"
+          ],
+          answer: 2,
+          explanation: "Vague pep-talk adjectives ('be thorough') don't narrow which criteria matter to your studio. Stating concrete constraints—team size, budget, workflow needs, and exact comparison columns—eliminates guesswork and focuses every token on your real decision."
+        },
+        {
+          q: "In prompt engineering, what does 'removing degrees of freedom' accomplish behind the scenes?",
+          options: [
+            "It narrows the probability cloud of candidate next tokens by locking in audience, scope, evidence, and shape",
+            "It permanently freezes the model's neural weights into deterministic zero-temperature mode",
+            "It forces the model to ignore everything learned during training and copy only your words",
+            "It caps maximum reply length at one sentence regardless of how much detail is needed"
+          ],
+          answer: 0,
+          explanation: "Clear constraints don't alter weights or erase training knowledge—they reshape the context so useful, domain-appropriate continuations beat generic filler in the next-token probability ranking."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

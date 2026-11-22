@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controlling What It Outputs: Formats, Templates, Tone &amp; Length — AI Maturity Course</title>
+<meta name="description" content="Get copy-paste-ready and parser-safe AI outputs every run using exact Markdown templates, tables, strict JSON keys, concrete length caps, tone anchors, and no-preamble rules.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "pe-4";
+</script>
+<style>
+  /* Output Contract Designer Widget */
+  .ocd-task-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .ocd-task-tabs { grid-template-columns: 1fr; }
+  }
+  .ocd-task-btn {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+  }
+  .ocd-task-btn:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .ocd-task-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+
+  .ocd-input-box {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-4);
+  }
+  .ocd-input-box strong { color: var(--color-text); }
+
+  .ocd-controls-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .ocd-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .ocd-controls-grid { grid-template-columns: 1fr; }
+  }
+  .ocd-field-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+  }
+  .ocd-format-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .ocd-fmt-btn {
+    padding: 6px 10px;
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+  }
+  .ocd-fmt-btn:hover { border-color: var(--color-primary); }
+  .ocd-fmt-btn[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .ocd-select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+  .ocd-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--color-text);
+  }
+
+  .ocd-split {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  @media (max-width: 720px) {
+    .ocd-split { grid-template-columns: 1fr; }
+  }
+  .ocd-pane {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+  }
+  .ocd-pane-title {
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-2) 0;
+  }
+  .ocd-pre {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-inset);
+    border: 1px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--color-text);
+  }
+  .ocd-pre--prompt {
+    background: var(--color-bg-alt);
+  }
+
+  .ocd-scores-panel {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .ocd-scores-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .ocd-badge {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .ocd-badge--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .ocd-badge--warn { background: var(--color-warning-bg); color: #855200; }
+  .ocd-badge--bad { background: var(--color-error-bg); color: var(--color-error); }
+  .ocd-meters {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .ocd-meters { grid-template-columns: 1fr; }
+  }
+  .ocd-meter-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .ocd-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: var(--color-text);
+  }
+  .ocd-tip {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Prompt Engineering</p>
+  <h1>Controlling What It Outputs: Formats, Templates, Tone &amp; Length</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Specify exact output contracts—using Markdown templates, tables, strict JSON
+      keys, numeric length caps, tone anchors, and no-preamble rules—so AI replies arrive copy-paste-ready or safely
+      parseable on every run.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          An <strong>output contract</strong> defines the exact shape, voice, and length budget of an AI reply
+          <em>before</em> the model starts generating tokens—turning unpredictable prose into consistent, copy-ready
+          Markdown or machine-parseable JSON.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (Five Controls Over Output Shape)</h2>
+      <ul>
+        <li>
+          <strong>Exact Markdown templates for human workflows:</strong> When you paste notes into Slack, Notion, or
+          email, supply an explicit skeleton with headings and slot labels (e.g., <code>## Decisions</code>,
+          <code>- [Owner] — [Task] (Due: [Date])</code>). The model fills your slots rather than inventing its own layout.
+        </li>
+        <li>
+          <strong>Markdown tables vs. Strict JSON keys:</strong> Use a <strong>Markdown table</strong> with named columns
+          when humans scan comparisons side by side. Use <strong>Strict JSON</strong> with exact key names, types, and
+          allowed enum values (<code>"priority": "low" | "medium" | "high"</code>) when code, webhooks, or spreadsheets parse the output.
+        </li>
+        <li>
+          <strong>Numeric length caps instead of adjectives:</strong> Replace fuzzy words like <em>"brief"</em> or
+          <em>"concise"</em> with hard counts: <code>"Max 3 bullets, &le;12 words per bullet"</code> or
+          <code>"1 summary sentence (&le;25 words)."</code>
+        </li>
+        <li>
+          <strong>Concrete audience &amp; tone anchors:</strong> Anchor register to a recognizable role and style
+          (<em>"Blunt executive brief," "Calm support lead," "Neutral machine-readable"</em>) rather than generic
+          requests like <em>"sound professional."</em>
+        </li>
+        <li>
+          <strong>No conversational preamble or outro:</strong> Explicitly add <code>"Output ONLY the template/JSON—no
+          greeting, commentary, or closing remarks."</code> This strips <em>"Sure! Here is your summary:"</em> and makes
+          replies immediately pasteable or valid for <code>JSON.parse()</code>.
+        </li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Reusable Output Contract Skeleton</h3>
+      <pre class="code-block">Audience &amp; Tone: VP of Engineering — direct, factual, zero fluff.
+Length Cap: Exactly 3 bullets under Action Items, &le;14 words per bullet.
+Rule: Output ONLY the template below. No intro sentence, no sign-off.
+
+### Weekly Release Summary
+- Status: [On Track | At Risk | Blocked]
+- Top Blocker: [1 sentence, &le;18 words, or "None"]
+
+### Action Items
+- [Owner] | [Action] | [Due Date]</pre>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Trusting Subjective Words Like "Brief" or "Nice Format"</h3>
+      <p>
+        To one training document, <em>"brief"</em> means 2 sentences; to another, it means a 4-paragraph executive memo.
+        Asking for a <em>"nice, brief summary"</em> guarantees inconsistent formatting across runs—and omitting a
+        no-preamble rule lets chat wrappers (<em>"Certainly! Here's what I found:"</em>) break automated JSON parsers.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "pe-4"
+
+    var TASKS = [
+      {
+        id: "meeting",
+        label: "1. Meeting Action Items",
+        inputSummary:
+          "Input snippet: 25-min product sync — Sam will ship the OAuth fix by Thu; Priya needs legal sign-off on privacy text by Fri; team agreed to delay dark-mode polish to next sprint; QA blocked waiting on staging seed script."
+      },
+      {
+        id: "triage",
+        label: "2. Support Ticket Triage",
+        inputSummary:
+          "Input snippet: Ticket #4819 from Acme Corp (Enterprise): 'Our SSO login started throwing 500 errors for all 60 reps after your 9am deploy! Invoices are stuck too. Please escalate immediately.'"
+      },
+      {
+        id: "compare",
+        label: "3. Product Comparison",
+        inputSummary:
+          "Input snippet: Compare Linear vs. Jira vs. Shortcut for a 15-person startup migrating off spreadsheets (focus: speed, setup effort, GitHub sync, monthly cost)."
+      }
+    ];
+
+    var FORMATS = [
+      { id: "prose", label: "Prose" },
+      { id: "template", label: "Exact Template" },
+      { id: "table", label: "Markdown Table" },
+      { id: "json", label: "Strict JSON" }
+    ];
+
+    var LENGTH_CAPS = [
+      { id: "vague", label: "Vague ('Keep it brief')", promptLine: "Length: Keep it brief.", isConcrete: false },
+      { id: "tight", label: "Tight (Max 3 items, <=12w each)", promptLine: "Length Cap: Maximum 3 items/rows, <=12 words per line.", isConcrete: true },
+      { id: "balanced", label: "Balanced (Max 4 items, <=20w each)", promptLine: "Length Cap: Maximum 4 items/rows, <=20 words per line.", isConcrete: true },
+      { id: "compact", label: "Ultra-Compact (1-line / minimal)", promptLine: "Length Cap: Ultra-compact single-line values, <=8 words per field.", isConcrete: true }
+    ];
+
+    var TONES = [
+      { id: "default", label: "Unspecified (default chatty)", promptLine: "", isAnchored: false },
+      { id: "exec", label: "Executive Brief (direct, zero fluff)", promptLine: "Tone Anchor: Executive brief—direct, action-first, zero adjectives.", isAnchored: true },
+      { id: "support", label: "Calm Support Lead (empathetic, factual)", promptLine: "Tone Anchor: Calm support lead—factual, clear, reassuring.", isAnchored: true },
+      { id: "machine", label: "Machine-Neutral (pure data)", promptLine: "Tone Anchor: Machine-neutral—terse factual labels only, no commentary.", isAnchored: true }
+    ];
+
+    function buildContractPrompt(cfg) {
+      var lines = [];
+      var taskLabel = TASKS.filter(function (t) { return t.id === cfg.task; })[0].label.replace(/^\d+\.\s*/, "");
+      lines.push("Task: Generate " + taskLabel + " from the provided input.");
+
+      var toneObj = TONES.filter(function (t) { return t.id === cfg.tone; })[0];
+      if (toneObj && toneObj.promptLine) lines.push(toneObj.promptLine);
+
+      var lenObj = LENGTH_CAPS.filter(function (l) { return l.id === cfg.lengthCap; })[0];
+      lines.push(lenObj.promptLine);
+
+      if (cfg.noPreamble) {
+        lines.push("Rule: Output ONLY the final formatted result. Zero greeting, explanation, or sign-off.");
+      }
+
+      if (cfg.format === "prose") {
+        lines.push("Format: Plain prose paragraphs.");
+      } else if (cfg.format === "template") {
+        if (cfg.task === "meeting") {
+          lines.push("Format — fill this exact Markdown template:\n## Decisions\n- [Decision]\n## Action Items\n- [Owner] | [Action] | [Due]");
+        } else if (cfg.task === "triage") {
+          lines.push("Format — fill this exact Markdown template:\n## Ticket Triage\n- Severity: [P1|P2|P3]\n- Component: [System]\n- Next Action: [Step]\n- Owner: [Team]");
+        } else {
+          lines.push("Format — fill this exact Markdown template:\n## Top Pick\n- [Tool]: [Why]\n## Runner-Up\n- [Tool]: [Tradeoff]");
+        }
+      } else if (cfg.format === "table") {
+        if (cfg.task === "meeting") {
+          lines.push("Format: Markdown table with exact columns: | Owner | Task | Due Date | Status |");
+        } else if (cfg.task === "triage") {
+          lines.push("Format: Markdown table with exact columns: | Field | Value | Confidence |");
+        } else {
+          lines.push("Format: Markdown table with exact columns: | Tool | Setup Effort | GitHub Sync | Est. Cost |");
+        }
+      } else if (cfg.format === "json") {
+        if (cfg.task === "meeting") {
+          lines.push('Format: Valid raw JSON matching:\n{"decisions": ["string"], "actions": [{"owner": "string", "task": "string", "due": "string"}]}');
+        } else if (cfg.task === "triage") {
+          lines.push('Format: Valid raw JSON matching:\n{"ticket_id": "string", "severity": "P1|P2|P3", "affected_area": "string", "escalate_to": "string"}');
+        } else {
+          lines.push('Format: Valid raw JSON matching:\n{"recommended": "string", "tools": [{"name": "string", "setup": "low|med|high", "cost_15_seats": "string"}]}');
+        }
+      }
+
+      return lines.join("\n");
+    }
+
+    function simulateOutput(cfg) {
+      var isTight = cfg.lengthCap === "tight" || cfg.lengthCap === "compact";
+      var isCompact = cfg.lengthCap === "compact";
+      var isExec = cfg.tone === "exec" || cfg.tone === "machine";
+      var isSupport = cfg.tone === "support";
+      var core = "";
+
+      if (cfg.format === "prose") {
+        if (cfg.task === "meeting") {
+          core = isTight
+            ? "The team delayed dark-mode polish to next sprint. Sam will ship the OAuth fix by Thursday, Priya will secure legal sign-off on privacy text by Friday, and QA remains blocked on the staging seed script."
+            : "During today's 25-minute product sync, the team reviewed several key deliverables and timeline adjustments. Notably, everyone aligned on pushing dark-mode polish back into next sprint so core reliability work stays prioritized. On the ownership side, Sam committed to shipping the OAuth fix by Thursday, while Priya is following up with Legal for privacy copy approval by Friday. Meanwhile, QA flagged a current blocker waiting on the staging seed script.";
+        } else if (cfg.task === "triage") {
+          core = isTight
+            ? "Ticket #4819 is a P1 production outage from Enterprise customer Acme Corp: all 60 reps hit 500 errors on SSO login after the 9am deploy, blocking invoicing. Escalate immediately to Auth On-Call."
+            : "Acme Corp (an Enterprise account) submitted Ticket #4819 reporting widespread login failures right after this morning's 9am deployment. All 60 of their sales reps are seeing HTTP 500 errors during SSO sign-in, which is also preventing them from accessing invoices. Given the customer tier and full-account impact, this should be treated as an urgent P1 incident and routed directly to the Auth & Deploy On-Call engineer.";
+        } else {
+          core = isTight
+            ? "For a 15-person startup leaving spreadsheets, Linear offers the fastest setup and cleanest GitHub sync (~$120/mo), Shortcut balances simplicity with sprint boards (~$127/mo), and Jira adds heavy configuration overhead."
+            : "When comparing Linear, Jira, and Shortcut for a 15-person startup moving off spreadsheets, each tool brings distinct workflow tradeoffs. Linear stands out for snappy keyboard speed, fast onboarding, and tight two-way GitHub sync at roughly $120/month. Shortcut sits in the middle with approachable sprint planning around $127/month. Jira offers deep enterprise customization, though its initial setup effort can slow down a small team.";
+        }
+      } else if (cfg.format === "template") {
+        if (cfg.task === "meeting") {
+          core = isCompact
+            ? "## Decisions\n- Defer dark-mode polish to next sprint.\n## Action Items\n- Sam | Ship OAuth fix | Thu\n- Priya | Legal privacy sign-off | Fri\n- DevOps | Unblock QA seed script | Today"
+            : "## Decisions\n- Move dark-mode polish to next sprint to protect release scope.\n## Action Items\n- Sam | Ship OAuth login fix | Thursday\n- Priya | Obtain Legal sign-off on privacy text | Friday" + (cfg.lengthCap === "balanced" ? "\n- Platform | Deliver staging seed script to unblock QA | ASAP" : "");
+        } else if (cfg.task === "triage") {
+          core = isSupport
+            ? "## Ticket Triage\n- Severity: P1 (Full enterprise outage)\n- Component: SSO Login & Invoicing post-9am deploy\n- Next Action: Page Auth On-Call and send Acme Corp an immediate status ack\n- Owner: Auth Incident Lead"
+            : "## Ticket Triage\n- Severity: P1\n- Component: SSO Auth (500 errors since 9am deploy)\n- Next Action: Page Auth On-Call; check 9am release diff\n- Owner: Identity Engineering";
+        } else {
+          core = isExec
+            ? "## Top Pick\n- Linear: Fastest setup, native GitHub PR sync, ~$120/mo for 15 seats.\n## Runner-Up\n- Shortcut: Friendly Kanban/sprints (~$127/mo); avoid Jira unless custom enterprise workflows are required."
+            : "## Top Pick\n- Linear: Minimal admin overhead, fast issue triage, and automatic GitHub branch/PR linking.\n## Runner-Up\n- Shortcut: Good balance of sprint tracking and ease of use; Jira requires heavier workflow setup.";
+        }
+      } else if (cfg.format === "table") {
+        if (cfg.task === "meeting") {
+          core =
+            "| Owner | Task | Due Date | Status |\n" +
+            "|---|---|---|---|\n" +
+            "| Sam | Ship OAuth fix | Thu | In Progress |\n" +
+            "| Priya | Legal sign-off on privacy text | Fri | Pending |\n" +
+            (isTight ? "" : "| Platform | Provide staging seed script for QA | Today | Blocked |\n") +
+            "| Team | Defer dark-mode polish | Next Sprint | Decided |";
+        } else if (cfg.task === "triage") {
+          core =
+            "| Field | Value | Confidence |\n" +
+            "|---|---|---|\n" +
+            "| Ticket / Account | #4819 — Acme Corp (Enterprise) | High |\n" +
+            "| Severity | P1 (60 users blocked on SSO + billing) | High |\n" +
+            "| Suspected Trigger | 9:00 AM deployment | High |";
+        } else {
+          core =
+            "| Tool | Setup Effort | GitHub Sync | Est. Cost (15 seats) |\n" +
+            "|---|---|---|---|\n" +
+            "| Linear | Low (under 1 hour) | Native two-way PR sync | ~$120/mo |\n" +
+            "| Shortcut | Low-Medium | Strong branch/PR hooks | ~$127/mo |\n" +
+            "| Jira | High (workflows/schemes) | App-based integration | ~$122/mo (Standard) |";
+        }
+      } else if (cfg.format === "json") {
+        if (cfg.task === "meeting") {
+          core = JSON.stringify({
+            decisions: ["Delay dark-mode polish to next sprint"],
+            actions: isCompact
+              ? [
+                  { owner: "Sam", task: "Ship OAuth fix", due: "Thu" },
+                  { owner: "Priya", task: "Legal privacy sign-off", due: "Fri" }
+                ]
+              : [
+                  { owner: "Sam", task: "Ship OAuth fix", due: "Thu" },
+                  { owner: "Priya", task: "Get legal sign-off on privacy text", due: "Fri" },
+                  { owner: "Platform", task: "Unblock QA staging seed script", due: "Today" }
+                ]
+          }, null, 2);
+        } else if (cfg.task === "triage") {
+          core = JSON.stringify({
+            ticket_id: "4819",
+            severity: "P1",
+            affected_area: isExec ? "SSO Auth + Invoicing (60 reps)" : "SSO login 500 errors post-9am deploy",
+            escalate_to: "Auth On-Call"
+          }, null, 2);
+        } else {
+          core = JSON.stringify({
+            recommended: "Linear",
+            tools: [
+              { name: "Linear", setup: "low", cost_15_seats: "$120/mo" },
+              { name: "Shortcut", setup: "low", cost_15_seats: "$127/mo" },
+              { name: "Jira", setup: "high", cost_15_seats: "$122/mo" }
+            ]
+          }, null, 2);
+        }
+      }
+
+      if (!cfg.noPreamble) {
+        if (cfg.format === "json") {
+          return "Sure! Here is the structured JSON extracted from your input:\n\n```json\n" +
+            core +
+            "\n```\n\nLet me know if you need any extra fields added!";
+        }
+        return "Certainly! Here is the summary based on the details provided:\n\n" +
+          core +
+          "\n\nHope this helps—happy to adjust the format if needed!";
+      }
+      return core;
+    }
+
+    function computeScores(cfg) {
+      var fmtScore = { prose: 25, template: 88, table: 92, json: 96 }[cfg.format];
+      var lenObj = LENGTH_CAPS.filter(function (l) { return l.id === cfg.lengthCap; })[0];
+      var toneObj = TONES.filter(function (t) { return t.id === cfg.tone; })[0];
+
+      var consistency = fmtScore;
+      if (lenObj.isConcrete) consistency += 4;
+      else consistency -= 12;
+      if (toneObj.isAnchored) consistency += 3;
+      else consistency -= 5;
+      consistency = Math.max(15, Math.min(100, consistency));
+
+      var readiness = 20;
+      if (cfg.format !== "prose") readiness += 35;
+      else readiness += 10;
+      if (cfg.noPreamble) readiness += 30;
+      if (lenObj.isConcrete) readiness += 10;
+      if (toneObj.isAnchored) readiness += 5;
+      readiness = Math.max(15, Math.min(100, readiness));
+
+      var verdict, tone, tip;
+      if (cfg.format === "json" && !cfg.noPreamble) {
+        verdict = "Parser Error Risk — Preamble Breaks JSON.parse()";
+        tone = "bad";
+        tip = "Enable 'No Preamble / Raw Output Only' so the model drops 'Sure! Here is...' and ```json fences—otherwise automated JSON.parse() crashes.";
+      } else if (readiness >= 90 && consistency >= 90) {
+        verdict = cfg.format === "json" ? "Strict Parser-Ready Contract" : "Copy-Paste Ready Contract";
+        tone = "ok";
+        tip = "Strong contract! Format, explicit count cap, tone anchor, and zero-preamble rules leave almost no room for drift.";
+      } else if (readiness >= 60) {
+        verdict = "Usable, Needs Tightening";
+        tone = "warn";
+        var gaps = [];
+        if (cfg.format === "prose") gaps.push("switch from Prose to a Template, Table, or JSON");
+        if (!lenObj.isConcrete) gaps.push("replace vague 'brief' with an explicit count cap");
+        if (!cfg.noPreamble) gaps.push("enable 'No Preamble' to strip conversational filler");
+        if (!toneObj.isAnchored) gaps.push("pick a concrete Tone Anchor");
+        tip = "To reach 95+ readiness: " + gaps.join("; ") + ".";
+      } else {
+        verdict = "High Drift — Manual Cleanup Required";
+        tone = "bad";
+        tip = "Unbounded prose with vague length and chatty preamble forces you to manually rewrite and strip filler on every run.";
+      }
+
+      return { consistency: consistency, readiness: readiness, verdict: verdict, tone: tone, tip: tip };
+    }
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "class") node.className = attrs[k];
+        else if (k === "text") node.textContent = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function buildMeter(labelText, pct) {
+      var color = pct >= 85 ? "var(--color-success)" : (pct >= 60 ? "#d97706" : "var(--color-error)");
+      var box = el("div", { class: "ocd-meter-box" });
+      box.appendChild(el("div", { class: "ocd-meter-head" }, [
+        el("span", { text: labelText }),
+        el("span", { text: pct + " / 100" })
+      ]));
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = pct + "%";
+      fill.style.background = color;
+      bar.appendChild(fill);
+      box.appendChild(bar);
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Output Contract Designer: Shape Format, Length, Tone & Preamble",
+      instructions:
+        "Pick a task below, configure the Output Format, Length Cap, Tone Anchor, and No-Preamble rule, and compare " +
+        "the compiled prompt side-by-side with the live simulated AI output and readiness scores.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var cfg = {
+          task: "meeting",
+          format: "prose",
+          lengthCap: "vague",
+          tone: "default",
+          noPreamble: false
+        };
+
+        var taskTabs = el("div", { class: "ocd-task-tabs", role: "group", "aria-label": "Choose sample task" });
+        var inputBox = el("div", { class: "ocd-input-box" });
+        var controlsCard = el("div", { class: "ocd-controls-card" });
+        var splitWrap = el("div", { class: "ocd-split" });
+        var scoresWrap = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(taskTabs);
+        root.appendChild(inputBox);
+        root.appendChild(controlsCard);
+        root.appendChild(splitWrap);
+        root.appendChild(scoresWrap);
+
+        function renderTasks() {
+          taskTabs.innerHTML = "";
+          TASKS.forEach(function (t) {
+            var btn = el("button", {
+              type: "button",
+              class: "ocd-task-btn",
+              "aria-pressed": cfg.task === t.id ? "true" : "false",
+              text: t.label
+            });
+            btn.addEventListener("click", function () {
+              cfg.task = t.id;
+              renderTasks();
+              renderInputBox();
+              renderOutputAndScores();
+            });
+            taskTabs.appendChild(btn);
+          });
+        }
+
+        function renderInputBox() {
+          var t = TASKS.filter(function (x) { return x.id === cfg.task; })[0];
+          inputBox.innerHTML = "";
+          inputBox.appendChild(el("strong", { text: "Sample Context: " }));
+          inputBox.appendChild(document.createTextNode(t.inputSummary.replace(/^Input snippet:\s*/, "")));
+        }
+
+        function renderControls() {
+          controlsCard.innerHTML = "";
+          var grid = el("div", { class: "ocd-controls-grid" });
+
+          // Format selector
+          var fmtCol = el("div");
+          fmtCol.appendChild(el("span", { class: "ocd-field-label", text: "Output Format" }));
+          var fmtGroup = el("div", { class: "ocd-format-group", role: "group", "aria-label": "Output Format" });
+          FORMATS.forEach(function (f) {
+            var btn = el("button", {
+              type: "button",
+              class: "ocd-fmt-btn",
+              "aria-pressed": cfg.format === f.id ? "true" : "false",
+              text: f.label
+            });
+            btn.addEventListener("click", function () {
+              cfg.format = f.id;
+              renderControls();
+              renderOutputAndScores();
+            });
+            fmtGroup.appendChild(btn);
+          });
+          fmtCol.appendChild(fmtGroup);
+          grid.appendChild(fmtCol);
+
+          // Length Cap
+          var lenCol = el("div");
+          lenCol.appendChild(el("label", { class: "ocd-field-label", for: "ocd-len-select", text: "Length Cap" }));
+          var lenSel = el("select", { id: "ocd-len-select", class: "ocd-select" });
+          LENGTH_CAPS.forEach(function (l) {
+            var opt = el("option", { value: l.id, text: l.label });
+            if (l.id === cfg.lengthCap) opt.selected = true;
+            lenSel.appendChild(opt);
+          });
+          lenSel.addEventListener("change", function () {
+            cfg.lengthCap = lenSel.value;
+            renderOutputAndScores();
+          });
+          lenCol.appendChild(lenSel);
+          grid.appendChild(lenCol);
+
+          // Tone Anchor
+          var toneCol = el("div");
+          toneCol.appendChild(el("label", { class: "ocd-field-label", for: "ocd-tone-select", text: "Tone Anchor" }));
+          var toneSel = el("select", { id: "ocd-tone-select", class: "ocd-select" });
+          TONES.forEach(function (t) {
+            var opt = el("option", { value: t.id, text: t.label });
+            if (t.id === cfg.tone) opt.selected = true;
+            toneSel.appendChild(opt);
+          });
+          toneSel.addEventListener("change", function () {
+            cfg.tone = toneSel.value;
+            renderOutputAndScores();
+          });
+          toneCol.appendChild(toneSel);
+          grid.appendChild(toneCol);
+
+          // No Preamble toggle
+          var preCol = el("div");
+          preCol.appendChild(el("span", { class: "ocd-field-label", text: "Wrapper Control" }));
+          var preLabel = el("label", { for: "ocd-no-preamble", class: "ocd-toggle-row" });
+          var preCb = el("input", { type: "checkbox", id: "ocd-no-preamble" });
+          preCb.checked = cfg.noPreamble;
+          preCb.addEventListener("change", function () {
+            cfg.noPreamble = preCb.checked;
+            renderOutputAndScores();
+          });
+          preLabel.appendChild(preCb);
+          preLabel.appendChild(el("span", { text: "No Preamble / Raw Output Only" }));
+          preCol.appendChild(preLabel);
+          grid.appendChild(preCol);
+
+          controlsCard.appendChild(grid);
+        }
+
+        function renderOutputAndScores() {
+          splitWrap.innerHTML = "";
+          var leftPane = el("div", { class: "ocd-pane" }, [
+            el("h4", { class: "ocd-pane-title", text: "Compiled Prompt Output Section" }),
+            el("pre", { class: "ocd-pre ocd-pre--prompt", text: buildContractPrompt(cfg) })
+          ]);
+          var rightPane = el("div", { class: "ocd-pane" }, [
+            el("h4", { class: "ocd-pane-title", text: "Live Simulated AI Output" }),
+            el("pre", { class: "ocd-pre", text: simulateOutput(cfg) })
+          ]);
+          splitWrap.appendChild(leftPane);
+          splitWrap.appendChild(rightPane);
+
+          scoresWrap.innerHTML = "";
+          var sc = computeScores(cfg);
+          var panel = el("div", { class: "ocd-scores-panel" });
+          panel.appendChild(el("div", { class: "ocd-scores-head" }, [
+            el("strong", { text: "Output Contract Diagnostics" }),
+            el("span", { class: "ocd-badge ocd-badge--" + sc.tone, text: sc.verdict })
+          ]));
+          panel.appendChild(el("div", { class: "ocd-meters" }, [
+            buildMeter("Format Consistency", sc.consistency),
+            buildMeter("Copy / Parser Readiness", sc.readiness)
+          ]));
+          panel.appendChild(el("p", { class: "ocd-tip", text: sc.tip }));
+          scoresWrap.appendChild(panel);
+        }
+
+        renderTasks();
+        renderInputBox();
+        renderControls();
+        renderOutputAndScores();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "You tell an AI 'Keep it brief and format it nicely' for a weekly team recap, and notice every run comes back in a different length and layout. Why?",
+          options: [
+            "Models intentionally randomize layout on consecutive prompts unless temperature is locked at 0",
+            "Subjective adjectives like 'brief' and 'nice' match wildly different examples in training, whereas explicit headings and numeric caps lock down structure",
+            "Markdown headings only take effect when placed inside an API system message",
+            "Formatting consistency requires at least three separate prompt turns to stabilize"
+          ],
+          answer: 1,
+          explanation: "'Brief' and 'nice' leave dozens of lengths and layouts equally plausible. Supplying an exact skeleton (headings + bullet slots) and numeric cap ('3 bullets, <=12 words each') removes layout drift even at normal temperature."
+        },
+        {
+          q: "An automation workflow passes AI replies directly into JSON.parse(), but half the runs fail because the reply starts with 'Sure! Here is your JSON:' and wraps the object in markdown prose. Which combination fixes this?",
+          options: [
+            "Specify exact JSON key names/types AND add 'Return raw valid JSON only—no preamble, code fences, or closing remarks'",
+            "Switch from JSON to a Markdown table so JavaScript can parse columns automatically",
+            "Change the tone anchor to 'Friendly technical specialist' so the model writes cleaner syntax",
+            "Increase the max-tokens setting so the conversational greeting finishes before parsing starts"
+          ],
+          answer: 0,
+          explanation: "JSON.parse() crashes on any leading prose or markdown commentary. Defining exact schema keys plus an explicit raw-output/no-preamble constraint eliminates wrapper text; changing tone or raising max tokens still keeps chatty intros."
+        },
+        {
+          q: "When is a Markdown Table a better output choice than Strict JSON?",
+          options: [
+            "When a downstream webhook or database script needs to validate exact field types automatically",
+            "When a human reader needs to visually scan and compare options across fixed columns in docs, Notion, or Slack",
+            "When you want to stop the model from inventing missing numbers without adding an escape hatch",
+            "When the output contains deeply nested arrays of variable length"
+          ],
+          answer: 1,
+          explanation: "Markdown tables optimize scannability for human readers comparing rows across fixed attributes, while Strict JSON is designed for programmatic parsing and nested structures. Neither format replaces an escape hatch for missing facts."
+        },
+        {
+          q: "You need weekly status updates for an executive who hates fluff. Which tone and length instruction is strongest?",
+          options: [
+            "'Sound polished, engaging, and executive-ready while keeping the update short'",
+            "'Don't sound casual, don't write long paragraphs, and don't include minor details'",
+            "'Audience: VP of Engineering. Tone: direct, factual, zero filler. Output exactly 3 bullets (Shipped, Blocker, Next), <=15 words each, no intro or sign-off.'",
+            "'Act as a senior manager and summarize everything thoroughly in smooth paragraphs'"
+          ],
+          answer: 2,
+          explanation: "Option C anchors the exact audience, register, fixed 3-slot layout, per-bullet word budget, and zero-preamble constraint—whereas subjective adjectives ('short', 'polished') or negative-only bans leave too much room for drift."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

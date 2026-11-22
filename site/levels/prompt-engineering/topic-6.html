@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Breaking Big Tasks Down: Step-by-Step &amp; Chained Prompting — AI Maturity Course</title>
+<meta name="description" content="Learn why overloaded mega-prompts drop instructions and muddle reasoning—and how 2–3 step prompt chains with clean artifact handoffs fix accuracy and debugging.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "pe-6";
+</script>
+<style>
+  .ch-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .ch-tab {
+    text-align: left;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .ch-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .ch-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .ch-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .ch-source-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+  }
+  .ch-source-box strong { color: var(--color-text); }
+  .ch-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .ch-mode-grid { grid-template-columns: 1fr; }
+  }
+  .ch-radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .ch-radio-card:hover { border-color: var(--color-primary); }
+  .ch-radio-card.is-selected { background: var(--color-primary-light); border-color: var(--color-primary); }
+  .ch-radio-card input { margin-top: 3px; flex-shrink: 0; }
+  .ch-radio-title { display: block; font-weight: 700; font-size: var(--font-size-sm); }
+  .ch-radio-sub { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+  .ch-chain-opts {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .ch-chain-opts.is-muted { opacity: 0.55; }
+  .ch-opt-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    font-size: var(--font-size-sm);
+  }
+  .ch-opt-label { font-weight: 700; font-size: var(--font-size-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .ch-inline-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .ch-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .ch-calls-badge {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .ch-results {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .ch-meters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  @media (max-width: 640px) {
+    .ch-meters { grid-template-columns: 1fr; }
+  }
+  .ch-meter-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .ch-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .ch-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .ch-step-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    background: var(--color-bg-alt);
+  }
+  .ch-step-card--ok { border-left: 4px solid var(--color-success); }
+  .ch-step-card--warn { border-left: 4px solid #d97706; }
+  .ch-step-card--bad { border-left: 4px solid var(--color-error); }
+  .ch-step-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: 6px;
+  }
+  .ch-step-title { font-weight: 700; font-size: var(--font-size-sm); }
+  .ch-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .ch-pill--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .ch-pill--warn { background: var(--color-warning-bg); color: #855200; }
+  .ch-pill--bad { background: var(--color-error-bg); color: var(--color-error); }
+  .ch-step-output {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    white-space: pre-wrap;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+  .ch-step-note { font-size: var(--font-size-xs); color: var(--color-text-muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 3 — Prompt Engineering</p>
+  <h1>Breaking Big Tasks Down: Step-by-Step &amp; Chained Prompting</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Recognize when one prompt is trying to juggle too many jobs at once, split it into a clean <strong>2–3 step prompt chain</strong>, and pass verified intermediate artifacts cleanly between steps.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Prompt chaining</strong> (task decomposition) splits one overloaded multi-part request into a sequence of
+          smaller, single-purpose prompts—where each step emits a clean intermediate artifact (like verified JSON facts,
+          a risk list, or a draft) that becomes the focused input to the next step.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (Why Mega-Prompts Drop the Ball)</h2>
+      <p>
+        Asking one mega-prompt to simultaneously <em>read messy notes, verify dates, weigh tradeoffs, write polished customer prose,
+        critique itself, and return strict JSON</em> spreads the model's attention across five competing jobs. Middle rules silently
+        drop, internal scratch notes leak into customer prose, and when an error slips into the output, you cannot isolate which sub-skill failed.
+      </p>
+      <p>
+        Splitting the work into a <strong>3-step chain</strong> gives each model call one clear job:
+      </p>
+
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Chain Stage</th>
+            <th>Single Focus</th>
+            <th>Clean Output Artifact</th>
+            <th>Why Isolation Helps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Step 1: Extract &amp; Verify</strong></td>
+            <td>Pull facts, dates, metrics, or clauses from raw noise</td>
+            <td>Structured JSON or bullet fact sheet</td>
+            <td>Zero storytelling—easy to inspect against source text</td>
+          </tr>
+          <tr>
+            <td><strong>Step 2: Analyze / Draft</strong></td>
+            <td>Turn verified facts into audience-ready draft or risk rating</td>
+            <td>Focused prose draft or scored table</td>
+            <td>Raw transcript noise never distracts Step 2 wording</td>
+          </tr>
+          <tr>
+            <td><strong>Step 3: Audit &amp; Format</strong></td>
+            <td>Verify constraints (length, banned words, schema) &amp; polish</td>
+            <td>Final validated deliverable</td>
+            <td>Separates creation from strict quality checking</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ul>
+        <li><strong>Pass clean artifacts, not full chat history:</strong> Start Step 2 with <em>only</em> the verified Step 1 JSON rather than re-pasting the messy 4-page transcript and prior chatter.</li>
+        <li><strong>Add a Review Gate when stakes are high:</strong> Checking Step 1 facts or Step 2 drafts (via human scan or code rule) stops small misreads from polishing into confident mistakes at Step 3.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Feature Spec &rarr; Launch Email</h3>
+      <ul>
+        <li><strong>Overloaded Mega-Prompt (1 call):</strong> <em>"Read this 4-page RFC, extract public features, ignore internal codenames, draft a 110-word customer launch email, and check no unconfirmed dates appear."</em> &rarr; Frequently leaks internal codename <code>Project Kestrel</code>, invents a May launch date from a draft comment, and runs 195 words.</li>
+        <li><strong>3-Step Chain:</strong>
+          <strong>Step 1</strong> extracts <code>{"public_features": ["CSV Bulk Export"], "confirmed_date": null, "caveats": ["Beta for Pro plans"]}</code>.
+          <strong>Step 2</strong> drafts the email from that clean JSON alone (so <code>Project Kestrel</code> doesn't even exist in Step 2's prompt!).
+          <strong>Step 3</strong> checks word count (&le;110 words) and replaces any date guess with <code>"rolling out this month"</code>.
+        </li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Over-Chaining Simple Tasks &amp; Forwarding Dirty History</h3>
+      <p>
+        Do not split a simple 1-step rewrite (like polishing a two-sentence Slack message) into four chained calls—each hop adds latency and cost.
+        And when you <em>do</em> chain, avoid dumping the entire noisy raw source + chat history into Steps 2 and 3; dragging dirty context forward re-introduces the exact distraction chaining was built to eliminate.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "pe-6"
+
+    var TASKS = [
+      {
+        id: "status-report",
+        shortLabel: "1. Weekly Client Status Report",
+        title: "Weekly Client Status Report",
+        sourceSummary:
+          "Input: 38 noisy Slack messages + 14 Jira updates (includes an internal 'fix login bug' joke, unapproved ETA 'maybe next Tuesday?', and 3 real completed milestones). Constraints: Executive tone, max 120 words, exclude internal Slack chatter, flag blockers clearly.",
+        mega: {
+          dropRate: 44,
+          hallucRisk: 40,
+          quality: 56,
+          output:
+            "Subject: Weekly Update\nWe shipped SSO and dashboard charts! Engineering also joked about the login hiccup—we expect the billing migration to finish next Tuesday (confirmed). Plus here are 9 Jira ticket IDs...",
+          note: "Mega-prompt dropped the 120-word & internal-chatter rules, pulled a tentative Slack comment as a 'confirmed' ETA, and dumped raw Jira IDs."
+        },
+        steps: function (cleanArtifact, gate) {
+          var s1 = {
+            title: "Step 1 — Extract & Verify Milestones/Blockers",
+            tone: "ok",
+            pill: "Clean JSON",
+            drop: 8,
+            halluc: 10,
+            qual: 82,
+            output:
+              '{"shipped": ["SSO v2", "Usage Charts"], "confirmed_eta": null, "blockers": ["Billing migration awaiting bank sandbox key"]}',
+            note: "Extraction-only focus separated real deliverables from Slack jokes and marked unapproved Tuesday guess as confirmed_eta: null."
+          };
+
+          var s2 = cleanArtifact ? {
+            title: "Step 2 — Draft Executive Client Summary",
+            tone: gate ? "ok" : "warn",
+            pill: gate ? "Gate Verified" : "Drafted",
+            drop: gate ? 3 : 8,
+            halluc: gate ? 4 : 11,
+            qual: gate ? 91 : 87,
+            output:
+              "Highlights: SSO v2 and Usage Charts are now live.\nNext: Billing migration remains gated on bank sandbox credentials; we will confirm a target date once keys arrive." +
+              (gate ? "\n[Step 2 Review Gate]: Checked against Step 1 JSON — 0 unverified ETAs, 0 internal chatter." : ""),
+            note: cleanArtifact
+              ? (gate
+                ? "Clean Step 1 JSON prevented internal Slack chatter from entering context; Review Gate verified zero invented dates."
+                : "Clean Step 1 JSON kept prose tight and focused on client-safe facts.")
+              : ""
+          } : {
+            title: "Step 2 — Draft Executive Client Summary (Dirty History)",
+            tone: "warn",
+            pill: "Context Noise",
+            drop: 22,
+            halluc: 25,
+            qual: 72,
+            output:
+              "Highlights: SSO v2 and Usage Charts shipped. We're targeting next Tuesday for the billing migration while resolving internal login banter...",
+            note: "Because full raw chat history stayed in context, Step 2 drifted back to the raw Slack thread and leaked 'next Tuesday' + internal banter!"
+          };
+
+          var finalDrop = cleanArtifact ? (gate ? 2 : 7) : (gate ? 14 : 20);
+          var finalHalluc = cleanArtifact ? (gate ? 3 : 9) : (gate ? 15 : 24);
+          var finalQual = cleanArtifact ? (gate ? 97 : 91) : (gate ? 83 : 75);
+
+          var s3 = {
+            title: "Step 3 — Audit Constraints & Final Polish",
+            tone: finalQual >= 90 ? "ok" : "warn",
+            pill: finalQual >= 90 ? "97–91% Quality" : "Leaked Noise",
+            drop: finalDrop,
+            halluc: finalHalluc,
+            qual: finalQual,
+            output: cleanArtifact
+              ? ("Client Status (68 words — pass <=120):\n• Shipped: SSO v2, Usage Charts\n• Blocker: Billing migration awaiting bank sandbox keys (ETA TBD)\n• Next check-in: Friday 10:00 AM")
+              : ("Client Status (104 words):\n• Shipped: SSO v2, Usage Charts\n• In Progress: Billing migration targeted next Tuesday (" + (gate ? "flagged at gate as tentative" : "unverified date kept") + ")"),
+            note: cleanArtifact
+              ? (gate
+                ? "Audit + Step 2 Gate produced a crisp, verified 68-word executive status with zero hallucinations."
+                : "Constraint check passed cleanly; adding Step 2 Review Gate raises factual confidence near 97%.")
+              : "Step 3 formatted nicely, but dumping full chat history into Steps 2–3 let raw Slack rumors sneak through."
+          };
+          return [s1, s2, s3];
+        }
+      },
+      {
+        id: "contract-audit",
+        shortLabel: "2. Contract Risk Audit",
+        title: "Contract Risk Audit",
+        sourceSummary:
+          "Input: 6-page vendor MSA (contains auto-renewal clause buried on p.4, uncapped liability for buyer, missing SOC2 SLA). Constraints: Check 5 company policy rules, assign Low/Med/High risk per clause, write plain-English negotiation redlines.",
+        mega: {
+          dropRate: 48,
+          hallucRisk: 36,
+          quality: 54,
+          output:
+            "Risk Summary: Overall Low-Medium risk. Standard 30-day renewal looks fine. Suggest asking for minor SLA tweaks.\n(Missed buried 90-day auto-renewal lock-in on p.4 and omitted 2 of 5 required policy checks!)",
+          note: "Asking one prompt to parse 6 pages, apply 5 policy rules, score risk, and write redlines caused the buried auto-renewal clause to drop silently."
+        },
+        steps: function (cleanArtifact, gate) {
+          var s1 = {
+            title: "Step 1 — Extract Non-Standard Clauses",
+            tone: "ok",
+            pill: "Clauses Isolated",
+            drop: 6,
+            halluc: 8,
+            qual: 84,
+            output:
+              '[{"section": "4.2 Renewal", "term": "Auto-renews 12 mo unless canceled 90 days prior"}, {"section": "8.1 Liability", "term": "Customer uncapped; Vendor capped at $5k"}, {"section": "11 Security", "term": "No breach notice SLA"}]',
+            note: "Extraction-only pass scanned all 6 pages methodically without worrying about redline phrasing yet."
+          };
+
+          var s2 = cleanArtifact ? {
+            title: "Step 2 — Score Against 5 Policy Rules & Draft Redlines",
+            tone: gate ? "ok" : "warn",
+            pill: gate ? "Gate Verified" : "Scored",
+            drop: gate ? 2 : 9,
+            halluc: gate ? 4 : 10,
+            qual: gate ? 92 : 88,
+            output:
+              "• Sec 4.2 [HIGH]: 90-day lock-in violates 30-day policy -> Redline: 30-day written opt-out.\n• Sec 8.1 [HIGH]: Asymmetric liability -> Redline: Mutual 12-mo fee cap.\n• Sec 11 [MED]: Missing SLA -> Redline: 48h breach notice." +
+              (gate ? "\n[Step 2 Review Gate]: Counsel/checklist confirmed all 5 policy rules evaluated." : ""),
+            note: cleanArtifact
+              ? "Working from the 3 extracted clauses kept every policy rule in sharp focus."
+              : ""
+          } : {
+            title: "Step 2 — Score & Draft Redlines (Dirty History)",
+            tone: "warn",
+            pill: "Rule Drift",
+            drop: 24,
+            halluc: 21,
+            qual: 74,
+            output:
+              "• Sec 4.2 [MED]: Renewal window looks long; suggest softening.\n• Sec 8.1 [HIGH]: Liability mismatch.\n(Skipped Sec 11 security SLA check because 6-page contract text stayed in context.)",
+            note: "Re-attaching the entire 6-page MSA distracted Step 2 and caused it to miss Sec 11's missing security SLA."
+          };
+
+          var finalDrop = cleanArtifact ? (gate ? 1 : 8) : (gate ? 15 : 22);
+          var finalHalluc = cleanArtifact ? (gate ? 3 : 8) : (gate ? 14 : 20);
+          var finalQual = cleanArtifact ? (gate ? 98 : 90) : (gate ? 82 : 76);
+
+          var s3 = {
+            title: "Step 3 — Format Executive Redline Brief",
+            tone: finalQual >= 90 ? "ok" : "warn",
+            pill: finalQual >= 90 ? "Audit Ready" : "Incomplete Check",
+            drop: finalDrop,
+            halluc: finalHalluc,
+            qual: finalQual,
+            output: cleanArtifact
+              ? ("Executive Brief (5/5 Policy Rules Checked):\n1. Sec 4.2 Renewal [HIGH] — Change 90-day auto-renew to 30-day opt-in.\n2. Sec 8.1 Liability [HIGH] — Make 12-mo fee cap mutual.\n3. Sec 11 Security [MED] — Add 48h breach SLA.")
+              : ("Executive Brief:\n1. Sec 4.2 Renewal [MED] — Soften notice period.\n2. Sec 8.1 Liability [HIGH] — Cap fees.\n(Missing Sec 11 SLA redline)"),
+            note: cleanArtifact
+              ? (gate ? "Step 2 Gate + Clean Artifact caught every buried clause with 98% output quality." : "Clean artifact chain caught all 3 risks cleanly.")
+              : "Dumping full MSA history across every step caused a middle policy check to drop."
+          };
+          return [s1, s2, s3];
+        }
+      },
+      {
+        id: "launch-email",
+        shortLabel: "3. Feature Spec → Launch Email",
+        title: "Feature Spec → Launch Email",
+        sourceSummary:
+          "Input: 4-page engineering RFC (contains internal codename 'Project Kestrel', unconfirmed comment 'GA maybe May 29?', Pro-tier limit). Constraints: <=100 words, upbeat plain English, zero internal codenames, no unconfirmed dates.",
+        mega: {
+          dropRate: 45,
+          hallucRisk: 44,
+          quality: 52,
+          output:
+            "Subject: Meet Project Kestrel on May 29!\nWe are thrilled to announce Project Kestrel across ALL plans on May 29! Export millions of rows instantly with zero limits... (164 words)",
+          note: "Mega-prompt leaked internal codename 'Project Kestrel', turned an RFC guess ('May 29?') into a promise, dropped Pro-tier limit, and blew the 100-word cap!"
+        },
+        steps: function (cleanArtifact, gate) {
+          var s1 = {
+            title: "Step 1 — Extract Customer-Safe Facts",
+            tone: "ok",
+            pill: "Facts Isolated",
+            drop: 5,
+            halluc: 7,
+            qual: 85,
+            output:
+              '{"public_name": "Scheduled CSV Exports", "eligible_tiers": ["Pro", "Enterprise"], "confirmed_launch_date": null, "excluded_internal_codenames": ["Project Kestrel"]}',
+            note: "Step 1 stripped out 'Project Kestrel' and recorded confirmed_launch_date: null."
+          };
+
+          var s2 = cleanArtifact ? {
+            title: "Step 2 — Draft Launch Email from Verified JSON",
+            tone: gate ? "ok" : "warn",
+            pill: gate ? "Gate Cleared" : "Drafted",
+            drop: gate ? 2 : 7,
+            halluc: gate ? 3 : 8,
+            qual: gate ? 92 : 88,
+            output:
+              "Subject: New: Scheduled CSV Exports for Pro & Enterprise\nSkip manual Friday downloads—schedule recurring CSV exports straight to your inbox starting this month on Pro and Enterprise plans." +
+              (gate ? "\n[Step 2 Review Gate]: Confirmed 0 codenames, Pro/Enterprise tier accuracy, no guessed dates." : ""),
+            note: cleanArtifact
+              ? "Because 'Project Kestrel' never appeared in Step 2's clean JSON, it is almost impossible for Step 2 to leak it."
+              : ""
+          } : {
+            title: "Step 2 — Draft Launch Email (Dirty RFC History)",
+            tone: "warn",
+            pill: "Leak Risk",
+            drop: 21,
+            halluc: 26,
+            qual: 71,
+            output:
+              "Subject: Project Kestrel (Scheduled Exports) arriving May 29!\nSchedule recurring CSV exports starting May 29 on all plans...",
+            note: "Passing the raw 4-page RFC alongside Step 1 allowed 'Project Kestrel' and 'May 29' to bleed back into the email!"
+          };
+
+          var finalDrop = cleanArtifact ? (gate ? 1 : 6) : (gate ? 13 : 20);
+          var finalHalluc = cleanArtifact ? (gate ? 2 : 7) : (gate ? 16 : 25);
+          var finalQual = cleanArtifact ? (gate ? 98 : 92) : (gate ? 81 : 73);
+
+          var s3 = {
+            title: "Step 3 — Constraint Audit (<=100 Words & Policy)",
+            tone: finalQual >= 90 ? "ok" : "warn",
+            pill: finalQual >= 90 ? "Ship-Ready" : "Policy Risk",
+            drop: finalDrop,
+            halluc: finalHalluc,
+            qual: finalQual,
+            output: cleanArtifact
+              ? ("Subject: New: Scheduled CSV Exports (48 words — pass <=100)\nSkip manual downloads—Pro and Enterprise teams can now schedule automatic CSV exports straight to email, rolling out this month.")
+              : ("Subject: Scheduled Exports (62 words)\nPro teams can schedule CSV exports arriving May 29 (tentative)—upgrade today."),
+            note: cleanArtifact
+              ? (gate ? "98% quality: concise, accurate tiers, zero codename leaks, zero fabricated dates." : "Clean artifact kept all constraints tight.")
+              : "Dirty history carried the unconfirmed 'May 29' date all the way to Step 3."
+          };
+          return [s1, s2, s3];
+        }
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function buildMeter(labelText, pct, lowerIsBetter) {
+      var box = el("div", { class: "ch-meter-box" });
+      var head = el("div", { class: "ch-meter-head" }, [
+        el("span", { text: labelText }),
+        el("span", { text: pct + "%" })
+      ]);
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = pct + "%";
+      var color;
+      if (lowerIsBetter) {
+        color = pct <= 10 ? "var(--color-success)" : (pct <= 26 ? "#d97706" : "var(--color-error)");
+      } else {
+        color = pct >= 88 ? "var(--color-success)" : (pct >= 70 ? "#d97706" : "var(--color-error)");
+      }
+      fill.style.background = color;
+      bar.appendChild(fill);
+      box.appendChild(head);
+      box.appendChild(bar);
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Mega-Prompt vs. Chained Steps Simulator",
+      instructions:
+        "Pick a complex multi-part task, choose between 1 Overloaded Mega-Prompt and a 3-Step Prompt Chain (configuring Clean Artifact vs. Full Chat History and an optional Step 2 Review Gate), " +
+        "then run the simulation step-by-step to watch Instruction Drop Rate, Hallucination Risk, and Output Quality change.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          taskIdx: 0,
+          mode: "mega", // "mega" | "chain"
+          cleanArtifact: true,
+          reviewGate: true,
+          stepsCompleted: 0 // 0 = not run; 1 for mega done; 1..3 for chain steps
+        };
+
+        var tabs = el("div", { class: "ch-tabs", role: "tablist", "aria-label": "Multi-part tasks" });
+        var stage = el("div");
+        var results = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(tabs);
+        root.appendChild(stage);
+        root.appendChild(results);
+
+        function currentTask() {
+          return TASKS[state.taskIdx];
+        }
+
+        function resetRun() {
+          state.stepsCompleted = 0;
+        }
+
+        function renderTabs() {
+          tabs.innerHTML = "";
+          TASKS.forEach(function (t, idx) {
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.taskIdx ? "true" : "false",
+              class: "ch-tab" + (idx === state.taskIdx ? " is-active" : ""),
+              text: t.shortLabel
+            });
+            btn.addEventListener("click", function () {
+              state.taskIdx = idx;
+              resetRun();
+              renderAll();
+            });
+            tabs.appendChild(btn);
+          });
+        }
+
+        function renderStage() {
+          stage.innerHTML = "";
+          var task = currentTask();
+
+          var card = el("div", { class: "ch-card" });
+          card.appendChild(el("h4", { style: "margin-bottom:var(--space-2);", text: task.title }));
+          var src = el("div", { class: "ch-source-box" });
+          src.innerHTML = "<strong>Raw Inputs &amp; Constraints:</strong> ";
+          src.appendChild(document.createTextNode(task.sourceSummary.replace(/^Input:\s*/, "")));
+          card.appendChild(src);
+
+          var modeGrid = el("div", { class: "ch-mode-grid" });
+          [
+            { id: "mega", title: "1 Overloaded Mega-Prompt", sub: "Extract, analyze, draft, self-check & format in 1 call" },
+            { id: "chain", title: "3-Step Prompt Chain", sub: "Step 1 Extract → Step 2 Draft/Score → Step 3 Audit" }
+          ].forEach(function (m) {
+            var rId = "ch-mode-" + m.id;
+            var lbl = el("label", { for: rId, class: "ch-radio-card" + (state.mode === m.id ? " is-selected" : "") });
+            var radio = el("input", { type: "radio", name: "ch-mode", id: rId, value: m.id });
+            radio.checked = state.mode === m.id;
+            radio.addEventListener("change", function () {
+              state.mode = m.id;
+              resetRun();
+              renderAll();
+            });
+            lbl.appendChild(radio);
+            lbl.appendChild(el("span", {}, [
+              el("span", { class: "ch-radio-title", text: m.title }),
+              el("span", { class: "ch-radio-sub", text: m.sub })
+            ]));
+            modeGrid.appendChild(lbl);
+          });
+          card.appendChild(modeGrid);
+
+          var isChain = state.mode === "chain";
+          var optsBox = el("div", { class: "ch-chain-opts" + (isChain ? "" : " is-muted") });
+          optsBox.appendChild(el("span", { class: "ch-opt-label", text: isChain ? "Chain Pipeline Options" : "Chain Options (Switch to 3-Step Chain to configure)" }));
+
+          var handoffRow = el("div", { class: "ch-opt-row" });
+          handoffRow.appendChild(el("span", { text: "Handoff between steps:" }));
+          [
+            { val: true, label: "Pass Clean Artifact Only" },
+            { val: false, label: "Dump Full Chat History" }
+          ].forEach(function (opt, i) {
+            var hId = "ch-handoff-" + i;
+            var hLbl = el("label", { for: hId, class: "ch-inline-choice" });
+            var hr = el("input", { type: "radio", name: "ch-handoff", id: hId });
+            hr.checked = state.cleanArtifact === opt.val;
+            hr.disabled = !isChain;
+            hr.addEventListener("change", function () {
+              state.cleanArtifact = opt.val;
+              resetRun();
+              renderAll();
+            });
+            hLbl.appendChild(hr);
+            hLbl.appendChild(el("span", { text: opt.label }));
+            handoffRow.appendChild(hLbl);
+          });
+          optsBox.appendChild(handoffRow);
+
+          var gateRow = el("div", { class: "ch-opt-row" });
+          var gId = "ch-gate-cb";
+          var gLbl = el("label", { for: gId, class: "ch-inline-choice" });
+          var gCb = el("input", { type: "checkbox", id: gId });
+          gCb.checked = state.reviewGate;
+          gCb.disabled = !isChain;
+          gCb.addEventListener("change", function () {
+            state.reviewGate = gCb.checked;
+            resetRun();
+            renderAll();
+          });
+          gLbl.appendChild(gCb);
+          gLbl.appendChild(el("span", { text: "Enable Step 2 Review Gate (check facts/constraints before final format)" }));
+          gateRow.appendChild(gLbl);
+          optsBox.appendChild(gateRow);
+
+          card.appendChild(optsBox);
+
+          var controls = el("div", { class: "ch-controls" });
+          var maxSteps = isChain ? 3 : 1;
+          var done = state.stepsCompleted >= maxSteps;
+
+          var nextLabel = isChain
+            ? (done ? "Chain Complete (3 / 3)" : "Run Step " + (state.stepsCompleted + 1) + " of 3")
+            : (done ? "Mega-Prompt Run Complete" : "Run Mega-Prompt (1 Call)");
+
+          var stepBtn = el("button", { type: "button", class: "btn btn-primary", text: nextLabel });
+          stepBtn.disabled = done;
+          stepBtn.addEventListener("click", function () {
+            if (state.stepsCompleted < maxSteps) {
+              state.stepsCompleted += 1;
+              renderAll();
+            }
+          });
+          controls.appendChild(stepBtn);
+
+          if (isChain && !done) {
+            var allBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Run All 3 Steps" });
+            allBtn.addEventListener("click", function () {
+              state.stepsCompleted = 3;
+              renderAll();
+            });
+            controls.appendChild(allBtn);
+          }
+
+          if (state.stepsCompleted > 0) {
+            var restartBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Restart Run" });
+            restartBtn.addEventListener("click", function () {
+              resetRun();
+              renderAll();
+            });
+            controls.appendChild(restartBtn);
+          }
+
+          var callText = isChain
+            ? "LLM Calls: " + state.stepsCompleted + " / 3" + (state.reviewGate ? " + Gate" : "")
+            : "LLM Calls: " + state.stepsCompleted + " / 1";
+          controls.appendChild(el("span", { class: "ch-calls-badge", text: callText }));
+
+          card.appendChild(controls);
+          stage.appendChild(card);
+        }
+
+        function renderResults() {
+          results.innerHTML = "";
+          if (state.stepsCompleted === 0) {
+            results.appendChild(el("p", {
+              class: "exercise-empty",
+              text: "Choose Mega-Prompt or 3-Step Chain above and click Run to watch metrics and step outputs unfold."
+            }));
+            return;
+          }
+
+          var task = currentTask();
+          var panel = el("div", { class: "ch-results" });
+          var list = el("div", { class: "ch-step-list" });
+
+          var drop, halluc, qual;
+          if (state.mode === "mega") {
+            var m = task.mega;
+            drop = m.dropRate;
+            halluc = m.hallucRisk;
+            qual = m.quality;
+
+            var mCard = el("div", { class: "ch-step-card ch-step-card--bad" });
+            mCard.appendChild(el("div", { class: "ch-step-head" }, [
+              el("span", { class: "ch-step-title", text: "Single Overloaded Mega-Prompt Output" }),
+              el("span", { class: "ch-pill ch-pill--bad", text: "Dropped Instructions" })
+            ]));
+            mCard.appendChild(el("div", { class: "ch-step-output", text: m.output }));
+            mCard.appendChild(el("p", { class: "ch-step-note", text: m.note }));
+            list.appendChild(mCard);
+          } else {
+            var allSteps = task.steps(state.cleanArtifact, state.reviewGate);
+            var visible = allSteps.slice(0, state.stepsCompleted);
+            var latest = visible[visible.length - 1];
+            drop = latest.drop;
+            halluc = latest.halluc;
+            qual = latest.qual;
+
+            visible.forEach(function (st) {
+              var stCard = el("div", { class: "ch-step-card ch-step-card--" + st.tone });
+              stCard.appendChild(el("div", { class: "ch-step-head" }, [
+                el("span", { class: "ch-step-title", text: st.title }),
+                el("span", { class: "ch-pill ch-pill--" + st.tone, text: st.pill })
+              ]));
+              stCard.appendChild(el("div", { class: "ch-step-output", text: st.output }));
+              stCard.appendChild(el("p", { class: "ch-step-note", text: st.note }));
+              list.appendChild(stCard);
+            });
+          }
+
+          panel.appendChild(el("div", { class: "ch-meters" }, [
+            buildMeter("Instruction Drop Rate (lower is better)", drop, true),
+            buildMeter("Hallucination Risk (lower is better)", halluc, true),
+            buildMeter("Output Quality", qual, false)
+          ]));
+          panel.appendChild(list);
+          results.appendChild(panel);
+        }
+
+        function renderAll() {
+          renderTabs();
+          renderStage();
+          renderResults();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Why does cramming fact extraction, legal risk scoring, customer-friendly rewriting, and strict JSON validation into one mega-prompt frequently drop middle rules?",
+          options: [
+            "Language models automatically ignore instructions past the first two sentences whenever JSON is requested",
+            "Competing cognitive goals compete for attention in one pass and mix intermediate reasoning with final wording, making rule drops and leaks likely",
+            "JSON formatting forces the model to raise temperature, reducing factual recall",
+            "Mega-prompts only execute system rules once every other paragraph"
+          ],
+          answer: 1,
+          explanation: "Juggling extraction, analysis, tone, and formatting simultaneously creates competing objectives in one pass. Splitting into focused steps lets each prompt optimize one job cleanly."
+        },
+        {
+          q: "In a 3-step chain (Step 1 Extract Facts -> Step 2 Draft Email -> Step 3 Audit Constraints), why should Step 2 receive ONLY Step 1's clean JSON rather than the entire messy source document and chat history?",
+          options: [
+            "Passing clean verified facts prevents Step 2 from getting distracted by raw noise (like internal codenames or jokes) and makes bugs easy to trace",
+            "Forwarding source text into Step 2 deletes the system instructions from memory",
+            "Clean JSON compresses tokens only if Step 1 skips verification rules",
+            "Step 2 cannot output prose if any raw source sentences appear earlier in context"
+          ],
+          answer: 0,
+          explanation: "Passing only the verified intermediate artifact isolates each step cleanly: raw noise never reaches Step 2, and if a mistake happens, you instantly know which step caused it."
+        },
+        {
+          q: "Which task is an example of over-engineering if turned into a 4-step prompt chain?",
+          options: [
+            "Auditing a 6-page vendor contract against 5 risk policies and generating redlines",
+            "Converting messy meeting transcripts into verified milestones and an executive client email",
+            "Shortening a clear 3-sentence team Slack announcement by 15 words in a friendlier tone",
+            "Extracting product specs from an engineering RFC before checking launch-date policies and drafting release notes"
+          ],
+          answer: 2,
+          explanation: "Simple single-skill edits finish reliably in one prompt call. Prompt chaining pays off when a task combines distinct skills like extraction, judgment, drafting, and strict validation."
+        },
+        {
+          q: "Where does adding a Review Gate deliver the biggest reliability gain in a high-stakes prompt chain?",
+          options: [
+            "After the email has already been sent to customers, to log latency",
+            "Before Step 1 reads the raw document, by rewriting the raw PDF into prose first",
+            "Right after Step 3 finishes punctuation checks, without reviewing Step 1 facts",
+            "Right after intermediate extraction or drafting (Steps 1–2), catching missed facts or risky claims before Step 3 locks final formatting"
+          ],
+          answer: 3,
+          explanation: "Checking intermediate facts or drafts before the final polish step prevents early extraction misses from being smoothly disguised in confident final prose."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

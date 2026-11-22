@@ -1,6 +1,6 @@
 # AI Maturity Course
 
-A free, self-paced, zero-build interactive curriculum covering AI from foundational concepts and practical AI workflows/skills/agents (Level 1–2) to frontier systems, safety, and research engineering (Level 10). All **83 topics** include structured lessons, hands-on browser simulations, and scenario-based quizzes with local progress tracking.
+A free, self-paced, zero-build interactive curriculum covering AI from foundational concepts, practical AI workflows/skills/agents, and prompt engineering (Levels 1–3) to frontier systems, safety, and research engineering (Level 11). All **89 topics** include structured lessons, hands-on browser simulations, and scenario-based quizzes with local progress tracking.
 
 ## Repository Structure
 
@@ -12,7 +12,8 @@ ai-maturity-course/
 │   │   ├── css/styles.css   # Shared design system (light + dark mode, responsive components)
 │   │   └── js/              # course-data.js, progress.js, site.js, exercise.js, quiz.js
 │   └── levels/
-│       └── level-1..10/     # Level overviews (index.html) and 83 interactive topic pages
+│       ├── level-1..10/         # Level overviews and topic pages
+│       └── prompt-engineering/  # Level 3: Prompt Engineering module & topics
 ├── research/                # Source curriculum specs and per-level syllabi
 │   ├── curriculum.md
 │   ├── topics-seed.md
@@ -45,7 +46,7 @@ wrangler pages deploy site --project-name ai-maturity-course --branch main
 
 ## Features
 
-- **10 Levels / 4 Tiers / 83 Topics:** Foundations (L1–2, including practical Prompt/Rules/Tools/Skills/Agents/Teams), Core ML & Deep Learning (L3–4), LLMs, RAG & Agents (L5–7), and Production, Safety & Frontier (L8–10).
+- **11 Levels / 4 Tiers / 89 Topics:** Foundations (L1–3, including practical Prompt/Rules/Tools/Skills/Agents/Teams and a full Prompt Engineering module), Core ML & Deep Learning (L4–5), LLMs, RAG & Agents (L6–8), and Production, Safety & Frontier (L9–11).
 - **Hands-On Browser Widgets:** Every topic includes a genuine vanilla-JS interactive simulation, visualizer, or debugging exercise.
 - **Scenario Quizzes & Progress Tracking:** Client-side graded quizzes with explanations, `localStorage` persistence (`aimc:progress:v1`), resume-where-you-left-off, and JSON progress export/import.
 - **Search, Navigation Drawer & Dark Mode:** Instant cross-course search (`/` or `Ctrl+K`), slide-over course drawer, breadcrumbs, and accessible light/dark themes.

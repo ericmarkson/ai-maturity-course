@@ -45,10 +45,16 @@
     return typeof window.SITE_ROOT === "string" ? window.SITE_ROOT : "";
   }
 
+  function levelIndexUrl(level) {
+    if (!level) return root() + "index.html";
+    return root() + (level.indexFile || ("levels/level-" + level.num + "/index.html"));
+  }
+
   function flattenTopics() {
     var out = [];
     if (window.COURSE && Array.isArray(window.COURSE.levels)) {
       window.COURSE.levels.forEach(function (level) {
+        var lvlIdx = level.indexFile || ("levels/level-" + level.num + "/index.html");
         (level.topics || []).forEach(function (topic) {
           out.push({
             id: topic.id,
@@ -57,6 +63,7 @@
             file: topic.file,
             levelNum: level.num,
             levelName: level.name,
+            levelIndexFile: lvlIdx,
             tier: level.tier || "",
             tierSlug: level.tierSlug || "",
             levelTopicCount: (level.topics || []).length
@@ -192,7 +199,7 @@
       var body = el("div", { class: "drawer-level-body" });
       var overviewLink = el("a", {
         class: "drawer-overview-link",
-        href: root() + "levels/level-" + level.num + "/index.html",
+        href: levelIndexUrl(level),
         text: "Level " + level.num + " overview →"
       });
       body.appendChild(overviewLink);
@@ -241,7 +248,8 @@
     drawer.hidden = true;
 
     var head = el("div", { class: "drawer-header" });
-    head.appendChild(el("h2", { class: "drawer-title", text: "Curriculum (10 Levels)" }));
+    var levelTotal = (window.COURSE && window.COURSE.levels) ? window.COURSE.levels.length : 11;
+    head.appendChild(el("h2", { class: "drawer-title", text: "Curriculum (" + levelTotal + " Levels)" }));
     var closeBtn = el("button", { type: "button", class: "icon-btn", "aria-label": "Close navigation drawer", text: "✕" });
     closeBtn.addEventListener("click", closeDrawer);
     head.appendChild(closeBtn);
@@ -516,9 +524,10 @@
     var footer = el("footer", { class: "site-footer" });
     var inner = el("div", { class: "site-footer-inner" });
 
+    var levelTotal = (window.COURSE && window.COURSE.levels) ? window.COURSE.levels.length : 11;
     var text = el("p", {
       class: "site-footer-text",
-      text: "AI Maturity Course — 4 tiers, 10 levels, " + progressSummary().total + " interactive topics. Progress saved locally in your browser."
+      text: "AI Maturity Course — 4 tiers, " + levelTotal + " levels, " + progressSummary().total + " interactive topics. Progress saved locally in your browser."
     });
     inner.appendChild(text);
 
@@ -553,7 +562,7 @@
     crumbs.appendChild(el("a", { href: root() + "index.html", text: "Home" }));
     crumbs.appendChild(el("span", { class: "breadcrumb-sep", "aria-hidden": "true", text: "/" }));
     crumbs.appendChild(el("a", {
-      href: root() + "levels/level-" + topic.levelNum + "/index.html",
+      href: root() + topic.levelIndexFile,
       text: "Level " + topic.levelNum + ": " + topic.levelName
     }));
     crumbs.appendChild(el("span", { class: "breadcrumb-sep", "aria-hidden": "true", text: "/" }));
@@ -690,7 +699,7 @@
           var li = el("li");
           var a = el("a", {
             class: "topic-list-item topic-list-card" + (isDone ? " is-complete" : ""),
-            href: topic.file.replace("levels/level-" + level.num + "/", "")
+            href: root() + topic.file
           });
           var left = el("div", { class: "topic-list-main" });
           left.appendChild(el("span", { class: "topic-list-num", text: String(topic.num).padStart(2, "0") }));
@@ -719,7 +728,7 @@
       if (prevLevel) {
         prevNext.appendChild(el("a", {
           class: "btn btn-secondary",
-          href: "../level-" + prevLevel.num + "/index.html",
+          href: levelIndexUrl(prevLevel),
           text: "← Level " + prevLevel.num + " — " + prevLevel.name
         }));
       } else {
@@ -729,7 +738,7 @@
       if (nextLevel) {
         prevNext.appendChild(el("a", {
           class: "btn btn-primary",
-          href: "../level-" + nextLevel.num + "/index.html",
+          href: levelIndexUrl(nextLevel),
           text: "Level " + nextLevel.num + " — " + nextLevel.name + " →"
         }));
       } else {
