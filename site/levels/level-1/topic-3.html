@@ -123,18 +123,16 @@
         var selectedTerm = null;
 
         var flow = document.createElement("div");
-        flow.style.display = "flex";
-        flow.style.flexWrap = "wrap";
-        flow.style.alignItems = "stretch";
-        flow.style.gap = "6px";
+        flow.style.display = "grid";
+        flow.style.gridTemplateColumns = "repeat(auto-fit, minmax(145px, 1fr))";
+        flow.style.gap = "10px";
         flow.style.marginBottom = "16px";
 
         BOXES.forEach(function (box, i) {
           var card = document.createElement("div");
-          card.style.flex = "1 1 160px";
           card.style.border = "2px dashed var(--color-border-strong)";
           card.style.borderRadius = "10px";
-          card.style.padding = "10px";
+          card.style.padding = "12px";
           card.style.background = "#fff";
           card.style.display = "flex";
           card.style.flexDirection = "column";
@@ -142,7 +140,7 @@
           card.dataset.boxId = box.id;
 
           var step = document.createElement("div");
-          step.textContent = "Step " + (i + 1);
+          step.textContent = "Step " + (i + 1) + (i < BOXES.length - 1 ? " →" : " (Done)");
           step.style.fontSize = "0.72rem";
           step.style.fontWeight = "700";
           step.style.color = "var(--color-text-faint)";
@@ -201,17 +199,7 @@
           });
 
           boxEls[box.id] = { card: card, slot: slot };
-          if (i < BOXES.length - 1) {
-            flow.appendChild(card);
-            var arrow = document.createElement("div");
-            arrow.textContent = "→";
-            arrow.style.alignSelf = "center";
-            arrow.style.fontSize = "1.4rem";
-            arrow.style.color = "var(--color-text-faint)";
-            flow.appendChild(arrow);
-          } else {
-            flow.appendChild(card);
-          }
+          flow.appendChild(card);
         });
 
         root.appendChild(flow);
@@ -298,8 +286,9 @@
             solved[box.id] = true;
             card.style.borderColor = "var(--color-success)";
             card.style.background = "var(--color-success-bg)";
-            slot.textContent = term;
+            slot.textContent = "✓ " + term;
             slot.style.color = "var(--color-success)";
+            slot.style.background = "#fff";
             slot.style.border = "1px solid var(--color-success)";
             var chip = chipEls[term];
             if (chip && chip.parentNode) chip.parentNode.removeChild(chip);

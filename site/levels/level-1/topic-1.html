@@ -10,6 +10,45 @@
   window.SITE_ROOT = "../../";
   window.CURRENT_TOPIC_ID = "1-1";
 </script>
+<style>
+  .sort-zones-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 640px) {
+    .sort-zones-grid { grid-template-columns: 1fr; }
+  }
+  .sort-zone-box {
+    display: flex;
+    flex-direction: column;
+    min-height: 160px;
+    border: 2px dashed var(--color-border-strong);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .sort-zone-drop {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 70px;
+    flex: 1;
+  }
+  .sort-chip-placed-title {
+    font-weight: 700;
+    font-size: 0.86rem;
+    color: var(--color-success);
+    margin-bottom: 2px;
+  }
+  .sort-chip-placed-note {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--color-text);
+  }
+</style>
 </head>
 <body>
 
@@ -132,21 +171,14 @@
         var selectedItemId = null;
 
         var zonesWrap = document.createElement("div");
-        zonesWrap.style.display = "flex";
-        zonesWrap.style.flexWrap = "wrap";
-        zonesWrap.style.gap = "12px";
-        zonesWrap.style.marginBottom = "16px";
+        zonesWrap.className = "sort-zones-grid";
 
         var zoneEls = {};
 
         ZONES.forEach(function (z, i) {
           var box = document.createElement("div");
+          box.className = "sort-zone-box";
           box.dataset.zone = z.key;
-          box.style.flex = "1 1 200px";
-          box.style.minHeight = "150px";
-          box.style.border = "2px dashed var(--color-border-strong)";
-          box.style.borderRadius = "10px";
-          box.style.padding = "10px";
           box.style.background = i === 0 ? "#f5f7fb" : i === 1 ? "#eef1f8" : i === 2 ? "#e3eafc" : "#dce6ff";
 
           var title = document.createElement("div");
@@ -163,7 +195,7 @@
           box.appendChild(hint);
 
           var dropArea = document.createElement("div");
-          dropArea.style.minHeight = "70px";
+          dropArea.className = "sort-zone-drop";
           box.appendChild(dropArea);
 
           box.addEventListener("dragover", function (e) {
@@ -296,13 +328,22 @@
             solved[itemId] = true;
             chip.style.background = "var(--color-success-bg)";
             chip.style.borderColor = "var(--color-success)";
+            chip.style.borderRadius = "8px";
+            chip.style.boxShadow = "";
+            chip.style.padding = "10px 12px";
+            chip.style.width = "100%";
+            chip.style.textAlign = "left";
+            chip.style.lineHeight = "1.4";
             chip.style.cursor = "default";
             chip.draggable = false;
+            chip.innerHTML = "";
+            var placedTitle = document.createElement("div");
+            placedTitle.className = "sort-chip-placed-title";
+            placedTitle.textContent = "✓ " + item.label;
             var note = document.createElement("div");
-            note.textContent = "✓ " + item.label + " — " + item.note;
-            note.style.fontSize = "0.78rem";
-            note.style.color = "var(--color-success)";
-            note.style.marginTop = "2px";
+            note.className = "sort-chip-placed-note";
+            note.textContent = item.note;
+            chip.appendChild(placedTitle);
             chip.appendChild(note);
             dropArea.appendChild(chip);
           } else {
