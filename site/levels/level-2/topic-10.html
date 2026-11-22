@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Modern AI Stack: Prompts, Rules, Tools (MCP), Skills &amp; Memory — AI Maturity Course</title>
+<meta name="description" content="Understand how Models, Prompts, Rules, Tools (MCP), Skills, Memory, and Agents fit together—and assemble the right stack without context bloat or missing capabilities.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-10";
+</script>
+<style>
+  .stack-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .stack-tab {
+    text-align: left;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .stack-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .stack-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .stack-tab-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    color: inherit;
+    white-space: nowrap;
+  }
+  .stack-tab.is-active .stack-tab-badge { background: rgba(255, 255, 255, 0.22); }
+  .stack-progress-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+  }
+  .stack-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .stack-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .stack-card-title { margin: 0; font-size: var(--font-size-md); }
+  .stack-meta-tag {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .stack-layers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+  }
+  .stack-layer-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .stack-layer-toggle:hover { border-color: var(--color-primary); }
+  .stack-layer-toggle.is-checked {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+  }
+  .stack-layer-toggle input { margin-top: 3px; flex-shrink: 0; }
+  .stack-layer-name { display: block; font-weight: 700; font-size: var(--font-size-sm); }
+  .stack-layer-desc { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+  .stack-result-panel {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .stack-badge {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: var(--space-3);
+  }
+  .stack-badge--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .stack-badge--warn { background: var(--color-warning-bg); color: #855200; }
+  .stack-badge--bad { background: var(--color-error-bg); color: var(--color-error); }
+  .stack-meters {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .stack-meters { grid-template-columns: 1fr; }
+  }
+  .stack-meter-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .stack-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .stack-diag-list {
+    margin: 0;
+    padding-left: 1.25em;
+    font-size: var(--font-size-sm);
+  }
+  .stack-diag-list li + li { margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>The Modern AI Stack: Prompts, Rules, Tools (MCP), Skills &amp; Memory</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Separate the 7 building blocks of modern AI applications—<strong>Model, Prompt, Rules, Tools (MCP), Skills, Memory,</strong> and <strong>Agents</strong>—so you load the right piece at the right time without bloating context or leaving the AI helpless.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          A capable AI setup is not "just one big prompt." It is a layered stack where each part plays a clean role: the
+          <strong>Model</strong> supplies reasoning, the <strong>Prompt</strong> gives today's task, <strong>Rules</strong>
+          set always-on boundaries, <strong>Tools (MCP)</strong> connect real external apps, <strong>Skills</strong>
+          provide on-demand specialist playbooks, <strong>Memory</strong> recalls preferences across sessions, and an
+          <strong>Agent</strong> coordinates multi-step loops.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (The Office &amp; Kitchen Team Analogy)</h2>
+      <p>
+        Imagine hiring a sharp specialist into your office or restaurant kitchen. Giving them raw intelligence is not
+        enough—they need instructions, manuals, equipment, and notes organized cleanly:
+      </p>
+
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Stack Layer</th>
+            <th>Office / Kitchen Analogy</th>
+            <th>What It Actually Does</th>
+            <th>When Loaded</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Model</strong></td>
+            <td>The Specialist's Brain</td>
+            <td>Predicts text, reasons, and writes code/prose</td>
+            <td>Every inference call</td>
+          </tr>
+          <tr>
+            <td><strong>Prompt</strong></td>
+            <td>Today's Work Ticket</td>
+            <td>Specific goal &amp; inputs for this request</td>
+            <td>Current run</td>
+          </tr>
+          <tr>
+            <td><strong>Rules (System)</strong></td>
+            <td>Standing Employee Handbook</td>
+            <td>Always-on voice, formatting &amp; safety policy</td>
+            <td>Always on (every turn)</td>
+          </tr>
+          <tr>
+            <td><strong>Tools / MCP</strong></td>
+            <td>Equipment &amp; Software Apps</td>
+            <td>Standardized connectors (SQL, Git, Slack, search)</td>
+            <td>Called when action needed</td>
+          </tr>
+          <tr>
+            <td><strong>Skills</strong></td>
+            <td>Laminated Recipe Binders / SOPs</td>
+            <td>Step-by-step domain checklists &amp; best practices</td>
+            <td>On demand (only when relevant)</td>
+          </tr>
+          <tr>
+            <td><strong>Memory</strong></td>
+            <td>Personal Filing Cabinet</td>
+            <td>Facts &amp; preferences remembered across chats</td>
+            <td>Retrieved across sessions</td>
+          </tr>
+          <tr>
+            <td><strong>Agent</strong></td>
+            <td>Autonomous Project Worker</td>
+            <td>Loops over tools &amp; feedback until goal passes</td>
+            <td>Multi-step tasks only</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Three Crucial Distinctions</h3>
+      <ul>
+        <li><strong>Skill vs. Rules:</strong> <strong>Rules</strong> stay loaded on <em>every single message</em>, so they should stay short and universal (like brand tone or never leaking secrets). A <strong>Skill</strong> is a detailed domain SOP (e.g., a 200-line SQL migration guide) kept out of sight until a matching task appears—preventing everyday chats from getting slow and cluttered.</li>
+        <li><strong>Skill vs. Tool (MCP):</strong> A <strong>Skill</strong> holds <em>procedural know-how</em> ("check locks before altering large tables"). A <strong>Tool / MCP server</strong> grants <em>external capability</em> ("actually query Postgres"). Reading a cooking binder does not give you a stove!</li>
+        <li><strong>Skill vs. Agent:</strong> Write a <strong>Skill</strong> when you simply want reliable domain know-how applied on demand during a chat or workflow. Wrap it in an <strong>Agent</strong> only when the AI must loop on its own—calling tools, inspecting failures (like failing tests), and self-correcting over multiple steps.</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Decluttering a Bloated SQL Setup</h3>
+      <p>
+        An engineering team pasted a 200-line zero-downtime Postgres migration checklist straight into their assistant's
+        <strong>Global Rules</strong>. Two things broke: unrelated copywriting chats got slower and weirdly formal, and the
+        AI still couldn't inspect production table sizes. Moving the checklist into an on-demand <strong>Skill</strong>
+        (<code>postgres-migration</code>) kept everyday chats fast—and plugging in a read-only <code>postgres-mcp</code>
+        <strong>Tool</strong> finally let the assistant verify real row counts before suggesting changes.
+      </p>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Global Rule Dumping &amp; "Know-How Without Hands"</h3>
+      <p>
+        First, cramming niche SOPs into <strong>Global Rules</strong> causes <em>context bloat</em>: irrelevant instructions
+        burn tokens on every turn and compete for the model's attention. Second, giving the model a rich <strong>Skill</strong>
+        without connecting the matching <strong>MCP Tool</strong> leaves it reciting polished checklists it cannot execute.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "2-10"
+
+    var LAYERS = [
+      { id: "prompt", name: "Prompt", desc: "Specific task & inputs for today's run" },
+      { id: "rules", name: "Global Rules", desc: "Always-on instructions loaded on every chat" },
+      { id: "skill", name: "Skill (On-Demand SOP)", desc: "Specialist playbook loaded only when relevant" },
+      { id: "tool", name: "Tool / MCP", desc: "External app connector (DB, files, test runner)" },
+      { id: "memory", name: "Memory", desc: "User facts & preferences saved across sessions" },
+      { id: "agent", name: "Agent Loop", desc: "Autonomous plan -> tool -> observe -> retry loop" }
+    ];
+
+    var SCENARIOS = [
+      {
+        id: "brand-tone",
+        shortLabel: "1. Brand Tone",
+        title: "Enforce Brand Tone on Every Response",
+        meta: "Every chat • Lightweight static policy",
+        desc: "Ensure all team responses—emails, summaries, brainstorms—stay warm, concise, and free of buzzwords without repeating instructions manually.",
+        evaluate: function (on) {
+          var eff = 100;
+          var fit = 100;
+          var notes = [];
+          var status = "Optimal Stack";
+          var tone = "ok";
+
+          if (!on.prompt) {
+            fit -= 40;
+            notes.push("Missing Prompt: you still need today's specific request or draft topic.");
+          }
+          if (!on.rules) {
+            fit -= 50;
+            notes.push("Missing Global Rules: without an always-on rule, users must re-paste brand voice guidelines into every new chat.");
+          } else {
+            notes.push("Global Rules fit cleanly: short, universal style rules belong in the always-on handbook.");
+          }
+          if (on.skill) {
+            eff -= 12;
+            notes.push("Unnecessary Skill indirection: brand tone applies to every turn, not an occasional specialist task.");
+          }
+          if (on.tool) {
+            eff -= 12;
+            notes.push("Unused Tool / MCP: applying tone to text does not require external apps or databases.");
+          }
+          if (on.memory) {
+            eff -= 10;
+            fit -= 10;
+            notes.push("Memory mismatch: org-wide brand policy should stay uniform in Global Rules rather than drifting per user in Memory.");
+          }
+          if (on.agent) {
+            eff -= 28;
+            notes.push("Overkill Agent Loop: single-turn drafting finishes in one pass without iterative tool loops.");
+          }
+
+          if (fit < 65) { status = "Missing Critical Piece"; tone = "bad"; }
+          else if (eff < 80 || fit < 90) { status = "Works with Overkill / Bloat"; tone = "warn"; }
+          return { eff: Math.max(10, eff), fit: Math.max(10, fit), status: status, tone: tone, notes: notes };
+        }
+      },
+      {
+        id: "db-queries",
+        shortLabel: "2. Live DB Queries",
+        title: "Run Analytics Queries Safely via MCP",
+        meta: "Live data • Read-only access",
+        desc: "Let analysts ask 'How many paid signups happened yesterday?' and get real numbers directly from your analytics warehouse without write access.",
+        evaluate: function (on) {
+          var eff = 100;
+          var fit = 100;
+          var notes = [];
+          var status = "Optimal Stack";
+          var tone = "ok";
+
+          if (!on.prompt) {
+            fit -= 40;
+            notes.push("Missing Prompt: specify the actual analytics question to query.");
+          }
+          if (!on.tool) {
+            fit -= 65;
+            notes.push("Missing Tool / MCP: without a read-only SQL/MCP connector, the model cannot read live tables and can only guess or output unverified SQL.");
+          } else {
+            notes.push("Tool / MCP connected: gives the model live, read-only database access to verify real metrics.");
+          }
+          if (on.rules) {
+            notes.push("Global Rules (optional bonus): short guardrails like 'read-only SELECTs only; never invent figures' add safety cheaply.");
+          }
+          if (on.skill) {
+            eff -= 6;
+            notes.push("Skill note: optional unless you also have complex company-specific KPI definitions to load on demand.");
+          }
+          if (on.memory) {
+            eff -= 12;
+            fit -= 10;
+            notes.push("Memory trap: daily signup counts go stale immediately—live numbers belong in MCP queries, not static Memory.");
+          }
+          if (on.agent) {
+            eff -= 18;
+            notes.push("Agent Loop note: straightforward single-query lookups don't need an open-ended multi-turn loop.");
+          }
+
+          if (fit < 65) { status = "Missing Critical Piece"; tone = "bad"; }
+          else if (eff < 82 || fit < 90) { status = "Works with Minor Overhead"; tone = "warn"; }
+          return { eff: Math.max(10, eff), fit: Math.max(10, fit), status: status, tone: tone, notes: notes };
+        }
+      },
+      {
+        id: "sql-playbook",
+        shortLabel: "3. 200-Line SOP",
+        title: "Package a 200-Line SQL Migration Playbook",
+        meta: "Used 2x/month • Needs schema inspection",
+        desc: "Apply a strict 200-line zero-downtime Postgres migration checklist twice a month—and verify real table row counts/locks before generating migration SQL.",
+        evaluate: function (on) {
+          var eff = 100;
+          var fit = 100;
+          var notes = [];
+          var status = "Optimal Stack";
+          var tone = "ok";
+
+          if (!on.prompt) {
+            fit -= 35;
+            notes.push("Missing Prompt: tell the assistant which schema change or table you are migrating today.");
+          }
+          if (on.rules && !on.skill) {
+            eff -= 50;
+            notes.push("Context Bloat in Global Rules: stuffing a 200-line playbook used twice a month into Global Rules slows down and clutters every unrelated chat all month long!");
+          } else if (on.rules && on.skill) {
+            eff -= 25;
+            notes.push("Duplicated in Global Rules: keep the 200-line SOP solely inside the on-demand Skill so normal chats stay lean.");
+          }
+          if (!on.skill && !on.rules) {
+            fit -= 50;
+            notes.push("Missing Skill: without the 200-line playbook, the assistant falls back to generic SQL advice and misses your zero-downtime checklist.");
+          } else if (on.skill) {
+            notes.push("Skill (On-Demand SOP) fits great: loaded only when someone works on a database migration.");
+          }
+          if (!on.tool) {
+            fit -= 45;
+            notes.push("Know-How Without Hands: attaching a Skill without Tool / MCP lets the AI explain migration steps, but leaves it unable to inspect live staging table sizes or locks.");
+          } else {
+            notes.push("Tool / MCP attached: lets the assistant check live staging schema & row counts alongside the Skill checklist.");
+          }
+          if (on.memory) {
+            eff -= 10;
+            notes.push("Memory mismatch: formal migration standards belong in versioned Skill docs, not informal per-user Memory.");
+          }
+          if (on.agent) {
+            eff -= 8;
+            notes.push("Agent Loop note: optional if automating staging dry-runs; keep human review before production migrations.");
+          }
+
+          if (fit < 65) { status = "Missing Capability"; tone = "bad"; }
+          else if (eff < 70) { status = "Severe Context Bloat"; tone = "bad"; }
+          else if (eff < 85 || fit < 90) { status = "Suboptimal Configuration"; tone = "warn"; }
+          return { eff: Math.max(10, eff), fit: Math.max(10, fit), status: status, tone: tone, notes: notes };
+        }
+      },
+      {
+        id: "user-prefs",
+        shortLabel: "4. Cross-Session Prefs",
+        title: "Remember User Formatting Preferences Across Sessions",
+        meta: "Per-user • Across separate chats",
+        desc: "Stop reminding the assistant in every new chat that this user prefers TypeScript examples, metric units, and 3-bullet summaries.",
+        evaluate: function (on) {
+          var eff = 100;
+          var fit = 100;
+          var notes = [];
+          var status = "Optimal Stack";
+          var tone = "ok";
+
+          if (!on.prompt) {
+            fit -= 35;
+            notes.push("Missing Prompt: each new chat still carries today's specific question or task.");
+          }
+          if (!on.memory) {
+            fit -= 55;
+            notes.push("Missing Memory: without persistent Memory, each new chat starts blank and forgets user-specific preferences.");
+          } else {
+            notes.push("Memory fits cleanly: remembers user-specific TypeScript, metric, and formatting preferences across sessions.");
+          }
+          if (on.rules) {
+            eff -= 15;
+            fit -= 10;
+            notes.push("Global Rules vs. Memory: Global Rules affect everyone identically; individual user preferences belong in Memory.");
+          }
+          if (on.skill) {
+            eff -= 12;
+            notes.push("Unnecessary Skill: user formatting preferences are simple personal facts, not a multi-step domain SOP.");
+          }
+          if (on.tool) {
+            eff -= 12;
+            notes.push("Unused Tool / MCP: applying personal formatting preferences does not need an external app connector.");
+          }
+          if (on.agent) {
+            eff -= 25;
+            notes.push("Overkill Agent Loop: passive preference recall happens in one normal turn without looping.");
+          }
+
+          if (fit < 65) { status = "Missing Critical Piece"; tone = "bad"; }
+          else if (eff < 80 || fit < 90) { status = "Works with Overhead"; tone = "warn"; }
+          return { eff: Math.max(10, eff), fit: Math.max(10, fit), status: status, tone: tone, notes: notes };
+        }
+      },
+      {
+        id: "multi-file-bug",
+        shortLabel: "5. Multi-File Bugfix",
+        title: "Fix a Multi-File Bug Across Failing Tests",
+        meta: "Iterative • Read, edit, run tests, retry",
+        desc: "Investigate a failing integration test spanning 3 modules, edit the broken helper, run the test suite, inspect errors, and iterate until tests pass.",
+        evaluate: function (on) {
+          var eff = 100;
+          var fit = 100;
+          var notes = [];
+          var status = "Optimal Stack";
+          var tone = "ok";
+
+          if (!on.prompt) {
+            fit -= 30;
+            notes.push("Missing Prompt: give the bug report or failing test name to start.");
+          }
+          if (!on.tool) {
+            fit -= 55;
+            notes.push("Missing Tool / MCP: without file-read, code-edit, and test-runner tools, the AI can only guess at code in chat without touching the repo.");
+          } else {
+            notes.push("Tool / MCP enabled: lets the assistant inspect real files, apply edits, and execute the test suite.");
+          }
+          if (!on.agent) {
+            fit -= 50;
+            notes.push("Missing Agent Loop: without an Agent Loop, the AI stops after one guess instead of running tests, observing failures, and iterating until green.");
+          } else {
+            notes.push("Agent Loop enabled: allows edit -> run tests -> inspect failure -> refine until tests pass.");
+          }
+          if (on.rules || on.skill) {
+            notes.push("Rules / Skill bonus: lightweight repo conventions or a debugging SOP cleanly sharpen the Agent's fixes.");
+          }
+          if (on.memory) {
+            eff -= 8;
+            notes.push("Memory note: optional here—repo source files and test output are the real ground truth.");
+          }
+
+          if (fit < 65) { status = "Incomplete Stack"; tone = "bad"; }
+          else if (eff < 85 || fit < 90) { status = "Works with Minor Tweaks"; tone = "warn"; }
+          return { eff: Math.max(10, eff), fit: Math.max(10, fit), status: status, tone: tone, notes: notes };
+        }
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function buildMeter(labelText, pct) {
+      var box = el("div", { class: "stack-meter-box" });
+      var head = el("div", { class: "stack-meter-head" }, [
+        el("span", { text: labelText }),
+        el("span", { text: pct + " / 100" })
+      ]);
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = pct + "%";
+      fill.style.background = pct >= 85 ? "var(--color-success)" : (pct >= 65 ? "#d97706" : "var(--color-error)");
+      bar.appendChild(fill);
+      box.appendChild(head);
+      box.appendChild(bar);
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Assemble the Right AI Stack",
+      instructions:
+        "Choose a scenario, toggle on only the stack layers you think it needs, and click Validate Stack " +
+        "to inspect Context Efficiency, Capability Fit, and diagnostic feedback.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          activeIndex: 0,
+          picks: {}
+        };
+
+        SCENARIOS.forEach(function (s) {
+          state.picks[s.id] = {
+            selected: { prompt: true, rules: false, skill: false, tool: false, memory: false, agent: false },
+            validated: false,
+            optimal: false
+          };
+        });
+
+        var progressNote = el("p", { class: "stack-progress-note" });
+        var tabsWrap = el("div", { class: "stack-tabs", role: "tablist", "aria-label": "Stack Scenarios" });
+        var stage = el("div");
+        var resultArea = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(progressNote);
+        root.appendChild(tabsWrap);
+        root.appendChild(stage);
+        root.appendChild(resultArea);
+
+        function updateProgress() {
+          var tested = 0;
+          var optimal = 0;
+          SCENARIOS.forEach(function (s) {
+            if (state.picks[s.id].validated) tested++;
+            if (state.picks[s.id].optimal) optimal++;
+          });
+          progressNote.textContent = "Scenarios validated: " + tested + " / " + SCENARIOS.length +
+            "  |  Optimal stacks: " + optimal + " / " + SCENARIOS.length;
+        }
+
+        function renderTabs() {
+          tabsWrap.innerHTML = "";
+          SCENARIOS.forEach(function (s, idx) {
+            var p = state.picks[s.id];
+            var badgeText = p.validated ? (p.optimal ? "Fit" : "Checked") : "New";
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.activeIndex ? "true" : "false",
+              class: "stack-tab" + (idx === state.activeIndex ? " is-active" : "")
+            }, [
+              el("span", { text: s.shortLabel }),
+              el("span", { class: "stack-tab-badge", text: badgeText })
+            ]);
+            btn.addEventListener("click", function () {
+              state.activeIndex = idx;
+              renderAll();
+            });
+            tabsWrap.appendChild(btn);
+          });
+        }
+
+        function renderResult() {
+          resultArea.innerHTML = "";
+          var s = SCENARIOS[state.activeIndex];
+          var p = state.picks[s.id];
+          if (!p.validated) {
+            resultArea.appendChild(el("p", {
+              class: "exercise-empty",
+              text: "Toggle stack layers above and click \"Validate Stack\" to check efficiency and capability fit."
+            }));
+            return;
+          }
+
+          var res = s.evaluate(p.selected);
+          var panel = el("div", { class: "stack-result-panel" });
+          panel.appendChild(el("span", {
+            class: "stack-badge stack-badge--" + res.tone,
+            text: res.status
+          }));
+          panel.appendChild(el("div", { class: "stack-meters" }, [
+            buildMeter("Context Efficiency", res.eff),
+            buildMeter("Capability Fit", res.fit)
+          ]));
+
+          var list = el("ul", { class: "stack-diag-list" });
+          res.notes.forEach(function (n) {
+            list.appendChild(el("li", { text: n }));
+          });
+          panel.appendChild(list);
+          resultArea.appendChild(panel);
+        }
+
+        function renderStage() {
+          stage.innerHTML = "";
+          var s = SCENARIOS[state.activeIndex];
+          var p = state.picks[s.id];
+
+          var card = el("div", { class: "stack-card" });
+          card.appendChild(el("div", { class: "stack-card-head" }, [
+            el("h4", { class: "stack-card-title", text: s.title }),
+            el("span", { class: "stack-meta-tag", text: s.meta })
+          ]));
+          card.appendChild(el("p", { text: s.desc }));
+
+          var grid = el("div", { class: "stack-layers-grid" });
+          LAYERS.forEach(function (layer) {
+            var inputId = "stack-" + s.id + "-" + layer.id;
+            var checked = !!p.selected[layer.id];
+            var lbl = el("label", {
+              for: inputId,
+              class: "stack-layer-toggle" + (checked ? " is-checked" : "")
+            });
+            var cb = el("input", { type: "checkbox", id: inputId });
+            cb.checked = checked;
+            cb.addEventListener("change", function () {
+              p.selected[layer.id] = cb.checked;
+              renderStage();
+            });
+            var textBox = el("span", {}, [
+              el("span", { class: "stack-layer-name", text: layer.name }),
+              el("span", { class: "stack-layer-desc", text: layer.desc })
+            ]);
+            lbl.appendChild(cb);
+            lbl.appendChild(textBox);
+            grid.appendChild(lbl);
+          });
+          card.appendChild(grid);
+
+          var row = el("div", { style: "display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;" });
+          var valBtn = el("button", { type: "button", class: "btn btn-primary", text: "Validate Stack" });
+          valBtn.addEventListener("click", function () {
+            p.validated = true;
+            var res = s.evaluate(p.selected);
+            p.optimal = res.tone === "ok";
+            updateProgress();
+            renderTabs();
+            renderResult();
+          });
+          row.appendChild(valBtn);
+
+          if (state.activeIndex < SCENARIOS.length - 1) {
+            var nextBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Next Scenario \u2192" });
+            nextBtn.addEventListener("click", function () {
+              state.activeIndex += 1;
+              renderAll();
+            });
+            row.appendChild(nextBtn);
+          }
+
+          card.appendChild(row);
+          stage.appendChild(card);
+        }
+
+        function renderAll() {
+          updateProgress();
+          renderTabs();
+          renderStage();
+          renderResult();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Your team maintains a 250-line security audit checklist that engineers only run once per quarter. Where does it belong?",
+          options: [
+            "Inside Global Rules, so the assistant never forgets security standards during daily coding or writing tasks",
+            "Inside Memory as a raw reference note, because Memory preserves long checklists with less token overhead than prompts",
+            "In an on-demand Skill, so it loads into context only during security audits instead of cluttering everyday chats",
+            "Inside an MCP tool description, because Global Rules only support single-sentence formatting constraints"
+          ],
+          answer: 2,
+          explanation: "Global Rules are injected on every single turn and should stay lean and universal. Niche, heavyweight playbooks belong in on-demand Skills that load only when relevant."
+        },
+        {
+          q: "You attached a detailed 'Incident Triage Skill' playbook, yet the assistant replies: 'I can walk you through the triage steps, but you'll need to look up the server logs yourself.' What stack piece is missing?",
+          options: [
+            "A Tool / MCP integration granting the assistant read access to your logging system",
+            "Moving the Incident Triage Skill text into Global Rules so it sits higher in the system message",
+            "Turning on cross-session Memory so past outage discussions carry over automatically",
+            "Wrapping the Skill inside a loop prompt without adding external connectors"
+          ],
+          answer: 0,
+          explanation: "A Skill supplies procedural know-how (what steps to follow), while Tools / MCP supply external action and data access. Without the logging tool, the AI knows the recipe but has no stove."
+        },
+        {
+          q: "How does Memory differ from a Prompt inside a modern AI assistant?",
+          options: [
+            "Memory runs external API queries over MCP, while Prompts hold always-on team style policies",
+            "Memory permanently updates the model's base weights after each session, while Prompts remain temporary",
+            "Memory guarantees deterministic step order across runs, while Prompts let the model improvise",
+            "Memory persists relevant user facts and preferences across separate sessions, whereas a Prompt supplies today's active task"
+          ],
+          answer: 3,
+          explanation: "Prompts specify the active task for the current run; Memory stores persistent user context (like preferred language or format) across separate sessions without retraining weights."
+        },
+        {
+          q: "When should you wrap a Skill inside an Agent Loop instead of keeping it as a single-turn Prompt + Skill?",
+          options: [
+            "Whenever a Skill playbook grows past 50 lines of structured Markdown checklists",
+            "When the task requires iteratively calling tools, inspecting feedback (like failing tests), and adjusting next steps until a check passes",
+            "Whenever you want every employee's routine copywriting drafts to share the exact same brand voice",
+            "When a user pastes a single clean document into chat and needs a fixed 4-bullet summary back"
+          ],
+          answer: 1,
+          explanation: "Skills give know-how; you add an Agent Loop only when the AI must autonomously sequence tools, inspect real-world results, and iterate until completion."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

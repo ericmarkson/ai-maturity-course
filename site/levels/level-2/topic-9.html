@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbots vs. Workflows vs. Agents: The Spectrum of AI Autonomy — AI Maturity Course</title>
+<meta name="description" content="Learn when to use single-turn chat, a deterministic fixed workflow, or an autonomous agent—and why more autonomy is not always better.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-9";
+</script>
+<style>
+  .autonomy-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .autonomy-tab {
+    text-align: left;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .autonomy-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .autonomy-tab.is-active {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+  }
+  .autonomy-tab-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    color: inherit;
+    white-space: nowrap;
+  }
+  .autonomy-tab.is-active .autonomy-tab-badge { background: rgba(255, 255, 255, 0.22); }
+  .autonomy-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .autonomy-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .autonomy-card-title { margin: 0; font-size: var(--font-size-md); }
+  .autonomy-meta-tag {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--color-bg-inset);
+    color: var(--color-text-muted);
+  }
+  .autonomy-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin: var(--space-3) 0;
+  }
+  @media (max-width: 640px) {
+    .autonomy-choice-grid { grid-template-columns: 1fr; }
+  }
+  .autonomy-radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .autonomy-radio-card:hover { border-color: var(--color-primary); }
+  .autonomy-radio-card.is-selected {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+  }
+  .autonomy-radio-card input { margin-top: 3px; flex-shrink: 0; }
+  .autonomy-radio-title { display: block; font-weight: 700; font-size: var(--font-size-sm); }
+  .autonomy-radio-sub { display: block; font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+  .autonomy-gate-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+  }
+  .autonomy-result-panel {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .autonomy-verdict {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: var(--space-3);
+  }
+  .autonomy-verdict--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .autonomy-verdict--warn { background: var(--color-warning-bg); color: #855200; }
+  .autonomy-verdict--bad { background: var(--color-error-bg); color: var(--color-error); }
+  .autonomy-meters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  @media (max-width: 640px) {
+    .autonomy-meters { grid-template-columns: 1fr; }
+  }
+  .autonomy-meter-box {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .autonomy-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .autonomy-progress-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Chatbots vs. Workflows vs. Agents: The Spectrum of AI Autonomy</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Match real tasks to the right point on the AI autonomy spectrum—<strong>Single-Turn Chat</strong>, <strong>Fixed Workflow</strong>, or <strong>Autonomous Agent</strong>—and recognize when adding extra autonomy hurts reliability, speed, and safety.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          The <strong>Spectrum of AI Autonomy</strong> describes how much decision-making control you give an AI model
+          versus keeping in human hands or deterministic software code. Across that spectrum, systems fall into three
+          practical patterns: <strong>Single-Turn Chat</strong> (human drives every prompt), <strong>Fixed Workflows</strong>
+          (code controls a predictable sequence, calling AI inside specific steps), and <strong>Autonomous Agents</strong>
+          (the model runs in a loop, choosing tools and next actions dynamically until a goal is finished).
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (The Kitchen Analogy)</h2>
+      <p>
+        Think of running a busy restaurant kitchen. You would not handle every dish the exact same way:
+      </p>
+      <ul>
+        <li><strong>Single-Turn Chat = Asking a Sous-Chef a Quick Question:</strong> You hold the spatula and do the work, pausing once to ask, <em>"How can I brighten this soup?"</em> Fast, zero setup, and you inspect the advice right away.</li>
+        <li><strong>Fixed Workflow = A Standardized Prep Line:</strong> Station 1 washes greens, Station 2 weighs portions, Station 3 checks temperature before plating. The recipe path never changes—even if an AI step helps classify or summarize at Station 2—so speed, cost, and auditability stay rock solid.</li>
+        <li><strong>Autonomous Agent = Hiring a Head Chef to Shop &amp; Improvise:</strong> You say, <em>"Create dinner from whatever is fresh at the market,"</em> and step back. The chef inspects stalls, adapts the menu when tomatoes are sold out, tastes, and adjusts. Essential for messy surprises—but slower, pricier, and risky without clear spending limits.</li>
+      </ul>
+
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>Single-Turn Chat</th>
+            <th>Fixed Workflow</th>
+            <th>Autonomous Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Control Flow</strong></td>
+            <td>Human decides every prompt</td>
+            <td>Code defines fixed steps &amp; branches</td>
+            <td>Model loops &amp; chooses next tool/step</td>
+          </tr>
+          <tr>
+            <td><strong>Predictability</strong></td>
+            <td>High per turn (human steers)</td>
+            <td>Very high (repeatable path &amp; schema)</td>
+            <td>Variable (paths adapt dynamically)</td>
+          </tr>
+          <tr>
+            <td><strong>Latency &amp; Cost</strong></td>
+            <td>Lowest (1 call)</td>
+            <td>Low–moderate (bounded calls)</td>
+            <td>Highest (multi-turn loops &amp; retries)</td>
+          </tr>
+          <tr>
+            <td><strong>Best Fit</strong></td>
+            <td>One-off drafting, Q&amp;A, summarizing</td>
+            <td>Repeatable pipelines with known steps</td>
+            <td>Open-ended diagnosis or messy research</td>
+          </tr>
+          <tr>
+            <td><strong>Human-in-the-Loop</strong></td>
+            <td>Built in—you read before using</td>
+            <td>Approval gates before risky writes/payouts</td>
+            <td>Mandatory gates before irreversible actions</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Rule of thumb:</strong> Start on the left (Single-Turn Chat or Fixed Workflow) and move right to an Agent
+        only when you genuinely cannot predict the steps in advance.
+      </p>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Choosing Workflow vs. Agent in Practice</h3>
+      <ul>
+        <li><strong>Weekly Invoice Approval (Fixed Workflow):</strong> Every incoming invoice PDF follows the same 3-step sequence: extract fields into JSON &rarr; match the purchase order in accounting &rarr; route for payout. Using a Fixed Workflow with a <strong>Human Approval Gate</strong> over $500 finishes in ~2 seconds and follows policy 100% of the time.</li>
+        <li><strong>Live Outage Investigation (Autonomous Agent):</strong> Checkout suddenly errors out. You do not know beforehand whether the culprit is a bad deploy, a full disk, or an expired API key. An <strong>Autonomous Agent</strong> with read-only log, doc, and Slack search tools can follow clues across systems—while pausing for human approval before restarting production servers.</li>
+      </ul>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: "Agent Overkill" on Predictable Work</h3>
+      <p>
+        Wrapping a repeatable 3-step task (like formatting a weekly RSS newsletter) inside an open-ended agent loop is
+        classic over-engineering: it burns 5&ndash;15&times; more tokens, adds seconds or minutes of latency, and invites
+        the model to wander off-script. Even worse, letting an autonomous loop execute irreversible actions—like sending
+        bulk customer emails or issuing large refunds—without a <strong>Human Approval Gate</strong> turns a minor AI
+        misread into an immediate business incident.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "2-9"
+
+    var SCENARIOS = [
+      {
+        id: "meeting-notes",
+        shortLabel: "1. Meeting Notes",
+        title: "Summarize 1-on-1 Meeting Notes",
+        stakes: "Low stakes • Single input",
+        prompt: "You paste a 20-minute call transcript and want 5 crisp bullet action items for your personal tracker.",
+        bestMode: "chat",
+        gatePreference: "optional", // "required" | "helpful" | "optional"
+        evaluations: {
+          chat: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 94, speed: 98, safety: 95,
+            reason: "Single-Turn Chat is ideal here. The input is already in front of you, the job takes one model call, and you immediately read the bullets before saving them."
+          },
+          workflow: {
+            verdict: "Slightly Over-Engineered",
+            tone: "warn",
+            rel: 90, speed: 78, safety: 95,
+            reason: "A Fixed Workflow works reliably, but building multi-step orchestration for an occasional one-off paste adds unnecessary setup overhead."
+          },
+          agent: {
+            verdict: "Over-Engineered",
+            tone: "bad",
+            rel: 74, speed: 35, safety: 88,
+            reason: "An Autonomous Agent loops, plans, and burns extra latency/tokens on a simple one-shot summarization task that never needed dynamic tool exploration."
+          }
+        }
+      },
+      {
+        id: "invoice-routing",
+        shortLabel: "2. Invoice Routing",
+        title: "Route Incoming Invoices (Fixed 3-Step Approval)",
+        stakes: "Medium stakes • Repeatable steps",
+        prompt: "Every vendor PDF goes through the exact same pipeline: extract total & vendor JSON, verify PO match in ERP, and route to the department manager.",
+        bestMode: "workflow",
+        gatePreference: "helpful",
+        evaluations: {
+          chat: {
+            verdict: "Under-Powered (Manual Burden)",
+            tone: "bad",
+            rel: 52, speed: 55, safety: 68,
+            reason: "Single-Turn Chat forces a human to copy-paste every PDF, look up the PO manually, and forward messages—missing the whole value of repeatable automation."
+          },
+          workflow: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 96, speed: 92, safety: 92,
+            reason: "A Fixed Workflow excels because the 3 steps and policy branches never change. AI handles only messy PDF extraction while deterministic code checks PO math and routes approvals."
+          },
+          agent: {
+            verdict: "Over-Engineered (Drift Risk)",
+            tone: "warn",
+            rel: 68, speed: 44, safety: 70,
+            reason: "Using an Autonomous Agent for a fixed 3-step accounting path slows processing down and introduces unnecessary step-order drift where deterministic code should rule."
+          }
+        }
+      },
+      {
+        id: "live-outage",
+        shortLabel: "3. Live Outage",
+        title: "Investigate a Live Customer Outage",
+        stakes: "High stakes • Unpredictable clues",
+        prompt: "API latency spiked 10x. Root cause could live in server logs, recent deploy diffs, or Slack incident threads—each clue determines where to look next.",
+        bestMode: "agent",
+        gatePreference: "required",
+        evaluations: {
+          chat: {
+            verdict: "Under-Powered",
+            tone: "bad",
+            rel: 42, speed: 38, safety: 85,
+            reason: "Single-Turn Chat cannot query live logs, PRs, and Slack iteratively; an engineer ends up manually playing courier between dashboards during a live incident."
+          },
+          workflow: {
+            verdict: "Too Rigid for Unknown Paths",
+            tone: "warn",
+            rel: 58, speed: 70, safety: 84,
+            reason: "A Fixed Workflow breaks when an outage does not match pre-scripted checks—because you cannot hardcode tomorrow's mystery bug path in advance."
+          },
+          agent: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 89, speed: 68, safety: 90,
+            reason: "An Autonomous Agent with read-only log, PR, and Slack tools shines here: each observation guides the next diagnostic query. Keeping a Human Gate before any prod change keeps recovery safe."
+          }
+        }
+      },
+      {
+        id: "weekly-newsletter",
+        shortLabel: "4. RSS Newsletter",
+        title: "Draft Weekly Newsletter from Fixed RSS Links",
+        stakes: "Medium stakes • Fixed sources",
+        prompt: "Every Friday morning, pull new items from 4 fixed RSS feeds, write 2-sentence summaries, and format into your HTML newsletter template.",
+        bestMode: "workflow",
+        gatePreference: "helpful",
+        evaluations: {
+          chat: {
+            verdict: "Under-Powered (Tedious)",
+            tone: "warn",
+            rel: 65, speed: 48, safety: 88,
+            reason: "Single-Turn Chat gives decent summaries once pasted, but leaves you manually opening 4 RSS feeds and assembling HTML every Friday."
+          },
+          workflow: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 95, speed: 94, safety: 92,
+            reason: "A Fixed Workflow runs on schedule: fetch 4 exact URLs -> summarize each item -> fill template. Zero wandering, predictable token cost, and a quick human review before sending."
+          },
+          agent: {
+            verdict: "Over-Engineered",
+            tone: "bad",
+            rel: 72, speed: 42, safety: 78,
+            reason: "You already know the exact 4 RSS links and HTML template. Letting an Agent plan tool loops wastes cost and risks skipping or inventing sections."
+          }
+        }
+      },
+      {
+        id: "refund-500",
+        shortLabel: "5. $500+ Refund",
+        title: "Issue a Customer Payment Refund Over $500",
+        stakes: "Critical financial stakes • Policy-bound",
+        prompt: "A customer disputes a $740 annual charge. Policy eligibility depends on billing history, usage logs, and contract tier before triggering Stripe.",
+        bestMode: "workflow",
+        gatePreference: "required",
+        evaluations: {
+          chat: {
+            verdict: "Under-Powered",
+            tone: "warn",
+            rel: 56, speed: 50, safety: 80,
+            reason: "Single-Turn Chat can help draft a reply, but cannot verify billing tables or enforce automated policy checks cleanly."
+          },
+          workflow: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 94, speed: 88, safety: 95,
+            reason: "A Fixed Workflow reliably checks deterministic eligibility rules and computes the refund amount—paired with a mandatory Human Approval Gate before money leaves Stripe."
+          },
+          agent: {
+            verdict: "Risky Over-Engineering",
+            tone: "bad",
+            rel: 66, speed: 52, safety: 58,
+            reason: "Giving an open-ended agent loop payment authority risks prompt injection from customer messages or policy misreads on high-dollar transfers."
+          }
+        }
+      },
+      {
+        id: "competitor-research",
+        shortLabel: "6. Competitor Research",
+        title: "Research Competitors Across Unpredictable Websites",
+        stakes: "Low–medium stakes • Dynamic discovery",
+        prompt: "Gather pricing tiers, recent launch announcements, and docs links across 8 competitor sites whose layouts and subpages differ wildly.",
+        bestMode: "agent",
+        gatePreference: "optional",
+        evaluations: {
+          chat: {
+            verdict: "Under-Powered (Stale/Manual)",
+            tone: "bad",
+            rel: 45, speed: 40, safety: 92,
+            reason: "A standalone chat model relies on frozen training knowledge or forces you to manually browse and paste dozens of pricing and changelog pages."
+          },
+          workflow: {
+            verdict: "Brittle on Unpredictable Sites",
+            tone: "warn",
+            rel: 60, speed: 74, safety: 90,
+            reason: "Fixed URL scripts break whenever a competitor hides pricing behind '/plans', PDF brochures, or nested changelog links."
+          },
+          agent: {
+            verdict: "Optimal Fit",
+            tone: "ok",
+            rel: 87, speed: 62, safety: 91,
+            reason: "An Autonomous Agent with web-search/fetch tools can follow navigation links dynamically across unfamiliar site layouts and compile structured comparisons."
+          }
+        }
+      }
+    ];
+
+    var MODES = [
+      { id: "chat", label: "Single-Turn Chat", sub: "1 prompt, human drives" },
+      { id: "workflow", label: "Fixed Workflow", sub: "Code fixes steps, AI fills slots" },
+      { id: "agent", label: "Autonomous Agent", sub: "Model loops & picks tools" }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function buildMeter(labelText, pct, color) {
+      var box = el("div", { class: "autonomy-meter-box" });
+      var head = el("div", { class: "autonomy-meter-head" }, [
+        el("span", { text: labelText }),
+        el("span", { text: pct + " / 100" })
+      ]);
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = pct + "%";
+      if (color) fill.style.background = color;
+      bar.appendChild(fill);
+      box.appendChild(head);
+      box.appendChild(bar);
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "Autonomy Spectrum Scenario Chooser",
+      instructions:
+        "Pick a real-world scenario below, choose the autonomy level (Single-Turn Chat, Fixed Workflow, or Autonomous Agent), " +
+        "decide whether to add a Human Approval Gate, and click Test Choice to inspect Reliability, Speed/Cost, and Safety.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          activeIndex: 0,
+          selections: {} // scenarioId -> { mode, gate, tested }
+        };
+
+        SCENARIOS.forEach(function (s) {
+          state.selections[s.id] = { mode: "chat", gate: false, tested: false, optimal: false };
+        });
+
+        var tabsWrap = el("div", { class: "autonomy-tabs", role: "tablist", "aria-label": "Scenarios" });
+        var progressNote = el("p", { class: "autonomy-progress-note" });
+        var stage = el("div");
+        var resultArea = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(progressNote);
+        root.appendChild(tabsWrap);
+        root.appendChild(stage);
+        root.appendChild(resultArea);
+
+        function updateProgress() {
+          var testedCount = 0;
+          var optimalCount = 0;
+          SCENARIOS.forEach(function (s) {
+            if (state.selections[s.id].tested) testedCount++;
+            if (state.selections[s.id].optimal) optimalCount++;
+          });
+          progressNote.textContent = "Scenarios tested: " + testedCount + " / " + SCENARIOS.length +
+            "  |  Optimal matches: " + optimalCount + " / " + SCENARIOS.length;
+        }
+
+        function renderTabs() {
+          tabsWrap.innerHTML = "";
+          SCENARIOS.forEach(function (s, idx) {
+            var sel = state.selections[s.id];
+            var badgeText = sel.tested ? (sel.optimal ? "Fit" : "Tested") : "New";
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.activeIndex ? "true" : "false",
+              class: "autonomy-tab" + (idx === state.activeIndex ? " is-active" : "")
+            }, [
+              el("span", { text: s.shortLabel }),
+              el("span", { class: "autonomy-tab-badge", text: badgeText })
+            ]);
+            btn.addEventListener("click", function () {
+              state.activeIndex = idx;
+              renderAll();
+            });
+            tabsWrap.appendChild(btn);
+          });
+        }
+
+        function evaluateSelection(scenario, sel) {
+          var base = scenario.evaluations[sel.mode];
+          var rel = base.rel;
+          var speed = base.speed;
+          var safety = base.safety;
+          var tone = base.tone;
+          var verdict = base.verdict;
+          var notes = [base.reason];
+          var optimal = sel.mode === scenario.bestMode;
+
+          if (scenario.gatePreference === "required") {
+            if (!sel.gate) {
+              safety = Math.max(20, safety - 36);
+              tone = "bad";
+              optimal = false;
+              verdict = (sel.mode === scenario.bestMode ? "Right Pattern, Missing Safety Gate!" : base.verdict + " + Unsafe!");
+              notes.push("Missing Human Approval Gate: irreversible high-stakes actions (like $500+ payouts or live production fixes) must pause for human sign-off.");
+            } else {
+              safety = Math.min(98, safety + 4);
+              notes.push("Human Approval Gate enabled: prevents costly or destructive mistakes before final execution.");
+            }
+          } else if (scenario.gatePreference === "helpful") {
+            if (sel.gate) {
+              safety = Math.min(97, safety + 5);
+              speed = Math.max(30, speed - 4);
+              notes.push("Human Approval Gate adds strong final review before external routing/publishing with minimal friction.");
+            } else {
+              notes.push("Tip: adding a quick Human Approval Gate before external sends/routing boosts safety even further.");
+            }
+          } else {
+            if (sel.gate && sel.mode !== "chat") {
+              speed = Math.max(25, speed - 8);
+              notes.push("Note: this is a low-risk, read-only/internal task, so an extra approval gate adds slight delay without much safety gain.");
+            }
+          }
+
+          return {
+            verdict: verdict,
+            tone: tone,
+            rel: rel,
+            speed: speed,
+            safety: safety,
+            notes: notes,
+            optimal: optimal
+          };
+        }
+
+        function renderResult() {
+          resultArea.innerHTML = "";
+          var scenario = SCENARIOS[state.activeIndex];
+          var sel = state.selections[scenario.id];
+          if (!sel.tested) {
+            resultArea.appendChild(el("p", {
+              class: "exercise-empty",
+              text: "Select an autonomy level above and click \"Test Choice\" to evaluate Reliability, Speed/Cost, and Safety."
+            }));
+            return;
+          }
+
+          var res = evaluateSelection(scenario, sel);
+          var panel = el("div", { class: "autonomy-result-panel" });
+
+          panel.appendChild(el("span", {
+            class: "autonomy-verdict autonomy-verdict--" + res.tone,
+            text: res.verdict
+          }));
+
+          var meters = el("div", { class: "autonomy-meters" }, [
+            buildMeter("Reliability", res.rel, res.rel >= 80 ? "var(--color-success)" : (res.rel >= 60 ? "#d97706" : "var(--color-error)")),
+            buildMeter("Speed & Cost Eff.", res.speed, res.speed >= 80 ? "var(--color-success)" : (res.speed >= 60 ? "#d97706" : "var(--color-error)")),
+            buildMeter("Safety", res.safety, res.safety >= 80 ? "var(--color-success)" : (res.safety >= 60 ? "#d97706" : "var(--color-error)"))
+          ]);
+          panel.appendChild(meters);
+
+          res.notes.forEach(function (n, idx) {
+            var p = el("p", { text: n });
+            if (idx === res.notes.length - 1) p.style.marginBottom = "0";
+            panel.appendChild(p);
+          });
+
+          resultArea.appendChild(panel);
+        }
+
+        function renderStage() {
+          stage.innerHTML = "";
+          var scenario = SCENARIOS[state.activeIndex];
+          var sel = state.selections[scenario.id];
+
+          var card = el("div", { class: "autonomy-card" });
+          card.appendChild(el("div", { class: "autonomy-card-head" }, [
+            el("h4", { class: "autonomy-card-title", text: scenario.title }),
+            el("span", { class: "autonomy-meta-tag", text: scenario.stakes })
+          ]));
+          card.appendChild(el("p", { text: scenario.prompt }));
+
+          var fieldset = el("fieldset");
+          fieldset.style.border = "none";
+          fieldset.style.padding = "0";
+          fieldset.style.margin = "0";
+          var legend = el("legend", { text: "Choose AI autonomy level:" });
+          legend.style.fontWeight = "700";
+          legend.style.fontSize = "var(--font-size-sm)";
+          fieldset.appendChild(legend);
+
+          var grid = el("div", { class: "autonomy-choice-grid" });
+          MODES.forEach(function (m) {
+            var inputId = "autonomy-mode-" + scenario.id + "-" + m.id;
+            var label = el("label", {
+              for: inputId,
+              class: "autonomy-radio-card" + (sel.mode === m.id ? " is-selected" : "")
+            });
+            var radio = el("input", {
+              type: "radio",
+              name: "autonomy-mode-" + scenario.id,
+              id: inputId,
+              value: m.id
+            });
+            radio.checked = sel.mode === m.id;
+            radio.addEventListener("change", function () {
+              sel.mode = m.id;
+              renderStage();
+            });
+            var textWrap = el("span", {}, [
+              el("span", { class: "autonomy-radio-title", text: m.label }),
+              el("span", { class: "autonomy-radio-sub", text: m.sub })
+            ]);
+            label.appendChild(radio);
+            label.appendChild(textWrap);
+            grid.appendChild(label);
+          });
+          fieldset.appendChild(grid);
+          card.appendChild(fieldset);
+
+          var gateId = "autonomy-gate-" + scenario.id;
+          var gateLabel = el("label", { for: gateId, class: "autonomy-gate-row" });
+          var gateBox = el("input", { type: "checkbox", id: gateId });
+          gateBox.checked = sel.gate;
+          gateBox.addEventListener("change", function () {
+            sel.gate = gateBox.checked;
+          });
+          gateLabel.appendChild(gateBox);
+          gateLabel.appendChild(el("span", { text: "Add Human Approval Gate before final external action / payout" }));
+          card.appendChild(gateLabel);
+
+          var actionRow = el("div", { style: "display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;" });
+          var testBtn = el("button", { type: "button", class: "btn btn-primary", text: "Test Choice" });
+          testBtn.addEventListener("click", function () {
+            sel.tested = true;
+            var res = evaluateSelection(scenario, sel);
+            sel.optimal = res.optimal;
+            updateProgress();
+            renderTabs();
+            renderResult();
+          });
+          actionRow.appendChild(testBtn);
+
+          if (state.activeIndex < SCENARIOS.length - 1) {
+            var nextBtn = el("button", { type: "button", class: "btn btn-secondary btn-sm", text: "Next Scenario \u2192" });
+            nextBtn.addEventListener("click", function () {
+              state.activeIndex += 1;
+              renderAll();
+            });
+            actionRow.appendChild(nextBtn);
+          }
+
+          card.appendChild(actionRow);
+          stage.appendChild(card);
+        }
+
+        function renderAll() {
+          updateProgress();
+          renderTabs();
+          renderStage();
+          renderResult();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "Every morning your team pulls new customer tickets, runs a fixed sentiment & category tagger, and inserts rows into a standard spreadsheet. Why does a Fixed Workflow beat an Autonomous Agent here?",
+          options: [
+            "Autonomous Agents handle messy text better only because they retry steps automatically at higher speed",
+            "Code controls the exact step order and schema, delivering faster execution, lower token cost, and predictable outputs",
+            "Fixed Workflows skip calling the AI model on routine rows by caching every prior ticket response",
+            "Single-turn prompts inside workflows automatically gain higher reasoning accuracy without schema definitions"
+          ],
+          answer: 1,
+          explanation: "When all steps and branches are known in advance, keeping control flow in code (a Fixed Workflow) prevents step-order drift, saves loops of tokens, and runs far faster than an open-ended agent."
+        },
+        {
+          q: "During a live production outage, an engineer does not know ahead of time whether the root cause sits in API logs, recent pull requests, or Slack alert history. Which architecture fits best?",
+          options: [
+            "Single-Turn Chat, where an engineer copies and pastes logs manually into one prompt to keep latency low",
+            "A Fixed 2-step Workflow that runs the exact same diagnostic query regardless of what early checks return",
+            "An Autonomous Agent equipped with read-only log, PR, and Slack tools, pausing for human sign-off before any prod change",
+            "An Autonomous Agent granted unrestricted server restart permissions so recovery completes before an engineer wakes up"
+          ],
+          answer: 2,
+          explanation: "Because each diagnostic clue determines where to investigate next, dynamic agent tool loops add real value—while read-only scoping plus a Human Approval Gate prevent unsafe live changes."
+        },
+        {
+          q: "Your company automates customer refund checks ranging from $15 to $2,000 based on billing records and policy rules. How should refunds above $500 be handled?",
+          options: [
+            "Use a Fixed Workflow to gather evidence and check policy math, followed by a mandatory Human Approval Gate before issuing payment",
+            "Let an Autonomous Agent evaluate customer tone in chat and trigger the payout automatically when confidence is high",
+            "Route over-$500 claims through Single-Turn Chat with a higher temperature setting for nuanced policy interpretation",
+            "Run a Fixed Workflow without human checkpoints, since deterministic code blocks prompt injection inside customer tickets"
+          ],
+          answer: 0,
+          explanation: "Deterministic rules calculate eligibility reliably, while high-dollar payouts require a mandatory Human Approval Gate so a misread or adversarial email cannot trigger an unreviewed $500+ payout."
+        },
+        {
+          q: "Which observation is the clearest sign that you have over-engineered a task by building an Autonomous Agent?",
+          options: [
+            "The workflow reads information from two separate sources, such as an RSS feed and an HTML template",
+            "The model summarizes noisy, unstructured customer feedback before formatting the final note",
+            "A human editor prefers reviewing the final draft once before it ships to subscribers",
+            "Every execution follows the exact same predictable sequence of steps and you already know all branches beforehand"
+          ],
+          answer: 3,
+          explanation: "Multi-source reads, messy text, and human review fit comfortably inside Fixed Workflows; when the path never changes dynamically, an agent loop only adds cost, latency, and drift risk."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

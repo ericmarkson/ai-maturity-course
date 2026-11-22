@@ -2,7 +2,7 @@
  * course-data.js
  * ---------------------------------------------------------------------------
  * Canonical source of truth for the entire course structure: 4 tiers,
- * 10 levels, and 80 topics with display titles, summaries, and canonical file
+ * 10 levels, and 83 topics with display titles, summaries, and canonical file
  * paths relative to the site root (`site/index.html`).
  *
  * NOTE: Topic `id` and `file` paths remain stable across curriculum revisions
@@ -38,7 +38,7 @@ window.COURSE = {
       name: "Novice",
       tier: "Foundations",
       tierSlug: "foundations",
-      summary: "Learn how models learn from data, how to split and validate datasets without overfitting, and how to call and prompt modern AI APIs.",
+      summary: "Learn how models learn from data, validate without overfitting, prompt AI APIs, and structure Prompts, Rules, Tools (MCP), Skills, Workflows, and AI Teams.",
       topics: [
         { num: 1, id: "2-1", title: "Supervised vs. Unsupervised vs. Reinforcement Learning", file: "levels/level-2/topic-1.html" },
         { num: 2, id: "2-2", title: "Basic Probability and Statistics for ML", file: "levels/level-2/topic-2.html" },
@@ -47,7 +47,10 @@ window.COURSE = {
         { num: 5, id: "2-5", title: "Train/Validation/Test Splits", file: "levels/level-2/topic-5.html" },
         { num: 6, id: "2-6", title: "Overfitting vs. Underfitting", file: "levels/level-2/topic-6.html" },
         { num: 7, id: "2-7", title: "Using AI Tools and APIs (ChatGPT, Claude, etc.)", file: "levels/level-2/topic-7.html" },
-        { num: 8, id: "2-8", title: "Basic Prompt Engineering", file: "levels/level-2/topic-8.html" }
+        { num: 8, id: "2-8", title: "Basic Prompt Engineering", file: "levels/level-2/topic-8.html" },
+        { num: 9, id: "2-9", title: "Chatbots vs. Workflows vs. Agents: The Spectrum of AI Autonomy", file: "levels/level-2/topic-9.html" },
+        { num: 10, id: "2-10", title: "The Modern AI Stack: Prompts, Rules, Tools (MCP), Skills & Memory", file: "levels/level-2/topic-10.html" },
+        { num: 11, id: "2-11", title: "Designing an AI Team: Roles, Handoffs & Structured Processes", file: "levels/level-2/topic-11.html" }
       ]
     },
     {

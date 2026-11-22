@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designing an AI Team: Roles, Handoffs &amp; Structured Processes — AI Maturity Course</title>
+<meta name="description" content="Avoid context rot in overloaded generalist prompts by designing an AI team with scoped roles, context isolation, handoff contracts, and an independent QA gate.">
+<link rel="stylesheet" href="../../assets/css/styles.css">
+<script>
+  window.SITE_ROOT = "../../";
+  window.CURRENT_TOPIC_ID = "2-11";
+</script>
+<style>
+  .team-project-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .team-project-tab {
+    text-align: left;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  .team-project-tab:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+  .team-project-tab.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .team-config-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .team-topology-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin: var(--space-3) 0;
+  }
+  @media (max-width: 640px) {
+    .team-topology-row { grid-template-columns: 1fr; }
+  }
+  .team-radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    cursor: pointer;
+  }
+  .team-radio-card:hover { border-color: var(--color-primary); }
+  .team-radio-card.is-selected { background: var(--color-primary-light); border-color: var(--color-primary); }
+  .team-radio-card input { margin-top: 3px; flex-shrink: 0; }
+  .team-guardrails-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .team-check-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+  }
+  .team-check-card.is-checked { background: var(--color-primary-light); border-color: var(--color-primary); }
+  .team-check-card input { margin-top: 3px; flex-shrink: 0; }
+  .team-meters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  @media (max-width: 640px) {
+    .team-meters { grid-template-columns: 1fr; }
+  }
+  .team-meter-box {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+  }
+  .team-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .team-meter-note {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+  .team-trace-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .team-trace-step {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+  }
+  .team-trace-step--ok { border-left-color: var(--color-success); }
+  .team-trace-step--caught { border-left-color: #d97706; }
+  .team-trace-step--fail { border-left-color: var(--color-error); }
+  .team-trace-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .team-trace-role { font-weight: 700; font-size: var(--font-size-sm); }
+  .team-trace-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .team-trace-pill--ok { background: var(--color-success-bg); color: var(--color-success); }
+  .team-trace-pill--caught { background: var(--color-warning-bg); color: #855200; }
+  .team-trace-pill--fail { background: var(--color-error-bg); color: var(--color-error); }
+  .team-trace-meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+  .team-trace-body { font-size: var(--font-size-sm); margin: 0; }
+</style>
+</head>
+<body>
+
+<div id="site-header"></div>
+
+<main class="page-main" id="main-content">
+
+  <p class="card-eyebrow">Level 2 — Novice</p>
+  <h1>Designing an AI Team: Roles, Handoffs &amp; Structured Processes</h1>
+
+  <div class="lesson-content">
+    <div class="lesson-objective">
+      <strong>Learning objective:</strong> Replace brittle, overloaded generalist prompts with a structured AI team using
+      <strong>clear roles, context isolation, role-scoped Skills/Tools, explicit Handoff Contracts,</strong> and an
+      <strong>independent QA gate</strong>.
+    </div>
+
+    <section>
+      <h2>Definition</h2>
+      <div class="definition-box">
+        <p>
+          <strong>Designing an AI Team</strong> means splitting complex, multi-step work across specialized roles—typically
+          <strong>Planner / Coordinator &rarr; Specialist Worker(s) &rarr; Independent QA Reviewer &rarr; Human Sign-off</strong>—connected
+          by explicit <strong>Handoff Contracts</strong> and <strong>Context Isolation</strong> instead of stuffing every
+          goal, raw log, and tool into one giant prompt.
+        </p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How It Works (The Editorial Newsroom Analogy)</h2>
+      <p>
+        Imagine asking one staff member to interview 12 sources, dig through raw spreadsheets, write a front-page story,
+        fact-check their own numbers, clear legal review, and hit "Publish"—all in one breathless hour. Mistakes slip
+        through because no brain excels at messy exploration and strict final QA simultaneously.
+      </p>
+      <ul>
+        <li><strong>Why 1 Overloaded Generalist Fails ("Context Rot"):</strong> When a single prompt holds competing goals, dozens of tools, and thousands of lines of noisy raw logs, attention gets diluted—what engineers call <strong>context rot</strong>. Middle instructions quietly drop, and asking that same cluttered thread to "double-check for mistakes" rarely catches its own blind spots.</li>
+        <li><strong>Role Separation &amp; Scoped Skills/Tools:</strong> Give each role only the <strong>Skill</strong> and <strong>Tools</strong> its job requires:
+          <ul>
+            <li><em>Planner / Coordinator:</em> Breaks work into tasks and checks escalation flags (no publish/send tools).</li>
+            <li><em>Specialist Worker(s) / Subagents:</em> Do focused heavy lifting (code fix, data audit, changelog draft) with their domain Skill + targeted read/draft tools.</li>
+            <li><em>Independent Reviewer / QA Gate:</em> Opens a <strong>fresh context</strong> containing only the finished artifact, source evidence, and rubric—checking strictly without the writer's baggage.</li>
+            <li><em>Human Sign-off:</em> Reviews escalations and approves external sends, deploys, or payouts.</li>
+          </ul>
+        </li>
+        <li><strong>Context Isolation:</strong> Let subagents read 200 messy log lines or 15 files inside their own isolated context and return only a crisp summary artifact—keeping the coordinator's desk clean.</li>
+        <li><strong>Explicit Handoff Contracts:</strong> Every baton pass defines 4 items: (1) <em>Exact Inputs</em>, (2) <em>Output Schema / Artifact</em>, (3) <em>Quality Bar</em>, and (4) <em>Stop / Escalation Rules</em> (when to halt and ping a human instead of guessing).</li>
+      </ul>
+    </section>
+
+    <section class="worked-example">
+      <h3>Worked Example: Weekly Release Notes Handoff Contract</h3>
+      <p>Instead of one giant prompt ("Read GitHub, write release notes, verify them, post to Slack"), pass a tight contract between roles:</p>
+      <table class="lesson-table">
+        <thead>
+          <tr>
+            <th>Stage &amp; Role</th>
+            <th>Scoped Skill / Tools</th>
+            <th>Handoff Contract (Output &amp; Stop Rule)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Release Planner</strong></td>
+            <td>GitHub PR list (read-only)</td>
+            <td>Outputs clean list of merged PR IDs + labels since <code>v2.4</code>. <em>Stop rule:</em> flag any PR labeled <code>security</code> for human lead.</td>
+          </tr>
+          <tr>
+            <td><strong>2. Changelog Writer</strong></td>
+            <td>Release-Notes Skill; PR diff reader (no Slack tool)</td>
+            <td>Outputs <code>release-notes.md</code> (Features, Fixes, Upgrade Steps) citing PR IDs only. <em>Isolated context keeps raw diffs out of main thread.</em></td>
+          </tr>
+          <tr>
+            <td><strong>3. Independent QA Gate</strong></td>
+            <td>QA Checklist Skill; PR titles (fresh context)</td>
+            <td>Verifies every bullet matches a real PR ID and tone rule; fails draft if any claim is unverified or security flag missing.</td>
+          </tr>
+          <tr>
+            <td><strong>4. Human Sign-off</strong></td>
+            <td>Publish / Slack Send button</td>
+            <td>Reviews QA pass badge + flagged items, then clicks Send.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="callout-pitfall">
+      <h3>Common Pitfall: Giving Every Agent Every Tool &amp; Self-Grading</h3>
+      <p>
+        Handing a research or drafting worker live email/deploy tools increases blast radius if it misinterprets noisy text
+        (least-privilege scoping keeps dangerous buttons behind the final human gate). Similarly, asking the same model
+        turn that generated a draft to "verify accuracy" fails far more often than passing the artifact to an
+        <strong>Independent QA Gate</strong> in a fresh context.
+      </p>
+    </section>
+  </div>
+
+  <section aria-labelledby="exercise-heading">
+    <h2 id="exercise-heading">Hands-On Exercise</h2>
+    <div id="exercise-mount"></div>
+  </section>
+
+  <section aria-labelledby="quiz-heading">
+    <h2 id="quiz-heading">Check Your Understanding</h2>
+    <div id="quiz-mount"></div>
+  </section>
+
+  <div id="prev-next-mount"></div>
+
+</main>
+
+<div id="site-footer"></div>
+
+<script src="../../assets/js/course-data.js"></script>
+<script src="../../assets/js/progress.js"></script>
+<script src="../../assets/js/quiz.js"></script>
+<script src="../../assets/js/exercise.js"></script>
+<script src="../../assets/js/site.js"></script>
+<script>
+  (function () {
+    var TOPIC_ID = window.CURRENT_TOPIC_ID; // "2-11"
+
+    var PROJECTS = [
+      {
+        id: "release-changelog",
+        label: "1. Weekly Product Release & Changelog",
+        goal: "Collect 18 merged PRs since v2.4, summarize customer-facing changes, flag any security PRs, and publish release notes.",
+        defectSample: "an internal DB cleanup PR mislabeled as a customer feature, plus a 'security' PR missing escalation",
+        generalistStep: "Single prompt pulls 18 raw PR diffs + Changelog Skill + QA instructions + Slack Send tool into one thread. Context rot blurs internal vs. customer labels, self-check agrees with its own draft, and unverified notes risk posting straight to customers.",
+        plannerContract: "Outputs structured PR manifest (18 IDs, labels, 1-line scopes) and tags PR #412 ('security') for escalation.",
+        plannerLoose: "Dumps raw multi-thousand-line PR diffs straight to the writer without separating security PRs or specifying a target schema.",
+        specialistClean: "Runs in isolated context with only the Changelog Skill + PR reader; writes crisp 3-section release-notes.md citing exact PR IDs.",
+        specialistMessy: "Has Slack/Publish tools still attached alongside messy diffs; invents a catchy bullet for PR #408 and omits PR #412's security warning.",
+        qaCaught: "Fresh-context QA compares release-notes.md against the PR manifest, catches PR #408's exaggerated claim and triggers the security escalation stop rule before human sign-off.",
+        qaSkipped: "No independent QA step runs—so the exaggerated PR #408 claim and missed security escalation slip straight toward publication."
+      },
+      {
+        id: "customer-escalation",
+        label: "2. Customer Escalation Triage & Reply",
+        goal: "Inspect a 35-message support thread, billing ledger, and live outage board; draft a policy-compliant response; route refunds if eligible.",
+        defectSample: "an unauthorized $600 refund promise contradicting SLA terms and an unflagged Sev-1 outage match",
+        generalistStep: "One giant prompt reads 35 noisy replies + billing JSON + Refund Stripe tool + Email Send tool. Competing goals cause it to over-promise a $600 refund outside policy and skip escalating an active outage.",
+        plannerContract: "Separates ticket into clear sub-tasks: extract timeline, check billing SLA cap ($150 max auto), check active Sev-1 incident ID.",
+        plannerLoose: "Passes the full 35-message raw rant directly downstream with vague instructions ('handle this nicely and fix billing').",
+        specialistClean: "Isolated Support-SLA Skill drafts empathetic reply citing incident #INC-88 and flags a $600 request as exceeding cap (no Stripe/Email send tools).",
+        specialistMessy: "Drafts an overly accommodating promise of a $600 immediate credit while carrying live Stripe/Email tools in context.",
+        qaCaught: "Independent QA checks the draft against SLA Policy JSON, blocks the $600 over-promise, and routes to Human Support Lead for exception approval.",
+        qaSkipped: "Without an independent QA gate, the policy-violating $600 promise passes through unchecked into customer communications."
+      },
+      {
+        id: "dataset-exec-report",
+        label: "3. Dataset Audit & Exec Report",
+        goal: "Audit messy Q3 sales CSVs (containing duplicate rows and a missing refunds column), compute regional revenue, and deliver an executive brief.",
+        defectSample: "duplicate rows inflating net revenue by 14% and missing Q3 refund data never escalated",
+        generalistStep: "Single prompt ingests raw CSV logs, SQL snippets, chart prose, and email send tools. Intermediate debugging noise triggers context rot—leading to a 14% revenue overcount sent straight to executives.",
+        plannerContract: "Defines strict audit contract: (1) check schema & duplicates first, (2) output verified metrics JSON, (3) halt/escalate if refunds column is null.",
+        plannerLoose: "Tells downstream step 'analyze Q3 sales CSV and write exec summary' with no schema checklist or missing-data stop rule.",
+        specialistClean: "Isolated Data-Audit Skill detects 3 duplicate EU rows and null Q3 refunds column, returning clean metrics JSON + explicit data-gap warning.",
+        specialistMessy: "Skips duplicate check amid cluttered prompt context, reports inflated +14% EU net margin, and buries the missing refunds column.",
+        qaCaught: "Fresh-context QA reconciles report numbers against row totals, flags the duplicate-row anomaly and missing refunds escalation before exec sign-off.",
+        qaSkipped: "Without independent QA verification, the inflated +14% revenue figure escapes directly into the executive summary."
+      }
+    ];
+
+    function el(tag, attrs, children) {
+      var node = document.createElement(tag);
+      attrs = attrs || {};
+      Object.keys(attrs).forEach(function (key) {
+        if (key === "class") node.className = attrs[key];
+        else if (key === "text") node.textContent = attrs[key];
+        else node.setAttribute(key, attrs[key]);
+      });
+      (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+      return node;
+    }
+
+    function simulateTeam(project, cfg) {
+      var isTeam = cfg.topology === "team";
+      var contextLoad = isTeam ? 54 : 92;
+      var defectRisk = isTeam ? 56 : 84;
+      var reliability = isTeam ? 52 : 22;
+      var steps = [];
+
+      if (!isTeam) {
+        if (cfg.contracts) {
+          contextLoad -= 6;
+          defectRisk -= 8;
+          reliability += 10;
+        }
+        if (cfg.scopedTools) {
+          // Cannot truly scope tools across roles with only 1 generalist
+          reliability += 2;
+        }
+        steps.push({
+          role: "Single Overloaded Generalist",
+          tools: cfg.scopedTools
+            ? "Note: Role-Scoped Tools toggled ON, but 1 Generalist still holds all Skills & Tools together"
+            : "All Skills + All Raw Data + Live Send/Publish Tools loaded at once",
+          status: "fail",
+          badge: "Context Rot",
+          body: project.generalistStep
+        });
+
+        if (cfg.qaGate) {
+          defectRisk -= 28;
+          reliability += 24;
+          steps.push({
+            role: "Independent QA Gate (Fresh Context)",
+            tools: "QA Checklist Skill only (read-only)",
+            status: "caught",
+            badge: "Partial Catch",
+            body: "Fresh-context QA catches " + project.defectSample + "—forcing a rework loop, though the overloaded generalist step still suffered high context rot and risky tool exposure."
+          });
+        } else {
+          steps.push({
+            role: "Self-Check & Direct Output",
+            tools: "Same cluttered thread reviewing itself",
+            status: "fail",
+            badge: "Defect Escaped",
+            body: "Grading its own cluttered context, the generalist misses " + project.defectSample + ", letting defects escape into the final deliverable."
+          });
+        }
+      } else {
+        // 3-Role Team
+        if (cfg.contracts) {
+          contextLoad -= 14;
+          defectRisk -= 16;
+          reliability += 16;
+        }
+        if (cfg.scopedTools) {
+          contextLoad -= 12;
+          defectRisk -= 14;
+          reliability += 14;
+        }
+        if (cfg.qaGate) {
+          defectRisk -= 20;
+          reliability += 14;
+        }
+
+        // Step 1: Planner
+        steps.push({
+          role: "1. Planner / Coordinator",
+          tools: cfg.scopedTools ? "Metadata index only (no write/send tools)" : "All tools exposed (unscoped)",
+          status: cfg.contracts ? "ok" : "caught",
+          badge: cfg.contracts ? "Contract Issued" : "Loose Handoff",
+          body: cfg.contracts ? project.plannerContract : project.plannerLoose
+        });
+
+        // Step 2: Specialist Worker (Context Isolation)
+        var specClean = cfg.contracts && cfg.scopedTools;
+        steps.push({
+          role: "2. Specialist Worker (Isolated Context)",
+          tools: cfg.scopedTools
+            ? "Domain Skill + Read/Draft Tools only (publish blocked)"
+            : "All Skills + Publish/Send Tools accessible",
+          status: specClean ? "ok" : "caught",
+          badge: specClean ? "Clean Artifact" : "Risky Exposure",
+          body: specClean ? project.specialistClean : project.specialistMessy
+        });
+
+        // Step 3: Independent QA Gate
+        if (cfg.qaGate) {
+          steps.push({
+            role: "3. Independent QA Reviewer (Fresh Context)",
+            tools: "QA Rubric Skill + Source Evidence (read-only)",
+            status: "ok",
+            badge: "Verified / Caught",
+            body: project.qaCaught
+          });
+        } else {
+          steps.push({
+            role: "3. QA Step Skipped (Self-Assumed Valid)",
+            tools: "None — output passes straight out",
+            status: "fail",
+            badge: "Defect Escaped",
+            body: project.qaSkipped
+          });
+        }
+
+        // Step 4: Human Sign-off
+        var readyForHuman = cfg.qaGate && cfg.contracts && cfg.scopedTools;
+        steps.push({
+          role: "4. Human Sign-off Gate",
+          tools: "Final Approve / Publish Action",
+          status: readyForHuman ? "ok" : (cfg.qaGate ? "caught" : "fail"),
+          badge: readyForHuman ? "Ready to Approve" : "Manual Cleanup Needed",
+          body: readyForHuman
+            ? "Human reviews a clean, verified artifact plus explicit escalation flags and approves external delivery in seconds."
+            : "Without full contracts, scoped tools, and independent QA, the human must manually audit raw artifacts to avoid shipping errors."
+        });
+      }
+
+      contextLoad = Math.max(18, Math.min(96, contextLoad));
+      defectRisk = Math.max(6, Math.min(92, defectRisk));
+      reliability = Math.max(15, Math.min(96, reliability));
+
+      return {
+        contextLoad: contextLoad,
+        defectRisk: defectRisk,
+        reliability: reliability,
+        steps: steps
+      };
+    }
+
+    function buildMeter(title, val, invertGood, hintText) {
+      var box = el("div", { class: "team-meter-box" });
+      var head = el("div", { class: "team-meter-head" }, [
+        el("span", { text: title }),
+        el("span", { text: val + (title === "Reliability Score" ? " / 100" : "%") })
+      ]);
+      var bar = el("div", { class: "progress-bar" });
+      var fill = el("div", { class: "progress-bar-fill" });
+      fill.style.width = val + "%";
+
+      var isGood = invertGood ? val <= 35 : val >= 80;
+      var isMid = invertGood ? val <= 62 : val >= 55;
+      fill.style.background = isGood ? "var(--color-success)" : (isMid ? "#d97706" : "var(--color-error)");
+
+      bar.appendChild(fill);
+      box.appendChild(head);
+      box.appendChild(bar);
+      box.appendChild(el("div", { class: "team-meter-note", text: hintText }));
+      return box;
+    }
+
+    Exercise.create(document.getElementById("exercise-mount"), {
+      title: "AI Team Process & Handoff Simulator",
+      instructions:
+        "Select a realistic project, compare 1 Overloaded Generalist vs. a 3-Role Team, toggle process guardrails, " +
+        "and click Run Process Simulation to inspect Context Load, Defect Escape Risk, and the execution trace.",
+      topicId: TOPIC_ID,
+      mount: function (root) {
+        var state = {
+          projectIdx: 0,
+          topology: "generalist",
+          scopedTools: false,
+          contracts: false,
+          qaGate: false,
+          hasRun: false
+        };
+
+        var projTabs = el("div", { class: "team-project-tabs", role: "tablist", "aria-label": "Projects" });
+        var configHost = el("div");
+        var outputHost = el("div", { role: "status", "aria-live": "polite" });
+
+        root.appendChild(projTabs);
+        root.appendChild(configHost);
+        root.appendChild(outputHost);
+
+        function renderProjectTabs() {
+          projTabs.innerHTML = "";
+          PROJECTS.forEach(function (proj, idx) {
+            var btn = el("button", {
+              type: "button",
+              role: "tab",
+              "aria-selected": idx === state.projectIdx ? "true" : "false",
+              class: "team-project-tab" + (idx === state.projectIdx ? " is-active" : ""),
+              text: proj.label
+            });
+            btn.addEventListener("click", function () {
+              state.projectIdx = idx;
+              state.hasRun = false;
+              renderAll();
+            });
+            projTabs.appendChild(btn);
+          });
+        }
+
+        function renderConfig() {
+          configHost.innerHTML = "";
+          var proj = PROJECTS[state.projectIdx];
+
+          var card = el("div", { class: "team-config-card" });
+          var h = el("h4", { text: proj.label });
+          h.style.marginBottom = "4px";
+          card.appendChild(h);
+          card.appendChild(el("p", { text: proj.goal }));
+
+          // Topology radios
+          var topoFs = el("fieldset");
+          topoFs.style.border = "none";
+          topoFs.style.padding = "0";
+          topoFs.style.margin = "0";
+          var topoLeg = el("legend", { text: "1. Choose Team Topology:" });
+          topoLeg.style.fontWeight = "700";
+          topoLeg.style.fontSize = "var(--font-size-sm)";
+          topoFs.appendChild(topoLeg);
+
+          var topoRow = el("div", { class: "team-topology-row" });
+          [
+            { id: "generalist", title: "1 Overloaded Generalist", sub: "One giant prompt handles planning, drafting, QA & tools" },
+            { id: "team", title: "3-Role Team (Planner \u2192 Specialist \u2192 QA)", sub: "Separate roles with isolated contexts" }
+          ].forEach(function (opt) {
+            var inputId = "team-topo-" + opt.id;
+            var lbl = el("label", {
+              for: inputId,
+              class: "team-radio-card" + (state.topology === opt.id ? " is-selected" : "")
+            });
+            var radio = el("input", { type: "radio", name: "team-topology", id: inputId, value: opt.id });
+            radio.checked = state.topology === opt.id;
+            radio.addEventListener("change", function () {
+              state.topology = opt.id;
+              renderConfig();
+            });
+            var txt = el("span", {}, [
+              el("span", { style: "display:block;font-weight:700;font-size:var(--font-size-sm);", text: opt.title }),
+              el("span", { style: "display:block;font-size:var(--font-size-xs);color:var(--color-text-muted);margin-top:2px;", text: opt.sub })
+            ]);
+            lbl.appendChild(radio);
+            lbl.appendChild(txt);
+            topoRow.appendChild(lbl);
+          });
+          topoFs.appendChild(topoRow);
+          card.appendChild(topoFs);
+
+          // Guardrails checkboxes
+          var guardTitle = el("p", { text: "2. Toggle Process Guardrails:" });
+          guardTitle.style.fontWeight = "700";
+          guardTitle.style.fontSize = "var(--font-size-sm)";
+          guardTitle.style.marginBottom = "6px";
+          card.appendChild(guardTitle);
+
+          var gGrid = el("div", { class: "team-guardrails-grid" });
+          [
+            { key: "scopedTools", label: "Role-Scoped Skills & Tools", desc: "Attach only needed Skill + least-privilege tools per role" },
+            { key: "contracts", label: "Explicit Handoff Contracts", desc: "Define inputs, output schema & stop/escalation triggers" },
+            { key: "qaGate", label: "Independent QA Gate", desc: "Fresh-context verifier checks artifact before human sign-off" }
+          ].forEach(function (g) {
+            var cid = "team-guard-" + g.key;
+            var lbl = el("label", {
+              for: cid,
+              class: "team-check-card" + (state[g.key] ? " is-checked" : "")
+            });
+            var cb = el("input", { type: "checkbox", id: cid });
+            cb.checked = !!state[g.key];
+            cb.addEventListener("change", function () {
+              state[g.key] = cb.checked;
+              renderConfig();
+            });
+            var txt = el("span", {}, [
+              el("span", { style: "display:block;font-weight:700;", text: g.label }),
+              el("span", { style: "display:block;font-size:var(--font-size-xs);color:var(--color-text-muted);", text: g.desc })
+            ]);
+            lbl.appendChild(cb);
+            lbl.appendChild(txt);
+            gGrid.appendChild(lbl);
+          });
+          card.appendChild(gGrid);
+
+          var runBtn = el("button", { type: "button", class: "btn btn-primary", text: "Run Process Simulation" });
+          runBtn.addEventListener("click", function () {
+            state.hasRun = true;
+            renderOutput();
+          });
+          card.appendChild(runBtn);
+
+          configHost.appendChild(card);
+        }
+
+        function renderOutput() {
+          outputHost.innerHTML = "";
+          if (!state.hasRun) {
+            outputHost.appendChild(el("p", {
+              class: "exercise-empty",
+              text: "Configure topology and guardrails above, then click \"Run Process Simulation\" to view the live metrics and execution trace."
+            }));
+            return;
+          }
+
+          var proj = PROJECTS[state.projectIdx];
+          var sim = simulateTeam(proj, state);
+
+          var loadHint = sim.contextLoad <= 35 ? "Clean & isolated (low rot)" : (sim.contextLoad <= 62 ? "Moderate clutter" : "Overloaded (high context rot!)");
+          var riskHint = sim.defectRisk <= 25 ? "Low escape risk" : (sim.defectRisk <= 55 ? "Moderate defect risk" : "High risk of shipping errors");
+          var relHint = sim.reliability >= 80 ? "Production-grade process" : (sim.reliability >= 55 ? "Fragile under edge cases" : "Unreliable for real teams");
+
+          outputHost.appendChild(el("div", { class: "team-meters" }, [
+            buildMeter("Context Load", sim.contextLoad, true, loadHint),
+            buildMeter("Defect Escape Risk", sim.defectRisk, true, riskHint),
+            buildMeter("Reliability Score", sim.reliability, false, relHint)
+          ]));
+
+          var traceHeading = el("h4", { text: "Step-by-Step Execution Trace" });
+          traceHeading.style.marginBottom = "8px";
+          outputHost.appendChild(traceHeading);
+
+          var traceList = el("div", { class: "team-trace-list" });
+          sim.steps.forEach(function (st) {
+            var card = el("div", { class: "team-trace-step team-trace-step--" + st.status });
+            card.appendChild(el("div", { class: "team-trace-head" }, [
+              el("span", { class: "team-trace-role", text: st.role }),
+              el("span", { class: "team-trace-pill team-trace-pill--" + st.status, text: st.badge })
+            ]));
+            card.appendChild(el("div", { class: "team-trace-meta", text: "Tools & Scope: " + st.tools }));
+            card.appendChild(el("p", { class: "team-trace-body", text: st.body }));
+            traceList.appendChild(card);
+          });
+          outputHost.appendChild(traceList);
+        }
+
+        function renderAll() {
+          renderProjectTabs();
+          renderConfig();
+          renderOutput();
+        }
+
+        renderAll();
+      }
+    });
+
+    Quiz.render(document.getElementById("quiz-mount"), {
+      topicId: TOPIC_ID,
+      passPercent: 70,
+      questions: [
+        {
+          q: "What causes 'context rot' when one giant generalist prompt tries to plan work, read messy logs, draft a report, check compliance, and send emails?",
+          options: [
+            "Adding extra tools automatically raises model temperature, making outputs more random across long sessions",
+            "Competing goals, noisy intermediate dumps, and unrelated tools dilute attention so important rules get quietly dropped",
+            "Most language models truncate system rules permanently once conversation length passes 200 output tokens",
+            "Single prompts cannot enforce structured JSON schemas unless a coordinator subagent parses the response first"
+          ],
+          answer: 1,
+          explanation: "Stuffing messy exploration data, multiple goals, and irrelevant tools into a single window dilutes attention across competing constraints—causing instructions in the middle to slip."
+        },
+        {
+          q: "Why does an Independent QA Gate catch errors that asking the drafting chat to 'double-check your own work' often misses?",
+          options: [
+            "Asking the same thread to double-check triggers deterministic caching, repeating the original draft word-for-word",
+            "QA reviewers use separate evaluation weights trained solely to rewrite prose rather than follow checklists",
+            "An Independent QA Gate automatically writes corrective patches directly into production databases",
+            "A fresh-context reviewer grades the concrete artifact against an explicit rubric without inheriting the writer's inertia or noisy exploration history"
+          ],
+          answer: 3,
+          explanation: "Evaluating a clean artifact inside a fresh context removes confirmation bias and noisy scratchpad clutter, letting the QA rubric focus strictly on verification."
+        },
+        {
+          q: "Which four elements make a clean Handoff Contract between a Planner and a Specialist Worker?",
+          options: [
+            "Exact inputs, expected output schema/artifact, quality criteria, and explicit stop/escalation triggers",
+            "Temperature setting, random seed, API pricing tier, and network timeout",
+            "Global company voice, full raw chat history from past weeks, and team org charts",
+            "Context window ceiling, maximum tool count, training cutoff date, and prompt length limit"
+          ],
+          answer: 0,
+          explanation: "A strong Handoff Contract tells the worker exactly what data it receives, what structured artifact to return, what quality standard applies, and when to stop and escalate to a human."
+        },
+        {
+          q: "In a 3-role workflow (Planner, Research Specialist, Email Drafter), why scope Skills and Tools per role instead of giving every worker access to all tools?",
+          options: [
+            "Sharing the same MCP tool schema across two roles causes API rate-limit collisions during parallel runs",
+            "Keeping send tools away from the Planner forces Specialist Workers to return shorter JSON artifacts",
+            "Least-privilege scoping prevents noisy research or drafting steps from accidentally calling external-send or destructive tools, and keeps tool selection focused",
+            "Role-scoped tools remove the need for any human sign-off before sending customer payouts or external campaigns"
+          ],
+          answer: 2,
+          explanation: "Role-scoped tools limit blast radius (an exploratory step cannot accidentally send emails or modify production) and reduce tool clutter in each worker's context."
+        }
+      ]
+    });
+
+    Site.renderPrevNext(document.getElementById("prev-next-mount"));
+  })();
+</script>
+</body>
+</html>

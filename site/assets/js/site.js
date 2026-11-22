@@ -252,7 +252,7 @@
       type: "search",
       id: "drawer-filter-input",
       class: "drawer-filter-input",
-      placeholder: "Filter 80 topics...",
+      placeholder: "Filter " + progressSummary().total + " topics...",
       "aria-label": "Filter topics"
     });
     filterInput.addEventListener("input", function () {
@@ -518,7 +518,7 @@
 
     var text = el("p", {
       class: "site-footer-text",
-      text: "AI Maturity Course — 4 tiers, 10 levels, 80 interactive topics. Progress saved locally in your browser."
+      text: "AI Maturity Course — 4 tiers, 10 levels, " + progressSummary().total + " interactive topics. Progress saved locally in your browser."
     });
     inner.appendChild(text);
 

@@ -1,6 +1,6 @@
 # AI Maturity Course
 
-A free, self-paced, zero-build interactive curriculum covering AI from foundational concepts (Level 1) to frontier systems, safety, and research engineering (Level 10). All **80 topics** include structured lessons, hands-on browser simulations, and scenario-based quizzes with local progress tracking.
+A free, self-paced, zero-build interactive curriculum covering AI from foundational concepts and practical AI workflows/skills/agents (Level 1–2) to frontier systems, safety, and research engineering (Level 10). All **83 topics** include structured lessons, hands-on browser simulations, and scenario-based quizzes with local progress tracking.
 
 ## Repository Structure
 
@@ -12,7 +12,7 @@ ai-maturity-course/
 │   │   ├── css/styles.css   # Shared design system (light + dark mode, responsive components)
 │   │   └── js/              # course-data.js, progress.js, site.js, exercise.js, quiz.js
 │   └── levels/
-│       └── level-1..10/     # Level overviews (index.html) and 80 interactive topic pages
+│       └── level-1..10/     # Level overviews (index.html) and 83 interactive topic pages
 ├── research/                # Source curriculum specs and per-level syllabi
 │   ├── curriculum.md
 │   ├── topics-seed.md
@@ -45,7 +45,7 @@ wrangler pages deploy site --project-name ai-maturity-course --branch main
 
 ## Features
 
-- **10 Levels / 4 Tiers / 80 Topics:** Foundations (L1–2), Core ML & Deep Learning (L3–4), LLMs, RAG & Agents (L5–7), and Production, Safety & Frontier (L8–10).
+- **10 Levels / 4 Tiers / 83 Topics:** Foundations (L1–2, including practical Prompt/Rules/Tools/Skills/Agents/Teams), Core ML & Deep Learning (L3–4), LLMs, RAG & Agents (L5–7), and Production, Safety & Frontier (L8–10).
 - **Hands-On Browser Widgets:** Every topic includes a genuine vanilla-JS interactive simulation, visualizer, or debugging exercise.
 - **Scenario Quizzes & Progress Tracking:** Client-side graded quizzes with explanations, `localStorage` persistence (`aimc:progress:v1`), resume-where-you-left-off, and JSON progress export/import.
 - **Search, Navigation Drawer & Dark Mode:** Instant cross-course search (`/` or `Ctrl+K`), slide-over course drawer, breadcrumbs, and accessible light/dark themes.
