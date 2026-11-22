@@ -35,10 +35,12 @@ Then open `http://localhost:8000` in your browser.
 
 ## Deployment (Cloudflare Pages)
 
-The `site/` folder is completely self-contained with zero build steps or external runtime dependencies:
+- **Live URL:** https://ai-maturity-course.pages.dev/
+
+The `site/` folder is completely self-contained with zero build steps or external runtime dependencies. To redeploy updates:
 
 ```bash
-npx wrangler pages deploy site --project-name ai-maturity-course
+wrangler pages deploy site --project-name ai-maturity-course --branch main
 ```
 
 ## Features
